@@ -188,13 +188,13 @@ Today you can measure your network:
 zigbeat probe -targets pendant-1,pendant-2,pendant-3 -canary hallway-ceiling
 ```
 
-Pick three colour bulbs as targets and, as canary, a mains-powered device as far away from them as possible. The probe needs about 5 minutes, your target bulbs will flash in all colours, and they are restored afterwards. Full guide: [`docs/probe.md`](docs/probe.md).
+Pick three colour bulbs as targets and, as canary, a mains-powered device as far away from them as possible. The probe needs 5 to 10 minutes, your target bulbs will flash in all colours, and they are restored afterwards. Full guide: [`docs/probe.md`](docs/probe.md).
 
 ## Roadmap
 
 ### Phase 0: network probe ✅ built
 
-`zigbeat probe` sends colour commands to the targets in steps of 1 to 12 per second, while watching a canary device for the rest of the network. It stops at the first sign of overload and reports the clean rate, a safe budget and the latency to compensate.
+`zigbeat probe` sends colour commands to the targets in rising steps until it finds the limit, while watching a canary device for the rest of the network. It stops at the first sign of overload and reports the clean rate, a safe budget and the latency to compensate.
 
 ### Phase 1: engine with a metronome
 

@@ -1,0 +1,77 @@
+package probe
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"strings"
+	"time"
+
+	"github.com/siemenvdn/zigbeat/internal/z2m"
+)
+
+// saveState reads the current state of every target so it can be put back afterwards.
+func (s *session) saveState() bool {
+	at := time.Now()
+	for _, t := range s.cfg.targets {
+		_ = s.bridge.Get(t, map[string]string{"state": "", "brightness": "", "color": "", "color_temp": ""})
+	}
+	if !waitFor(5*time.Second, func() bool {
+		for _, t := range s.cfg.targets {
+			st, ok := s.answeredSince(t, at)
+			if !ok {
+				return false
+			}
+			s.snaps[t] = st
+		}
+		return true
+	}) {
+		for _, t := range s.cfg.targets {
+			if _, ok := s.snaps[t]; !ok {
+				fmt.Fprintf(os.Stderr, "no answer from %s; check the friendly name and that it is powered\n", t)
+			}
+		}
+		return false
+	}
+	s.snapJSON, _ = json.Marshal(s.snaps)
+	return true
+}
+
+// restore puts every target back to its saved state, with one retry per target.
+func (s *session) restore() {
+	s.ph.set("restore", 0)
+	fmt.Println("\nrestoring lights")
+	failed := 0
+	for _, t := range s.cfg.targets {
+		ok := false
+		for attempt := 0; attempt < 2 && !ok; attempt++ {
+			sent := time.Now()
+			_ = s.bridge.Set(t, restorePayload(s.snaps[t]))
+			ok = waitFor(3*time.Second, func() bool { _, ok := s.answeredSince(t, sent); return ok })
+		}
+		if !ok {
+			failed++
+			fmt.Printf("  could not confirm %s, set it back by hand\n", t)
+		}
+	}
+	if failed == 0 {
+		fmt.Println("  all targets back to their previous state")
+	}
+}
+
+func restorePayload(s z2m.State) map[string]any {
+	if strings.EqualFold(s.State, "OFF") {
+		return map[string]any{"state": "OFF", "transition": 0}
+	}
+	p := map[string]any{"state": "ON", "transition": 0}
+	if s.Brightness != nil {
+		p["brightness"] = *s.Brightness
+	}
+	switch {
+	case s.ColorMode == "color_temp" && s.ColorTemp != nil:
+		p["color_temp"] = *s.ColorTemp
+	case s.Color != nil:
+		p["color"] = s.Color
+	}
+	return p
+}
