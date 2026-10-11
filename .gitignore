@@ -1,0 +1,6 @@
+/zigbeat
+/fake-z2m
+zigbeat-*-linux-*
+*.csv
+.env
+config.yaml
