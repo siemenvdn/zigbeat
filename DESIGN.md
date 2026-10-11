@@ -27,6 +27,7 @@ How zigbeat works and why. To use it, start with the [README](README.md).
 | Relays and smart plugs are never driven | Mechanical relays wear out within a few evenings, click audibly and stress LED drivers with inrush current |
 | Unicast only, no Zigbee groups | Group commands are broadcasts: every router in the house repeats them and they are the first thing to saturate |
 | Closed loop with a ceiling and backoff | The rest of the house always has priority |
+| Network trouble pauses the show, never ends it | A party should not stop because one bulb or the broker hiccups. A pause is the deepest backoff, so the network still always wins |
 | Home Assistant only switches the show on and off | Automations add too much latency and jitter for timing |
 | Roles and fixtures instead of device names in code | Works in any home |
 | Measure first, then build | The budget shapes the effect design |
@@ -51,52 +52,59 @@ Anything without a role is never touched. That is also how relays and plugs stay
 
 | Part | Job |
 |---|---|
-| `BeatSource` | Interface that delivers beats with the moment they become audible. Sources are pluggable; the first one is a fixed-BPM metronome for development. |
-| Planner | Decides per moment (every 2 to 5 s, on a beat) which bulbs change: colour, brightness kick, breathing direction. |
-| Scheduler | Sends each command early by the latency `zigbeat probe` measured, plus a configurable audio offset for TV and amplifier delay, so the light lands on the beat. |
-| Rate limiter | Token bucket set to the measured budget. A hard ceiling, never a target. |
-| Closed loop | At most one command in flight per bulb and two or three in total. The next command for a bulb only goes out after Zigbee2MQTT confirmed the previous one, so the coordinator queue never fills up. |
-| Backoff | When confirmations slow down, the rate drops. On Zigbee2MQTT errors the engine stops. The party gets calmer, the rest of the house keeps working. |
-| Snapshot | Reads the state of every configured bulb at start and restores it at stop. |
+| `BeatSource` | Interface that delivers beats at least 1 s before they become audible. Sources are pluggable; the first one is a fixed-BPM metronome. |
+| Planner | Decides per moment which bulbs change: colour, brightness kick, breathing direction. See [Effects](#effects). |
+| Scheduler | Sends each message early by its number of Zigbee frames times the measured latency per frame, plus a configurable audio offset for TV and amplifier delay. The estimate starts at `budget.latency_ms` and follows the median of the last 20 confirmations. A moment that cannot leave within 150 ms of its send time is dropped as a whole; returns and breathe are never dropped. Due messages for one bulb are merged. |
+| Rate limiter | Token bucket in Zigbee frames at `budget.max_rate`, holding one moment (6 frames). A hard ceiling, never a target. Colour plus brightness in one message is two frames. |
+| Closed loop | At most one message in flight per bulb and three in total. A message is confirmed by the bulb's next state; a `brightness_move` publishes none, so it frees its slot after 1 s. Unanswered after 5 s counts as lost. |
+| Backoff | Level 0 normal, 1 no kick and one message in flight, 2 half as many moments, 3 pause: nothing is sent but canary reads. Signals: latency per frame above twice the show's own starting median, a lost message, a slow canary, a Zigbee2MQTT error. One step per 10 s at most; one step back after a quiet minute. Three errors about our bulbs within a minute pause at once. Errors about other devices raise it to 1 at most. |
+| Robustness | A bulb that misses twice in a row is left alone and read once a minute until it answers. A lost broker connection is dialled again every 5 s. Bulbs that do not answer at the start are left out. A panic restarts the engine; the third one stops the show. |
+| Snapshot | Reads the state of every configured bulb at start and restores it at stop, one bulb at a time within the budget. |
 | Home Assistant | MQTT discovery: a switch to start and stop, and sensors for status, current rate and latency. |
+
+The latency signal is relative to the show itself, not to the probe: a moment sends up to three messages at once, they queue at the coordinator, and the show settles at about twice the probe's evenly spaced latency.
 
 ## Effects
 
 ### Cadence
 
-A moment always falls on a beat, preferably at the start of a bar:
+A moment falls every 1, 2, 4, 8 or 16 beats: the shortest that lasts at least `effects.cadence` (2 s by default). From 4 beats on that is the first beat of a bar:
 
-| Tempo | One bar takes | Moment |
-|---|---|---|
-| 60 to 90 BPM | 2.7 to 4 s | Every bar |
-| 90 to 140 BPM | 1.7 to 2.7 s | Every bar, or every 2 bars below 2 s |
-| above 140 BPM | below 1.7 s | Every 2 bars |
+| Tempo | Moment |
+|---|---|
+| 30 to 60 BPM | Every 2 beats |
+| 61 to 120 BPM | Every bar |
+| 121 to 240 BPM | Every 2 bars |
+| 241 to 300 BPM | Every 4 bars |
 
-That keeps changes between 2 and 5 seconds apart.
+Backoff level 2 doubles the interval.
 
 ### `color` bulbs
 
-- **Chase:** at each moment only some bulbs change colour, so colour travels through the room. Per bulb or per fixture.
-- **Kick:** brightness jumps briefly on the moment, while the colour blends over 0.5 to 1 s.
-- **Palette per track:** a set of colours that belong together, later possibly derived from the album art.
+- **Chase:** at each moment the next bulbs in config order change, about half of them and at most three messages, so colour travels through the room.
+- **Fixture mode:** `separate` changes one bulb at a time, `together` the whole fixture at once in one colour, `alternate` switches between the two every 4 moments (the default).
+- **Colour:** the next palette colour that no bulb of the same fixture shows. Zigbee2MQTT gets it as hex and converts it per bulb.
+- **Kick:** on the moment, colour (blending over 0.7 s) and brightness 30 points above the base in one message; one beat later back to the base. From backoff level 1 the kick is left out.
+- **Start:** every bulb is switched on at the base brightness with a first colour.
+- **Later:** a palette per track, possibly from the album art.
 
 ### `breathe` bulbs
 
-- Brightness moves with Zigbee's `brightness_move`: one message starts a smooth fade that the bulb performs itself.
+- Brightness moves with Zigbee's `brightness_move`: one message starts a smooth fade that the bulb performs itself, at a rate that reaches the other end of `breathe_range` exactly at the next moment.
 - Each moment flips the direction: one message per bulb.
-- Bulbs in the same fixture can breathe in counter-phase.
-- A limited range (for example 30% to 80%) keeps it atmospheric.
+- Every 4th moment also sets the low end as an absolute brightness, against drift.
+- Later: bulbs in the same fixture breathing in counter-phase.
 
 ## Budget
 
-Commands per second for a typical room:
+Zigbee frames per second for a typical room. A colour change with its kick and return is 3 frames; three bulbs change per moment. A breathe bulb takes 1 frame per moment, 2 every 4th:
 
-| Cadence | 6 `color` bulbs | 2 `breathe` bulbs | Total |
+| Moment every | 6 `color` bulbs | 2 `breathe` bulbs | Total |
 |---|---|---|---|
-| every 2 s | 3 cmd/s | 1 cmd/s | 4 cmd/s |
-| every 5 s | 1.2 cmd/s | 0.4 cmd/s | 1.6 cmd/s |
+| 2 s | 4.5 frames/s | 1.25 frames/s | about 6 frames/s |
+| 4 s | 2.25 frames/s | 0.6 frames/s | about 3 frames/s |
 
-zigbeat uses half of the highest clean rate the probe measured, so this room needs a network that handles at least 8 cmd/s cleanly. With less, zigbeat slows the cadence or changes fewer bulbs per moment.
+The budget is half of the highest clean rate the probe measured, so this room wants a network that handles about 12 frames/s cleanly. With less, moments are dropped, and backoff first leaves out the kick (1 frame per change instead of 3), then halves the moments.
 
 ## Beat sources
 
@@ -114,37 +122,39 @@ Until a source is chosen, the engine is built against the `BeatSource` interface
 
 ## Configuration
 
-Planned for the engine. One YAML file:
+One YAML file; [`config.example.yaml`](config.example.yaml) is a working example:
 
 ```yaml
 mqtt:
-  broker: mosquitto:1883
+  broker: mosquitto:1883             # default 127.0.0.1:1883
   username: zigbeat
   password_env: ZIGBEAT_MQTT_PASSWORD
-  base_topic: zigbee2mqtt
+  base_topic: zigbee2mqtt            # default
 
 budget:
-  max_rate: 4          # cmd/s, written by `zigbeat probe`
-  latency_ms: 105      # p50 at that load, used to send early
-  audio_offset_ms: 0   # extra delay of TV and speakers, calibrate by ear
+  max_rate: 15          # Zigbee frames per second, from `zigbeat probe`, required
+  latency_ms: 66        # p50 at that load, from `zigbeat probe`, required
+  audio_offset_ms: 0    # extra delay of TV and speakers, calibrate by ear
 
-canary: hallway-ceiling
+canary: hallway-ceiling # optional
 
 fixtures:
   - name: pendant
     role: color
+    mode: alternate     # alternate (default), separate or together
     lights: [pendant-1, pendant-2, pendant-3]
   - name: floor-lamp
     role: breathe
     lights: [floor-lamp]
-  - name: reading-lamp
-    role: breathe
-    lights: [reading-lamp]
 
 effects:
-  cadence: [2s, 5s]
-  breathe_range: [30, 80]   # percent
+  cadence: 2s                 # minimum time between moments, default 2s
+  brightness: 60              # percent, base of color bulbs, default 60
+  palette: ["#ff2a6d", "#ff7b00", "#ffd400", "#00e5ff", "#2962ff", "#aa00ff"]  # the default
+  breathe_range: [30, 80]     # percent, default [30, 80]
 ```
+
+Unknown keys are an error, so typos do not pass silently. Every light belongs to exactly one fixture, and the canary is not one of the lights.
 
 Light names are Zigbee2MQTT friendly names. A planned `zigbeat setup` reads `zigbee2mqtt/bridge/devices`, lists the lights and suggests a role from what each device supports: colour becomes `color`, dimmable becomes `breathe`, on/off-only devices are not offered.
 
@@ -170,10 +180,9 @@ Safety rails:
 
 ### Phase 1: engine with a metronome
 
-- Configuration, `BeatSource` interface, metronome, planner, scheduler, rate limiter, closed loop, backoff, snapshot and restore.
-- Tested against `cmd/fake-z2m` first, then on real bulbs.
-- Home Assistant integration through MQTT discovery.
-- One-hour soak test with canary measurements alongside.
+- **1a (done):** `zigbeat run`: configuration, `BeatSource` interface, metronome, planner, scheduler, rate limiter, closed loop, backoff with pause, robustness, snapshot and restore. Tested against `cmd/fake-z2m`.
+- **1b:** Home Assistant integration through MQTT discovery.
+- **1c:** one-hour soak test on real bulbs with canary measurements alongside.
 
 **Done when:** an hour without Zigbee2MQTT errors, the canary stays within its resting latency, and every bulb is restored at stop.
 
@@ -202,6 +211,10 @@ Safety rails:
 | Can a Sendspin visualizer listen along while a Chromecast plays? | Beat source A |
 | How reliable is a tempo database for beat timing at a 2 to 5 s cadence? | Beat source B |
 | Does Zigbee2MQTT confirm a command only after the bulb answered, or earlier? | Trusting the probe's latency |
+| Does the colour still blend when colour and brightness arrive in one message (IKEA)? | The kick |
+| Is the 50 to 70 ms ripple across a `together` fixture visible? | Fixture mode |
+| Does an absolute brightness end a running `brightness_move` on every bulb? | Restore after breathe |
+| Does breathe stay within its range over an hour? | Re-anchoring every 4th moment |
 | How much does the budget differ between coordinator types (EmberZNet, Z-Stack, deCONZ)? | Defaults for other users |
 | Should ZHA (Home Assistant's own Zigbee stack) be supported later? | Reach |
 
@@ -225,11 +238,14 @@ Bulb behaviour that zigbeat relies on (seen on IKEA bulbs, to be verified on oth
 
 ```
 cmd/
-  zigbeat/      the binary: zigbeat probe, later run and setup
-  fake-z2m/     simulated Zigbee2MQTT with a limited coordinator queue
+  zigbeat/      the binary: zigbeat probe and run, later setup
+  fake-z2m/     simulated Zigbee2MQTT: one coordinator queue, time per frame, optional loss
 internal/
   mqtt/         minimal MQTT 3.1.1 client (QoS 0, keepalive, wildcards)
-  z2m/          Zigbee2MQTT topics: set, get, state, bridge/logging
+  z2m/          Zigbee2MQTT topics, restore payloads, frame count
+  config/       the YAML configuration
+  beat/         beats, the Source interface, the metronome
+  run/          the show: a state machine (engine) inside a real-time loop
   probe/        the network probe
 ```
 
