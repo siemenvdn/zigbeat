@@ -10,6 +10,7 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/config"
 	"github.com/siemenvdn/zigbeat/internal/mqtt"
+	"github.com/siemenvdn/zigbeat/internal/serve/ha"
 )
 
 // link is serve's own MQTT connection to Home Assistant, apart from the show's.
@@ -34,12 +35,12 @@ func newLink(cfg config.Config, version string) *link {
 			Username:    cfg.MQTT.Username,
 			Password:    cfg.MQTT.Password,
 			KeepAlive:   20 * time.Second,
-			WillTopic:   availTopic,
+			WillTopic:   ha.AvailTopic,
 			WillPayload: []byte("offline"),
 		},
-		disc: discovery(version),
+		disc: ha.Discovery(version),
 		cmds: make(chan bool, 1),
-		last: state{Show: "OFF", Status: "off"}.json(),
+		last: ha.Off.JSON(),
 		wake: make(chan struct{}, 1),
 	}
 }
@@ -51,18 +52,18 @@ func (l *link) connect() error {
 	if err != nil {
 		return fmt.Errorf("mqtt: %v", err)
 	}
-	err = c.PublishRetained(commandTopic, nil)
+	err = c.PublishRetained(ha.CommandTopic, nil)
 	if err == nil {
-		err = c.Subscribe(commandTopic, l.command)
+		err = c.Subscribe(ha.CommandTopic, l.command)
 	}
 	if err == nil {
-		err = c.PublishRetained(availTopic, []byte("online"))
+		err = c.PublishRetained(ha.AvailTopic, []byte("online"))
 	}
 	if err == nil {
-		err = c.PublishRetained(discoveryTopic, l.disc)
+		err = c.PublishRetained(ha.DiscoveryTopic, l.disc)
 	}
 	if err == nil {
-		err = c.PublishRetained(stateTopic, l.current())
+		err = c.PublishRetained(ha.StateTopic, l.current())
 	}
 	if err != nil {
 		c.Close()
@@ -87,9 +88,9 @@ func (l *link) command(_ string, p []byte, _ time.Time) {
 }
 
 // put sets the state to publish. It never blocks, so the show loop may call it.
-func (l *link) put(st state) {
+func (l *link) put(st ha.State) {
 	l.mu.Lock()
-	l.last = st.json()
+	l.last = st.JSON()
 	l.mu.Unlock()
 	l.signal()
 }
@@ -114,12 +115,12 @@ func (l *link) run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			_ = l.client.PublishRetained(stateTopic, l.current())
-			_ = l.client.PublishRetained(availTopic, []byte("offline"))
+			_ = l.client.PublishRetained(ha.StateTopic, l.current())
+			_ = l.client.PublishRetained(ha.AvailTopic, []byte("offline"))
 			l.client.Close()
 			return
 		case <-l.wake:
-			_ = l.client.PublishRetained(stateTopic, l.current())
+			_ = l.client.PublishRetained(ha.StateTopic, l.current())
 		case <-l.client.Done():
 			fmt.Printf("%s  home assistant link lost (%v); reconnecting every 5 s\n", cli.Stamp(), l.client.Err())
 			if !cli.Redial(ctx, "home assistant reconnect", l.connect) {

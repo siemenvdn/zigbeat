@@ -1,4 +1,4 @@
-package serve
+package ha
 
 import (
 	"encoding/json"
@@ -20,9 +20,14 @@ func decode(t *testing.T, b []byte) map[string]any {
 }
 
 func TestStateNotPlaying(t *testing.T) {
-	m := decode(t, state{Show: "ON", Status: "starting"}.json())
+	m := decode(t, Starting.JSON())
 	if m["show"] != "ON" || m["status"] != "starting" {
 		t.Errorf("state %v", m)
+	}
+	for _, st := range []State{Off, Starting, Stopping} {
+		if !slices.Contains(Statuses, st.Status) {
+			t.Errorf("%s is not a status sensor option", st.Status)
+		}
 	}
 	for _, k := range []string{"frames_per_s", "latency_ms", "backoff", "lights", "lights_away"} {
 		if v, ok := m[k]; !ok || v != nil {
@@ -33,7 +38,7 @@ func TestStateNotPlaying(t *testing.T) {
 
 func TestStatePlaying(t *testing.T) {
 	st := engine.Stats{FramesPerSec: 4.2499, P50: 38700 * time.Microsecond, Backoff: 1, Lights: 3}
-	m := decode(t, playing(st, 4).json())
+	m := decode(t, Playing(st, 4).JSON())
 	want := map[string]any{"show": "ON", "status": "running", "frames_per_s": 4.2, "latency_ms": 38.0, "backoff": 1.0, "lights": 3.0, "lights_away": 1.0}
 	for k, v := range want {
 		if m[k] != v {
@@ -41,22 +46,22 @@ func TestStatePlaying(t *testing.T) {
 		}
 	}
 	st.Backoff = 3
-	if s := playing(st, 4); s.Status != "paused" {
+	if s := Playing(st, 4); s.Status != "paused" {
 		t.Errorf("backoff 3 is paused, got %s", s.Status)
 	}
 }
 
 func TestDiscovery(t *testing.T) {
-	m := decode(t, discovery("v1.2.3"))
+	m := decode(t, Discovery("v1.2.3"))
 	for _, k := range []string{"device", "origin", "components"} {
 		if _, ok := m[k]; !ok {
 			t.Fatalf("discovery lacks %s", k)
 		}
 	}
-	if m["state_topic"] != stateTopic || m["availability_topic"] != availTopic {
+	if m["state_topic"] != StateTopic || m["availability_topic"] != AvailTopic {
 		t.Errorf("topics %v %v", m["state_topic"], m["availability_topic"])
 	}
-	keys := decode(t, playing(engine.Stats{}, 1).json())
+	keys := decode(t, Playing(engine.Stats{}, 1).JSON())
 	ids := map[string]bool{}
 	for name, raw := range m["components"].(map[string]any) {
 		c := raw.(map[string]any)
@@ -79,7 +84,7 @@ func TestDiscovery(t *testing.T) {
 	for _, o := range status["options"].([]any) {
 		opts = append(opts, o.(string))
 	}
-	if !slices.Equal(opts, statuses) {
+	if !slices.Equal(opts, Statuses) {
 		t.Errorf("status options %v", opts)
 	}
 	if m["device"].(map[string]any)["sw_version"] != "v1.2.3" {

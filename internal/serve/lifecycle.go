@@ -7,13 +7,14 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/run"
 	"github.com/siemenvdn/zigbeat/internal/run/engine"
+	"github.com/siemenvdn/zigbeat/internal/serve/ha"
 )
 
 // server switches the show on and off for Home Assistant.
 type server struct {
 	show  func(ctx context.Context, h run.Hooks) int // run.Play in production
 	cmds  chan bool                                  // switch commands, ON is true; newest wins
-	put   func(state)                                // hands a state to the link; never blocks
+	put   func(ha.State)                             // hands a state to the link; never blocks
 	total int                                        // lights in the config
 }
 
@@ -31,7 +32,7 @@ func newest(ch chan bool, v bool) {
 // stopped and restored before it returns.
 func (s *server) loop(ctx context.Context) {
 	for {
-		s.put(state{Show: "OFF", Status: "off"})
+		s.put(ha.Off)
 		fmt.Printf("%s  waiting for the switch in Home Assistant\n", cli.Stamp())
 		if !s.waitOn(ctx) {
 			return
@@ -59,7 +60,7 @@ func (s *server) waitOn(ctx context.Context) bool {
 // for the loop.
 func (s *server) play(ctx context.Context) {
 	fmt.Printf("%s  switched on in Home Assistant\n", cli.Stamp())
-	s.put(state{Show: "ON", Status: "starting"})
+	s.put(ha.Starting)
 	showCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	stop, stopped := make(chan struct{}), make(chan struct{})
@@ -70,7 +71,7 @@ func (s *server) play(ctx context.Context) {
 			case on := <-s.cmds:
 				if !on {
 					fmt.Printf("%s  switched off in Home Assistant\n", cli.Stamp())
-					s.put(state{Show: "OFF", Status: "stopping"})
+					s.put(ha.Stopping)
 					cancel()
 					return
 				}
@@ -80,8 +81,8 @@ func (s *server) play(ctx context.Context) {
 		}
 	}()
 	s.show(showCtx, run.Hooks{
-		Status:   func(st engine.Stats) { s.put(playing(st, s.total)) },
-		Stopping: func() { s.put(state{Show: "OFF", Status: "stopping"}) },
+		Status:   func(st engine.Stats) { s.put(ha.Playing(st, s.total)) },
+		Stopping: func() { s.put(ha.Stopping) },
 	})
 	close(stop)
 	<-stopped

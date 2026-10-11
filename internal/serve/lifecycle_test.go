@@ -8,6 +8,7 @@ import (
 
 	"github.com/siemenvdn/zigbeat/internal/run"
 	"github.com/siemenvdn/zigbeat/internal/run/engine"
+	"github.com/siemenvdn/zigbeat/internal/serve/ha"
 )
 
 // fakeShow plays until ctx is done, then holds its restore until release gets a token.
@@ -48,7 +49,7 @@ func serveFake(t *testing.T, code int) *harness {
 		show: &fakeShow{release: make(chan struct{}, 4), code: code}}
 	var mu sync.Mutex
 	last := ""
-	put := func(st state) { // called from several goroutines, like link.put
+	put := func(st ha.State) { // called from several goroutines, like link.put
 		mu.Lock()
 		defer mu.Unlock()
 		if st.Status != last { // a repeated state is harmless; the tests check the order

@@ -269,7 +269,8 @@ internal/
     show/         the planner: moments, chase, colours, kick, breathe
     flow/         frame budget, one message in flight per light, backoff, canary
     engine/       the show as a state machine without I/O
-  serve/          zigbeat serve: the Home Assistant link, discovery, switch and state
+  serve/          zigbeat serve: the Home Assistant link, the switch and the show lifecycle
+    ha/           Home Assistant topics, the discovery message and the state payload
   probe/          zigbeat probe: session, rate steps, climb
     measure/      samples, statistics, verdicts, command tracking, the canary
     palette/      commands whose echoes can be told apart
