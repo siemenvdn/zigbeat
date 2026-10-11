@@ -174,6 +174,8 @@ Safety rails:
 
 ## Roadmap
 
+Small known issues that are not planned yet: [BACKLOG.md](BACKLOG.md).
+
 ### Phase 0: network probe (done)
 
 `zigbeat probe` finds the network limit while watching a canary, and reports the clean rate, a safe budget and the latency to compensate.
