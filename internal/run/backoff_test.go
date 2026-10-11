@@ -57,6 +57,18 @@ func TestBackoffOtherErrorsCapAtOne(t *testing.T) {
 	}
 }
 
+func TestOtherErrorsDoNotHoldAPause(t *testing.T) {
+	var b backoff
+	b.pause(t0)
+	for ms := 30_000; ms <= 300_000; ms += 30_000 {
+		b.signal(at(ms), 1)
+		b.tick(at(ms))
+	}
+	if b.level >= pauseLevel {
+		t.Fatalf("errors about other devices kept the pause for 5 minutes: level %d", b.level)
+	}
+}
+
 func TestNamedErrors(t *testing.T) {
 	var b backoff
 	if b.namedError(t0) || b.namedError(at(20_000)) {

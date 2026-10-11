@@ -19,8 +19,12 @@ type backoff struct {
 }
 
 // signal raises the level by one, at most once per stepEvery and never above max.
-// It returns true when the level changed.
+// It returns true when the level changed. A signal capped below the current
+// level does not count, so it cannot hold a higher level.
 func (b *backoff) signal(now time.Time, max int) bool {
+	if b.level > max {
+		return false
+	}
 	b.quiet = now
 	if b.level >= max || now.Sub(b.lastDown) < stepEvery {
 		return false
