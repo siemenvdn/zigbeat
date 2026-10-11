@@ -48,6 +48,9 @@ func (c *Client) handshake(o Options) error {
 	var vh []byte
 	vh = appendString(vh, "MQTT")
 	flags := byte(0x02) // clean session
+	if o.WillTopic != "" {
+		flags |= 0x04 | 0x20 // will, retained, QoS 0
+	}
 	if o.Username != "" {
 		flags |= 0x80
 	}
@@ -57,6 +60,10 @@ func (c *Client) handshake(o Options) error {
 	vh = append(vh, protocolLevel, flags)
 	vh = binary.BigEndian.AppendUint16(vh, uint16(o.KeepAlive/time.Second))
 	vh = appendString(vh, o.ClientID)
+	if o.WillTopic != "" {
+		vh = appendString(vh, o.WillTopic)
+		vh = appendString(vh, string(o.WillPayload))
+	}
 	if o.Username != "" {
 		vh = appendString(vh, o.Username)
 	}

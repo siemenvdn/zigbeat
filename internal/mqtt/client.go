@@ -1,4 +1,4 @@
-// Package mqtt is a minimal MQTT 3.1.1 client: QoS 0 publish, QoS 0 subscribe, keepalive.
+// Package mqtt is a minimal MQTT 3.1.1 client: QoS 0 publish, QoS 0 subscribe, keepalive, retained will.
 package mqtt
 
 import (
@@ -30,6 +30,9 @@ type Options struct {
 	Username  string
 	Password  string
 	KeepAlive time.Duration
+	// WillTopic, when set, gets WillPayload retained if the connection drops without a DISCONNECT.
+	WillTopic   string
+	WillPayload []byte
 }
 
 type subscription struct {
