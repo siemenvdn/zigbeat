@@ -4,3 +4,4 @@ zigbeat-*-linux-*
 *.csv
 .env
 config.yaml
+/docs/
