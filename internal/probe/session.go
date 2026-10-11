@@ -142,15 +142,13 @@ func (s *session) interrupted() bool {
 }
 
 func (s *session) connLost() bool {
-	select {
-	case <-s.client.Done():
-		s.lostOnce.Do(func() {
-			fmt.Fprintf(os.Stderr, "\nmqtt connection lost: %v\nrestore by hand from: %s\n", s.client.Err(), s.snapJSON)
-		})
-		return true
-	default:
+	if !s.client.Closed() {
 		return false
 	}
+	s.lostOnce.Do(func() {
+		fmt.Fprintf(os.Stderr, "\nmqtt connection lost: %v\nrestore by hand from: %s\n", s.client.Err(), s.snapJSON)
+	})
+	return true
 }
 
 // finish stops the background work, prints the summary and writes the raw samples.

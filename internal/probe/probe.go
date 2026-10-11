@@ -27,7 +27,13 @@ func Run(args []string) int {
 		return 1
 	}
 	defer s.client.Close()
-	if !s.saveState() || !s.canaryAnswers() {
+	if !s.saveState() {
+		if ctx.Err() != nil {
+			return 130
+		}
+		return 1
+	}
+	if !s.canaryAnswers() {
 		return 1
 	}
 

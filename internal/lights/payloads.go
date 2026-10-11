@@ -1,14 +1,18 @@
-package z2m
+package lights
 
-import "strings"
+import (
+	"strings"
 
-// SnapshotQuery asks a light for every field RestorePayload needs.
-var SnapshotQuery = map[string]string{"state": "", "brightness": "", "color": "", "color_temp": ""}
+	"github.com/siemenvdn/zigbeat/internal/z2m"
+)
 
-// RestorePayloads turns a saved state back into set payloads, to send in order.
+// query asks a light for every field payloads needs.
+var query = map[string]string{"state": "", "brightness": "", "color": "", "color_temp": ""}
+
+// payloads turns a saved state back into set payloads, to send in order.
 // A light that was off first gets its level and colour back, so it does not
 // come on in the show's colour next time.
-func RestorePayloads(s State) []map[string]any {
+func payloads(s z2m.State) []map[string]any {
 	on := onPayload(s)
 	if !strings.EqualFold(s.State, "OFF") {
 		return []map[string]any{on}
@@ -20,7 +24,7 @@ func RestorePayloads(s State) []map[string]any {
 	return []map[string]any{on, off}
 }
 
-func onPayload(s State) map[string]any {
+func onPayload(s z2m.State) map[string]any {
 	p := map[string]any{"state": "ON", "transition": 0}
 	if s.Brightness != nil {
 		p["brightness"] = *s.Brightness

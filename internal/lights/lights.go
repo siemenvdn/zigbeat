@@ -1,0 +1,38 @@
+// Package lights saves the state of lights before zigbeat touches them and puts
+// it back afterwards, one light at a time within the budget.
+package lights
+
+import (
+	"context"
+	"time"
+
+	"github.com/siemenvdn/zigbeat/internal/z2m"
+)
+
+// Conn is what saving and restoring needs from the connection to Zigbee2MQTT.
+type Conn interface {
+	Get(light string, payload any) error
+	Set(light string, payload any) error
+	// Await waits up to d for a state from light that arrived after since. It is
+	// false when none came, the connection dropped or ctx is done.
+	Await(ctx context.Context, light string, since time.Time, d time.Duration) (z2m.State, bool)
+	// Online reports whether the broker is there, dialling again first when it can.
+	Online() bool
+}
+
+// pace is the time frames take at rate frames per second.
+func pace(frames int, rate float64) time.Duration {
+	return time.Duration(float64(frames) / rate * float64(time.Second))
+}
+
+// sleep waits d, or less when ctx is done; it reports whether ctx is still live.
+func sleep(ctx context.Context, d time.Duration) bool {
+	t := time.NewTimer(max(0, d))
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-t.C:
+		return true
+	}
+}

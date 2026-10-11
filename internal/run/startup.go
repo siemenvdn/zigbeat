@@ -58,8 +58,10 @@ func (r *runner) canaryBaseline(ctx context.Context) time.Duration {
 		if _, at, ok := r.waitState(ctx, r.cfg.Canary, sent, 5*time.Second); ok {
 			lat = append(lat, at.Sub(sent))
 		}
-		if !sleep(ctx, time.Second-time.Since(sent)) {
+		select {
+		case <-ctx.Done():
 			return 0
+		case <-time.After(time.Second - time.Since(sent)):
 		}
 	}
 	if len(lat) < 3 {

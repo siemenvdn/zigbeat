@@ -188,6 +188,16 @@ func (c *Client) Close() error {
 
 func (c *Client) Done() <-chan struct{} { return c.done }
 
+// Closed reports whether the connection is gone.
+func (c *Client) Closed() bool {
+	select {
+	case <-c.done:
+		return true
+	default:
+		return false
+	}
+}
+
 func (c *Client) Err() error {
 	c.smu.RLock()
 	defer c.smu.RUnlock()
