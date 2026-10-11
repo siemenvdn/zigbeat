@@ -153,6 +153,30 @@ func TestRisingLatencyBacksOff(t *testing.T) {
 	}
 }
 
+func TestPauseForgetsOldLatency(t *testing.T) {
+	e := newEngine(testConfig("separate"), 0, t0)
+	confirm := func(ms, latency int) {
+		e.fl.add("lamp-1", at(ms), true, 1)
+		e.state("lamp-1", at(ms+latency))
+	}
+	for i := 0; i < 40; i++ {
+		latency := 40
+		if i >= 20 {
+			latency = 200
+		}
+		confirm(i*1000, latency)
+	}
+	e.bo.pause(at(40_000))
+	e.paused(at(40_000), "test")
+	if !e.bo.tick(at(100_000)) || e.bo.level != 2 {
+		t.Fatalf("a quiet minute resumes at level 2, level %d", e.bo.level)
+	}
+	confirm(101_000, 40)
+	if e.bo.level != 2 {
+		t.Fatalf("the network is fast again, but latency from before the pause paused it again: level %d", e.bo.level)
+	}
+}
+
 func TestSlowNetworkNote(t *testing.T) {
 	e := newEngine(testConfig("separate"), 0, t0)
 	for i := 0; i < 20; i++ {

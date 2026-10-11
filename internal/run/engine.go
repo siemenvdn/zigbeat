@@ -193,6 +193,7 @@ func (e *engine) raise(now time.Time, max int, why string) {
 
 func (e *engine) paused(now time.Time, why string) {
 	clear(e.queue)
+	e.fl.forget()
 	e.note(now, "paused: "+why+"; the show resumes after a quiet minute")
 }
 

@@ -69,6 +69,10 @@ func (f *inflight) rising() bool {
 	return f.base > 0 && m > 2*f.base
 }
 
+// forget drops the latency samples but keeps the baseline, so samples from
+// before a pause cannot pause the show again after it.
+func (f *inflight) forget() { f.lat = nil }
+
 // fail frees light after Zigbee2MQTT reported an error for it.
 func (f *inflight) fail(light string) { delete(f.open, light) }
 
