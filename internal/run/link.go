@@ -1,0 +1,90 @@
+package run
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"time"
+
+	"github.com/siemenvdn/zigbeat/internal/config"
+	"github.com/siemenvdn/zigbeat/internal/mqtt"
+	"github.com/siemenvdn/zigbeat/internal/z2m"
+)
+
+// link is the show's connection to Zigbee2MQTT; tests replace it with a fake.
+type link interface {
+	Set(light string, payload any) error
+	Get(light string, payload any) error
+	Lost() <-chan struct{} // closed when the connection drops
+	Err() error
+	Reconnect(ctx context.Context) bool
+	Close()
+}
+
+// mqttLink is the real link: an MQTT client with subscriptions for the lights,
+// the canary and the Zigbee2MQTT log.
+type mqttLink struct {
+	cfg    config.MQTT
+	watch  func() []string // devices to subscribe to, read at every dial
+	push   func(event)
+	client *mqtt.Client
+	bridge *z2m.Bridge
+}
+
+func dialLink(cfg config.MQTT, watch func() []string, push func(event)) (*mqttLink, error) {
+	l := &mqttLink{cfg: cfg, watch: watch, push: push}
+	return l, l.dial()
+}
+
+func (l *mqttLink) dial() error {
+	client, err := mqtt.Dial(l.cfg.Broker, mqtt.Options{
+		ClientID:  fmt.Sprintf("zigbeat-run-%d", os.Getpid()),
+		Username:  l.cfg.Username,
+		Password:  l.cfg.Password,
+		KeepAlive: 20 * time.Second,
+	})
+	if err != nil {
+		return fmt.Errorf("mqtt: %v", err)
+	}
+	bridge := z2m.New(client, l.cfg.BaseTopic)
+	for _, d := range l.watch() {
+		if err := bridge.OnState(d, func(st z2m.State, at time.Time) { l.push(event{light: d, st: st, at: at}) }); err != nil {
+			client.Close()
+			return fmt.Errorf("subscribe: %v", err)
+		}
+	}
+	err = bridge.OnLog(func(e z2m.LogEntry, at time.Time) {
+		if e.Level == "error" {
+			l.push(event{msg: e.Message, at: at})
+		}
+	})
+	if err != nil {
+		client.Close()
+		return fmt.Errorf("subscribe: %v", err)
+	}
+	l.client, l.bridge = client, bridge
+	return nil
+}
+
+// Reconnect dials again every 5 s until it works or ctx is done.
+func (l *mqttLink) Reconnect(ctx context.Context) bool {
+	l.client.Close()
+	for {
+		select {
+		case <-ctx.Done():
+			return false
+		case <-time.After(5 * time.Second):
+		}
+		err := l.dial()
+		if err == nil {
+			return true
+		}
+		fmt.Fprintf(os.Stderr, "reconnect: %v\n", err)
+	}
+}
+
+func (l *mqttLink) Set(light string, p any) error { return l.bridge.Set(light, p) }
+func (l *mqttLink) Get(light string, p any) error { return l.bridge.Get(light, p) }
+func (l *mqttLink) Lost() <-chan struct{}         { return l.client.Done() }
+func (l *mqttLink) Err() error                    { return l.client.Err() }
+func (l *mqttLink) Close()                        { l.client.Close() }

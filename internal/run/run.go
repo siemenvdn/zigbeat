@@ -71,16 +71,20 @@ func Run(args []string) int {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	defer func() { r.client.Close() }()
+	defer func() { r.link.Close() }()
 
-	if !r.snapshot() {
-		return 1
+	ok := r.snapshot(ctx)
+	limit := time.Duration(0)
+	if ok {
+		fmt.Printf("current state (for manual restore): %s\n", r.snapJSON)
+		limit = r.canaryBaseline(ctx)
 	}
-	fmt.Printf("current state (for manual restore): %s\n", r.snapJSON)
-	limit := r.canaryBaseline()
 	if ctx.Err() != nil {
 		fmt.Println("cancelled before the show started, nothing was changed")
 		return 0
+	}
+	if !ok {
+		return 1
 	}
 	fmt.Printf("zigbeat run: %d lights, %g BPM, budget %g frames/s\n", len(r.cfg.Lights()), o.bpm, r.cfg.Budget.MaxRate)
 
@@ -98,23 +102,14 @@ func Run(args []string) int {
 			reason, code = "the third panic; this is a bug, please report it", 1
 			break
 		}
-		r.eng.halt()
 		r.drain(2 * time.Second)
 		fmt.Println("restarting the show")
 	}
 	stopSignals()
 	fmt.Printf("\nstopping: %s (Ctrl-C again to quit without restoring)\n", reason)
-	if r.connLost() {
-		back, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		ok := r.redial(back)
-		cancel()
-		if !ok {
-			fmt.Fprintf(os.Stderr, "mqtt is gone, restore by hand from: %s\n", r.snapJSON)
-			return 1
-		}
-	}
-	r.eng.halt()
 	r.drain(2 * time.Second)
-	r.restore()
+	if !r.restore() {
+		return 1
+	}
 	return code
 }

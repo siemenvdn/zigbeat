@@ -8,7 +8,6 @@ import (
 
 	"github.com/siemenvdn/zigbeat/internal/beat"
 	"github.com/siemenvdn/zigbeat/internal/config"
-	"github.com/siemenvdn/zigbeat/internal/mqtt"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
@@ -20,11 +19,10 @@ type event struct {
 	at    time.Time
 }
 
-// runner connects the engine to MQTT and real time.
+// runner connects the engine to Zigbee2MQTT and real time.
 type runner struct {
 	cfg      config.Config
-	client   *mqtt.Client
-	bridge   *z2m.Bridge
+	link     link
 	events   chan event
 	eng      *engine
 	snaps    map[string]z2m.State
@@ -33,59 +31,21 @@ type runner struct {
 
 func connect(cfg config.Config) (*runner, error) {
 	r := &runner{cfg: cfg, events: make(chan event, 1024)}
-	return r, r.dial()
+	l, err := dialLink(cfg.MQTT, r.watched, r.push)
+	if err != nil {
+		return nil, err
+	}
+	r.link = l
+	return r, nil
 }
 
-// dial connects to the broker and subscribes to the lights, the canary and the log.
-func (r *runner) dial() error {
-	client, err := mqtt.Dial(r.cfg.MQTT.Broker, mqtt.Options{
-		ClientID:  fmt.Sprintf("zigbeat-run-%d", os.Getpid()),
-		Username:  r.cfg.MQTT.Username,
-		Password:  r.cfg.MQTT.Password,
-		KeepAlive: 20 * time.Second,
-	})
-	if err != nil {
-		return fmt.Errorf("mqtt: %v", err)
-	}
-	bridge := z2m.New(client, r.cfg.MQTT.BaseTopic)
-	watch := r.cfg.Lights()
+// watched lists the devices to subscribe to: the lights still in the show and the canary.
+func (r *runner) watched() []string {
+	ds := r.cfg.Lights()
 	if r.cfg.Canary != "" {
-		watch = append(watch, r.cfg.Canary)
+		ds = append(ds, r.cfg.Canary)
 	}
-	for _, l := range watch {
-		if err := bridge.OnState(l, func(st z2m.State, at time.Time) { r.push(event{light: l, st: st, at: at}) }); err != nil {
-			client.Close()
-			return fmt.Errorf("subscribe: %v", err)
-		}
-	}
-	err = bridge.OnLog(func(e z2m.LogEntry, at time.Time) {
-		if e.Level == "error" {
-			r.push(event{msg: e.Message, at: at})
-		}
-	})
-	if err != nil {
-		client.Close()
-		return fmt.Errorf("subscribe: %v", err)
-	}
-	r.client, r.bridge = client, bridge
-	return nil
-}
-
-// redial connects again every 5 s until it works or ctx is done.
-func (r *runner) redial(ctx context.Context) bool {
-	r.client.Close()
-	for {
-		select {
-		case <-ctx.Done():
-			return false
-		case <-time.After(5 * time.Second):
-		}
-		err := r.dial()
-		if err == nil {
-			return true
-		}
-		fmt.Fprintf(os.Stderr, "reconnect: %v\n", err)
-	}
+	return ds
 }
 
 // push hands an event to the loop without blocking the MQTT reader.
@@ -96,9 +56,9 @@ func (r *runner) push(ev event) {
 	}
 }
 
-func (r *runner) connLost() bool {
+func (r *runner) offline() bool {
 	select {
-	case <-r.client.Done():
+	case <-r.link.Lost():
 		return true
 	default:
 		return false
@@ -127,10 +87,10 @@ func (r *runner) play(ctx context.Context, src beat.Source) (reason string, pani
 		select {
 		case <-ctx.Done():
 			return "interrupted", false
-		case <-r.client.Done():
-			fmt.Printf("%s  mqtt connection lost (%v); reconnecting every 5 s\n", stamp(), r.client.Err())
+		case <-r.link.Lost():
+			fmt.Printf("%s  mqtt connection lost (%v); reconnecting every 5 s\n", stamp(), r.link.Err())
 			r.eng.disconnected()
-			if !r.redial(ctx) {
+			if !r.link.Reconnect(ctx) {
 				return "interrupted", false
 			}
 			fmt.Printf("%s  reconnected\n", stamp())
@@ -164,14 +124,21 @@ func (r *runner) handle(ev event) {
 
 func (r *runner) publish(s send) {
 	if s.get {
-		_ = r.bridge.Get(s.light, s.payload)
+		_ = r.link.Get(s.light, s.payload)
 		return
 	}
-	_ = r.bridge.Set(s.light, s.payload)
+	_ = r.link.Set(s.light, s.payload)
 }
 
-// drain lets the messages in flight be confirmed, for at most d.
+// drain halts the engine and lets the messages in flight be confirmed, for at most d.
+// The engine may have just panicked; a second panic only ends the wait.
 func (r *runner) drain(d time.Duration) {
+	defer func() {
+		if p := recover(); p != nil {
+			fmt.Fprintf(os.Stderr, "%s  panic while stopping: %v\n", stamp(), p)
+		}
+	}()
+	r.eng.halt()
 	deadline := time.After(d)
 	tick := time.NewTicker(10 * time.Millisecond)
 	defer tick.Stop()
@@ -181,6 +148,8 @@ func (r *runner) drain(d time.Duration) {
 			r.handle(ev)
 		case now := <-tick.C:
 			r.eng.due(now)
+		case <-r.link.Lost():
+			return
 		case <-deadline:
 			return
 		}
