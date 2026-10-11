@@ -19,5 +19,5 @@ func (e *engine) status(now time.Time) string {
 		canary = fmt.Sprintf("%d ms", e.canary.Last().Milliseconds())
 	}
 	return fmt.Sprintf("%s  moments %d  dropped %d  frames/s %.1f  in flight %d  p50 %d ms  backoff %d  canary %s  z2m err %d",
-		now.Format(cli.Clock), e.plan.moments, e.dropped, rate, e.inFlight(), e.fl.Estimate().Milliseconds(), e.bo.Level(), canary, e.errs)
+		now.Format(cli.Clock), e.plan.Moments(), e.dropped, rate, e.inFlight(), e.fl.Estimate().Milliseconds(), e.bo.Level(), canary, e.errs)
 }

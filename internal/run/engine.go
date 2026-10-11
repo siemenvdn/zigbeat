@@ -11,17 +11,19 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/config"
 	"github.com/siemenvdn/zigbeat/internal/run/flow"
+	"github.com/siemenvdn/zigbeat/internal/run/show"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
 const (
-	lateLimit = 150 * time.Millisecond // a moment message this late is dropped
-	awayAfter = 2                      // failures in a row before a light is left alone
-	retryAway = time.Minute            // how often a light that is left alone is read
+	lateLimit     = 150 * time.Millisecond // a moment message this late is dropped
+	inFlightLimit = 3                      // messages in flight in total, one moment's worth
+	awayAfter     = 2                      // failures in a row before a light is left alone
+	retryAway     = time.Minute            // how often a light that is left alone is read
 )
 
 type queued struct {
-	planned
+	show.Message
 	sendAt time.Time
 }
 
@@ -35,7 +37,7 @@ type send struct {
 // engine is the show as a state machine: the loop feeds it events and the
 // current time, and publishes what due returns. It does no I/O itself.
 type engine struct {
-	plan     *planner
+	plan     *show.Planner
 	lim      *flow.Limiter
 	bo       flow.Backoff
 	fl       *flow.InFlight
@@ -59,7 +61,7 @@ func millis(n int) time.Duration { return time.Duration(n) * time.Millisecond }
 
 func newEngine(c config.Config, canaryLim time.Duration, now time.Time) *engine {
 	e := &engine{
-		plan:       newPlanner(c),
+		plan:       show.NewPlanner(c),
 		lim:        flow.NewLimiter(c.Budget.MaxRate, now),
 		fl:         flow.NewInFlight(millis(c.Budget.LatencyMS)),
 		canary:     flow.NewCanary(c.Canary, canaryLim, now),
@@ -72,24 +74,24 @@ func newEngine(c config.Config, canaryLim time.Duration, now time.Time) *engine 
 		latency:    millis(c.Budget.LatencyMS),
 		lastStatus: now,
 	}
-	e.enqueue(e.plan.start(now))
+	e.enqueue(e.plan.Start(now))
 	return e
 }
 
-func (e *engine) enqueue(ps []planned) {
+func (e *engine) enqueue(ps []show.Message) {
 	est := e.fl.Estimate()
 	for _, p := range ps {
-		if _, gone := e.away[p.light]; gone {
+		if _, gone := e.away[p.Light]; gone {
 			continue
 		}
-		frames := time.Duration(max(1, z2m.Frames(p.payload)))
-		q := queued{planned: p, sendAt: p.land.Add(e.offset - frames*est)}
-		list := e.queue[p.light]
+		frames := time.Duration(max(1, z2m.Frames(p.Payload)))
+		q := queued{Message: p, sendAt: p.Land.Add(e.offset - frames*est)}
+		list := e.queue[p.Light]
 		i := 0
 		for i < len(list) && !list[i].sendAt.After(q.sendAt) {
 			i++
 		}
-		e.queue[p.light] = slices.Insert(list, i, q)
+		e.queue[p.Light] = slices.Insert(list, i, q)
 	}
 }
 
@@ -99,7 +101,7 @@ func (e *engine) beat(now time.Time, b beat.Beat) {
 	if e.stopping || e.bo.Level() >= flow.PauseLevel || b.At.Before(now) {
 		return
 	}
-	e.enqueue(e.plan.beat(b, e.bo.Level()))
+	e.enqueue(e.plan.Beat(b, e.bo.Level()))
 }
 
 // state handles a state message from a light or the canary.
@@ -234,7 +236,7 @@ func (e *engine) maxInFlight() int {
 	if e.bo.Level() >= 1 {
 		return 1
 	}
-	return maxPerMoment
+	return inFlightLimit
 }
 
 // due expires old messages and returns what must be published now.
@@ -275,15 +277,15 @@ func (e *engine) due(now time.Time) []send {
 		}
 		payload := map[string]any{}
 		for _, m := range q[:n] {
-			maps.Copy(payload, m.payload)
+			maps.Copy(payload, m.Payload)
 		}
 		frames := z2m.Frames(payload)
 		if !e.lim.Take(now, frames) {
 			break
 		}
 		for _, m := range q[:n] {
-			if m.unit > 0 {
-				e.started[m.unit] = true
+			if m.Unit > 0 {
+				e.started[m.Unit] = true
 			}
 		}
 		e.queue[l] = q[n:]
@@ -329,8 +331,8 @@ func (e *engine) dropLate(now time.Time) {
 	late := map[int]bool{}
 	for _, q := range e.queue {
 		for _, m := range q {
-			if m.drop && !e.started[m.unit] && now.Sub(m.sendAt) > lateLimit {
-				late[m.unit] = true
+			if m.Drop && !e.started[m.Unit] && now.Sub(m.sendAt) > lateLimit {
+				late[m.Unit] = true
 			}
 		}
 	}
@@ -339,7 +341,7 @@ func (e *engine) dropLate(now time.Time) {
 	}
 	e.dropped += len(late)
 	for l, q := range e.queue {
-		e.queue[l] = slices.DeleteFunc(q, func(m queued) bool { return late[m.unit] })
+		e.queue[l] = slices.DeleteFunc(q, func(m queued) bool { return late[m.Unit] })
 	}
 }
 

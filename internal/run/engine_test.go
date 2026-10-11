@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/run/flow"
+	"github.com/siemenvdn/zigbeat/internal/run/show"
 )
 
 func lightsOf(ss []send) string {
@@ -42,7 +43,7 @@ func TestStartPassRespectsInFlightLimits(t *testing.T) {
 	if got := e.due(at(1)); len(got) != 0 {
 		t.Fatalf("a fourth message must wait for a confirmation, sent %q", lightsOf(got))
 	}
-	e.enqueue([]planned{{light: "lamp-1", payload: map[string]any{"brightness": 10}, land: t0}})
+	e.enqueue([]show.Message{{Light: "lamp-1", Payload: map[string]any{"brightness": 10}, Land: t0}})
 	e.state("lamp-2", at(40))
 	if got := lightsOf(e.due(at(41))); got != "lamp-4" {
 		t.Fatalf("after lamp-2 answered: sent %q, want lamp-4 (lamp-1 is still busy)", got)
@@ -90,9 +91,9 @@ func TestTogetherUnitIsNeverSplit(t *testing.T) {
 func TestDueMessagesMerge(t *testing.T) {
 	e := started(t, "separate", 100)
 	land := at(10_000)
-	e.enqueue([]planned{
-		{light: "lamp-1", payload: map[string]any{"brightness": 152, "transition": 0.3}, land: land},
-		{light: "lamp-1", payload: map[string]any{"color": map[string]string{"hex": "#2962ff"}, "transition": 0.7}, land: land.Add(10 * time.Millisecond)},
+	e.enqueue([]show.Message{
+		{Light: "lamp-1", Payload: map[string]any{"brightness": 152, "transition": 0.3}, Land: land},
+		{Light: "lamp-1", Payload: map[string]any{"color": map[string]string{"hex": "#2962ff"}, "transition": 0.7}, Land: land.Add(10 * time.Millisecond)},
 	})
 	got := e.due(land.Add(20 * time.Millisecond))
 	if len(got) != 1 {
@@ -107,7 +108,7 @@ func TestDueMessagesMerge(t *testing.T) {
 func TestMoveFreesAfterOneSecond(t *testing.T) {
 	e := started(t, "separate", 100)
 	land := at(10_000)
-	e.enqueue([]planned{{light: "lamp-4", payload: map[string]any{"brightness_move": 40}, land: land}})
+	e.enqueue([]show.Message{{Light: "lamp-4", Payload: map[string]any{"brightness_move": 40}, Land: land}})
 	if got := lightsOf(e.due(land)); got != "lamp-4" {
 		t.Fatalf("sent %q", got)
 	}
@@ -124,7 +125,7 @@ func TestMoveFreesAfterOneSecond(t *testing.T) {
 func TestLostMessageBacksOff(t *testing.T) {
 	e := started(t, "separate", 100)
 	land := at(10_000)
-	e.enqueue([]planned{{light: "lamp-1", payload: map[string]any{"brightness": 10}, land: land}})
+	e.enqueue([]show.Message{{Light: "lamp-1", Payload: map[string]any{"brightness": 10}, Land: land}})
 	e.due(land)
 	e.due(land.Add(5 * time.Second))
 	if e.bo.Level() != 1 || e.fl.Busy("lamp-1") {
@@ -226,7 +227,7 @@ func TestZigbeeErrors(t *testing.T) {
 func TestZigbeeErrorKeepsTheSlot(t *testing.T) {
 	e := started(t, "separate", 100)
 	land := at(10_000)
-	e.enqueue([]planned{{light: "lamp-1", payload: map[string]any{"brightness": 10}, land: land}})
+	e.enqueue([]show.Message{{Light: "lamp-1", Payload: map[string]any{"brightness": 10}, Land: land}})
 	e.due(land)
 	// The error may be about an older message; only the echo or the 5 s expiry frees the slot.
 	e.zigbeeError(land.Add(time.Second), "Publish 'set' to 'lamp-1' failed: 'Timeout'")
@@ -267,7 +268,7 @@ func TestStaleBeatIsSkipped(t *testing.T) {
 func TestUnreachableLightIsLeftAlone(t *testing.T) {
 	e := started(t, "separate", 100)
 	lose := func(ms int) {
-		e.enqueue([]planned{{light: "lamp-3", payload: map[string]any{"brightness": 10}, land: at(ms)}})
+		e.enqueue([]show.Message{{Light: "lamp-3", Payload: map[string]any{"brightness": 10}, Land: at(ms)}})
 		if got := lightsOf(e.due(at(ms))); got != "lamp-3" {
 			t.Fatalf("at %d ms sent %q, want lamp-3", ms, got)
 		}
