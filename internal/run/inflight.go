@@ -73,9 +73,6 @@ func (f *inflight) rising() bool {
 // before a pause cannot pause the show again after it.
 func (f *inflight) forget() { f.lat = nil }
 
-// fail frees light after Zigbee2MQTT reported an error for it.
-func (f *inflight) fail(light string) { delete(f.open, light) }
-
 // expire frees moves after moveHold and returns the lights whose echo did not
 // come within lostAfter, sorted.
 func (f *inflight) expire(now time.Time) []string {

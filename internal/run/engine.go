@@ -136,11 +136,10 @@ func (e *engine) zigbeeError(at time.Time, msg string) {
 		e.raise(at, 1, "Zigbee2MQTT error elsewhere: "+msg)
 		return
 	}
-	if light != e.canary.name {
-		e.fl.fail(light)
-		if e.failed(at, light) {
-			return
-		}
+	// Only a signal: the error may be about an older message, so the slot and
+	// the failure count are left to the echo or the 5 s expiry.
+	if _, gone := e.away[light]; gone {
+		return
 	}
 	if e.bo.namedError(at) {
 		e.bo.pause(at)

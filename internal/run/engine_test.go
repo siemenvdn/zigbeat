@@ -220,6 +220,18 @@ func TestZigbeeErrors(t *testing.T) {
 	}
 }
 
+func TestZigbeeErrorKeepsTheSlot(t *testing.T) {
+	e := started(t, "separate", 100)
+	land := at(10_000)
+	e.enqueue([]planned{{light: "lamp-1", payload: map[string]any{"brightness": 10}, land: land}})
+	e.due(land)
+	// The error may be about an older message; only the echo or the 5 s expiry frees the slot.
+	e.zigbeeError(land.Add(time.Second), "Publish 'set' to 'lamp-1' failed: 'Timeout'")
+	if !e.fl.busy("lamp-1") || e.fails["lamp-1"] != 0 {
+		t.Fatalf("busy %v, fails %d", e.fl.busy("lamp-1"), e.fails["lamp-1"])
+	}
+}
+
 func TestPauseSendsOnlyCanaryAndResumes(t *testing.T) {
 	cfg := testConfig("separate")
 	cfg.Canary = "far-lamp"
