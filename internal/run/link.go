@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/config"
 	"github.com/siemenvdn/zigbeat/internal/mqtt"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
@@ -70,18 +71,7 @@ func (l *mqttLink) dial() error {
 // Reconnect dials again every 5 s until it works or ctx is done.
 func (l *mqttLink) Reconnect(ctx context.Context) bool {
 	l.client.Close()
-	for {
-		select {
-		case <-ctx.Done():
-			return false
-		case <-time.After(5 * time.Second):
-		}
-		err := l.dial()
-		if err == nil {
-			return true
-		}
-		fmt.Fprintf(os.Stderr, "reconnect: %v\n", err)
-	}
+	return cli.Redial(ctx, "reconnect", l.dial)
 }
 
 func (l *mqttLink) Set(light string, p any) error { return l.bridge.Set(light, p) }

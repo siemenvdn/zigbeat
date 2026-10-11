@@ -122,26 +122,10 @@ func (l *link) run(ctx context.Context) {
 			_ = l.client.PublishRetained(stateTopic, l.current())
 		case <-l.client.Done():
 			fmt.Printf("%s  home assistant link lost (%v); reconnecting every 5 s\n", cli.Stamp(), l.client.Err())
-			if !l.redial(ctx) {
+			if !cli.Redial(ctx, "home assistant reconnect", l.connect) {
 				return
 			}
 			fmt.Printf("%s  home assistant link back\n", cli.Stamp())
 		}
-	}
-}
-
-// redial connects again every 5 s until it works or ctx is done.
-func (l *link) redial(ctx context.Context) bool {
-	for {
-		select {
-		case <-ctx.Done():
-			return false
-		case <-time.After(5 * time.Second):
-		}
-		err := l.connect()
-		if err == nil {
-			return true
-		}
-		fmt.Fprintf(os.Stderr, "home assistant reconnect: %v\n", err)
 	}
 }
