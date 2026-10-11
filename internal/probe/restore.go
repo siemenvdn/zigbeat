@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/z2m"
@@ -14,7 +13,7 @@ import (
 func (s *session) saveState() bool {
 	at := time.Now()
 	for _, t := range s.cfg.targets {
-		_ = s.bridge.Get(t, map[string]string{"state": "", "brightness": "", "color": "", "color_temp": ""})
+		_ = s.bridge.Get(t, z2m.SnapshotQuery)
 	}
 	if !waitFor(5*time.Second, func() bool {
 		for _, t := range s.cfg.targets {
@@ -46,7 +45,7 @@ func (s *session) restore() {
 		ok := false
 		for attempt := 0; attempt < 2 && !ok; attempt++ {
 			sent := time.Now()
-			_ = s.bridge.Set(t, restorePayload(s.snaps[t]))
+			_ = s.bridge.Set(t, z2m.RestorePayload(s.snaps[t]))
 			ok = waitFor(3*time.Second, func() bool { _, ok := s.answeredSince(t, sent); return ok })
 		}
 		if !ok {
@@ -57,21 +56,4 @@ func (s *session) restore() {
 	if failed == 0 {
 		fmt.Println("  all targets back to their previous state")
 	}
-}
-
-func restorePayload(s z2m.State) map[string]any {
-	if strings.EqualFold(s.State, "OFF") {
-		return map[string]any{"state": "OFF", "transition": 0}
-	}
-	p := map[string]any{"state": "ON", "transition": 0}
-	if s.Brightness != nil {
-		p["brightness"] = *s.Brightness
-	}
-	switch {
-	case s.ColorMode == "color_temp" && s.ColorTemp != nil:
-		p["color_temp"] = *s.ColorTemp
-	case s.Color != nil:
-		p["color"] = s.Color
-	}
-	return p
 }
