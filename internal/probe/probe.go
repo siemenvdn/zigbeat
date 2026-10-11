@@ -3,10 +3,8 @@
 package probe
 
 import (
-	"context"
 	"fmt"
 	"os"
-	"os/signal"
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/cli"
@@ -21,9 +19,9 @@ func Run(args []string) int {
 		return code
 	}
 
-	ctx, stopSignals := signal.NotifyContext(context.Background(), cli.StopSignals...)
+	ctx, stopSignals := cli.StopContext()
 	defer stopSignals()
-	s, err := connect(ctx, cfg, stopSignals)
+	s, err := connect(ctx, cfg)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1

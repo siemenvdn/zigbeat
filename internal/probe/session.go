@@ -36,12 +36,12 @@ type session struct {
 	snaps    map[string]z2m.State
 	snapJSON []byte
 
-	stopSignals, stopBg func()
-	intOnce, lostOnce   sync.Once
+	stopBg            func()
+	intOnce, lostOnce sync.Once
 }
 
 // connect dials the broker and subscribes to the targets, the canary and the Zigbee2MQTT log.
-func connect(ctx context.Context, cfg config, stopSignals func()) (*session, error) {
+func connect(ctx context.Context, cfg config) (*session, error) {
 	client, err := mqtt.Dial(cfg.broker, mqtt.Options{
 		ClientID:  fmt.Sprintf("zigbeat-probe-%d", os.Getpid()),
 		Username:  cfg.user,
@@ -65,7 +65,6 @@ func connect(ctx context.Context, cfg config, stopSignals func()) (*session, err
 		canaryAnswered: make(chan struct{}, 1),
 		last:           map[string]stateAt{},
 		snaps:          map[string]z2m.State{},
-		stopSignals:    stopSignals,
 		stopBg:         func() {},
 	}
 	if err := s.subscribe(); err != nil {

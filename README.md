@@ -147,7 +147,7 @@ read -rs ZIGBEAT_MQTT_PASSWORD && export ZIGBEAT_MQTT_PASSWORD
 zigbeat serve -config config.yaml -bpm 120
 ```
 
-It uses the same config as `zigbeat run`. The show is off when serve starts, also after a restart. Switch it on in Home Assistant: zigbeat reads every light, plays, and puts every light back when you switch it off. Until a real beat source exists, the tempo comes from `-bpm`. Ctrl-C, `kill` or a closed SSH session stops serve, after a restore when a show is on.
+It uses the same config as `zigbeat run`. The show is off when serve starts, also after a restart. Switch it on in Home Assistant: zigbeat reads every light, plays, and puts every light back when you switch it off. Until a real beat source exists, the tempo comes from `-bpm`. Ctrl-C, `kill` or a closed SSH session stops serve, after a restore when a show is on. Start it with `nohup` to keep it running after you log out.
 
 | Entity | Shows |
 |---|---|

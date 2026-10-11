@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/signal"
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/beat"
@@ -25,9 +24,9 @@ func Run(args []string) int {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	ctx, stopSignals := signal.NotifyContext(context.Background(), cli.StopSignals...)
+	ctx, stopSignals := cli.StopContext()
 	defer stopSignals()
-	return Play(ctx, cfg, o.bpm, Hooks{Stopping: stopSignals})
+	return Play(ctx, cfg, o.bpm, Hooks{Stopping: cli.QuitOnInterrupt})
 }
 
 // show plays until ctx is done or the source ends. A panic starts a fresh

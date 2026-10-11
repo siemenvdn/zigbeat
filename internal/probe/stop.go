@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/probe/measure"
 	"github.com/siemenvdn/zigbeat/internal/probe/report"
 )
@@ -13,7 +14,7 @@ func (s *session) interrupted() bool {
 		return false
 	}
 	s.intOnce.Do(func() {
-		s.stopSignals()
+		cli.QuitOnInterrupt()
 		fmt.Println("\ninterrupted (Ctrl-C again to quit without restoring)")
 	})
 	return true

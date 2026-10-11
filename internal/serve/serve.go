@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/signal"
 
 	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/config"
@@ -44,10 +43,10 @@ func Run(args []string, version string) int {
 		return 1
 	}
 
-	ctx, stopSignals := signal.NotifyContext(context.Background(), cli.StopSignals...)
+	ctx, stopSignals := cli.StopContext()
 	defer stopSignals()
-	// After the first signal a second one quits at once, without restoring.
-	go func() { <-ctx.Done(); stopSignals() }()
+	// After the first signal a second Ctrl-C quits at once, without restoring.
+	go func() { <-ctx.Done(); cli.QuitOnInterrupt() }()
 
 	l := newLink(cfg, version)
 	if err := l.connect(); err != nil {
