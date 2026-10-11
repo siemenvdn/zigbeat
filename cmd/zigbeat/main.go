@@ -7,6 +7,7 @@ import (
 
 	"github.com/siemenvdn/zigbeat/internal/probe"
 	"github.com/siemenvdn/zigbeat/internal/run"
+	"github.com/siemenvdn/zigbeat/internal/serve"
 )
 
 var version = "dev"
@@ -18,6 +19,7 @@ usage: zigbeat <command> [flags]
 commands:
   probe     measure how many light commands per second your network handles
   run       run the light show to a metronome
+  serve     run the show as a service that Home Assistant switches on and off
   version   print the version
 
 Run "zigbeat <command> -h" for the flags of a command.
@@ -33,6 +35,8 @@ func main() {
 		os.Exit(probe.Run(os.Args[2:]))
 	case "run":
 		os.Exit(run.Run(os.Args[2:]))
+	case "serve":
+		os.Exit(serve.Run(os.Args[2:], version))
 	case "version", "-v", "--version":
 		fmt.Println(version)
 	case "help", "-h", "--help":
