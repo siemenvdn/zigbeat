@@ -238,16 +238,26 @@ Bulb behaviour that zigbeat relies on (seen on IKEA bulbs, to be verified on oth
 
 ```
 cmd/
-  zigbeat/      the binary: zigbeat probe and run, later setup
-  fake-z2m/     simulated Zigbee2MQTT: one coordinator queue, time per frame, optional loss
+  zigbeat/        the binary: zigbeat probe and run, later setup
+  fake-z2m/       simulated Zigbee2MQTT: one coordinator queue, time per frame, optional loss, groups
 internal/
-  mqtt/         minimal MQTT 3.1.1 client (QoS 0, keepalive, wildcards)
-  z2m/          Zigbee2MQTT topics, restore payloads, frame count
-  config/       the YAML configuration
-  beat/         beats, the Source interface, the metronome
-  run/          the show: a state machine (engine) inside a real-time loop
-  probe/        the network probe
+  cli/            what the subcommands share: stop signals, flag errors, the time format
+  mqtt/           minimal MQTT 3.1.1 client (QoS 0, retained publish, keepalive, wildcards)
+  z2m/            Zigbee2MQTT topics, groups, frame count, the canary limit
+  lights/         snapshot and restore of lights, shared by probe and run
+  config/         the YAML configuration
+  beat/           beats, the Source interface, the metronome
+  run/            zigbeat run: connection, startup, the real-time loop, stop and restore
+    show/         the planner: moments, chase, colours, kick, breathe
+    flow/         frame budget, one message in flight per light, backoff, canary
+    engine/       the show as a state machine without I/O
+  probe/          zigbeat probe: session, rate steps, climb
+    measure/      samples, statistics, verdicts, command tracking, the canary
+    palette/      commands whose echoes can be told apart
+    report/       the step table, the summary and the CSV
 ```
+
+Packages are small and split by concern; a file rarely passes 150 lines.
 
 ## References
 
