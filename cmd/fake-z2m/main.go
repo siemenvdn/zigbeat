@@ -1,5 +1,5 @@
 // fake-z2m simulates Zigbee2MQTT with a single coordinator queue of limited
-// throughput, so zigbee-stress can be tested without real lights.
+// throughput, so zigbeat can be tested without real lights.
 package main
 
 import (
@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/mqtt"
+	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
 type job struct {
@@ -25,10 +26,11 @@ type job struct {
 func main() {
 	broker := flag.String("broker", "127.0.0.1:1883", "MQTT broker")
 	base := flag.String("base", "zigbee2mqtt", "base topic")
-	devices := flag.String("devices", "lamp-1,lamp-2,lamp-3,far-lamp", "simulated devices")
-	service := flag.Duration("service", 90*time.Millisecond, "air time per Zigbee command")
+	devices := flag.String("devices", "lamp-1,lamp-2,lamp-3,lamp-4,far-lamp", "simulated devices")
+	service := flag.Duration("service", 90*time.Millisecond, "air time per Zigbee frame")
 	jitter := flag.Duration("jitter", 20*time.Millisecond, "random extra delay per command")
 	queue := flag.Int("queue", 64, "coordinator queue depth before commands fail")
+	loss := flag.Float64("loss", 0, "share of commands that never get an answer, 0 to 1")
 	flag.Parse()
 
 	c, err := mqtt.Dial(*broker, mqtt.Options{ClientID: "fake-z2m", Username: os.Getenv("MQTT_USER"), Password: os.Getenv("MQTT_PASSWORD")})
@@ -51,14 +53,24 @@ func main() {
 	}
 	go func() {
 		for j := range jobs {
-			time.Sleep(*service + time.Duration(rand.Int63n(int64(*jitter)+1)))
+			frames := 1
+			if j.kind == "set" {
+				frames = max(1, z2m.Frames(j.body))
+			}
+			time.Sleep(time.Duration(frames) * (*service + time.Duration(rand.Int63n(int64(*jitter)+1))))
+			if rand.Float64() < *loss {
+				continue
+			}
 			mu.Lock()
 			st := state[j.device]
+			echo := j.kind == "get"
 			if j.kind == "set" {
 				for k, v := range j.body {
-					if k == "transition" {
+					// Like Zigbee2MQTT: a brightness_move alone publishes no state.
+					if k == "transition" || k == "brightness_move" {
 						continue
 					}
+					echo = true
 					st[k] = v
 					if k == "color" {
 						st["color_mode"] = "xy"
@@ -70,7 +82,9 @@ func main() {
 			}
 			b, _ := json.Marshal(st)
 			mu.Unlock()
-			_ = c.Publish(*base+"/"+j.device, b)
+			if echo {
+				_ = c.Publish(*base+"/"+j.device, b)
+			}
 		}
 	}()
 
@@ -99,7 +113,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	fmt.Printf("fake-z2m ready: capacity about %.1f cmd/s\n", float64(time.Second)/float64(*service+*jitter/2))
+	fmt.Printf("fake-z2m ready: capacity about %.1f frames/s\n", float64(time.Second)/float64(*service+*jitter/2))
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt)
