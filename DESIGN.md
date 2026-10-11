@@ -28,7 +28,10 @@ How zigbeat works and why. To use it, start with the [README](README.md).
 | Unicast only, no Zigbee groups | Group commands are broadcasts: every router in the house repeats them and they are the first thing to saturate |
 | Closed loop with a ceiling and backoff | The rest of the house always has priority |
 | Network trouble pauses the show, never ends it | A party should not stop because one bulb or the broker hiccups. A pause is the deepest backoff, so the network still always wins |
-| Home Assistant only switches the show on and off | Automations add too much latency and jitter for timing |
+| Home Assistant only switches the show on and off | Automations add too much latency and jitter for timing. The tempo comes from the beat source, not from a slider |
+| `zigbeat serve` is a separate command; `zigbeat run` stays the one-shot CLI | The service that Home Assistant switches has a different life: it waits, plays, restores and waits again |
+| serve has its own MQTT connection; each show opens its own | A stuck Home Assistant link never slows the show, and an idle serve subscribes to no light |
+| serve always starts with the show off | A restart must never start a show on its own |
 | Roles and fixtures instead of device names in code | Works in any home |
 | Measure first, then build | The budget shapes the effect design |
 | Go, standard library plus `go.yaml.in/yaml/v3` | A single static binary; YAML is friendlier than JSON to edit by hand |
@@ -60,9 +63,22 @@ Anything without a role is never touched. That is also how relays and plugs stay
 | Backoff | Level 0 normal, 1 no kick and one message in flight, 2 half as many moments, 3 pause: nothing is sent but canary reads. Signals: latency per frame above twice the show's own starting median, a lost message, a slow canary, a Zigbee2MQTT error. One step per 10 s at most; one step back after a quiet minute. Three errors about our bulbs within a minute pause at once. Errors about other devices raise it to 1 at most. |
 | Robustness | A bulb that misses twice in a row is left alone and read once a minute until it answers. A lost broker connection is dialled again every 5 s. Bulbs that do not answer at the start are left out, and a Zigbee2MQTT group name in the config is refused. A panic restarts the engine; the third one stops the show. |
 | Snapshot | Reads the state of every configured bulb at start and restores it at stop, one bulb at a time within the budget. A bulb that was off first gets its level and colour back, then goes off, so it does not come on in the show's colour next time. A broker that drops during the restore is dialled again for 30 s. |
-| Home Assistant | MQTT discovery: a switch to start and stop, and sensors for status, current rate and latency. |
+| Home Assistant | `zigbeat serve`: MQTT device discovery with a switch and sensors, availability through a will. See [Home Assistant](#home-assistant). |
 
 The latency signal is relative to the show itself, not to the probe: a moment sends up to three messages at once, they queue at the coordinator, and the show settles at about twice the probe's evenly spaced latency.
+
+### Home Assistant
+
+| Topic | Retained | Payload |
+|---|---|---|
+| `homeassistant/device/zigbeat/config` | yes | Device discovery: one switch and six sensors in one message |
+| `zigbeat/availability` | yes | `online` after connecting; `offline` on a clean stop and as the MQTT will |
+| `zigbeat/state` | yes | One JSON object for every entity; the numbers are `null` (unknown) while the show does not play |
+| `zigbeat/show/set` | no | `ON` or `OFF` from the switch |
+
+- On every connect serve clears a retained command first, subscribes, then publishes `online`, the discovery message and the last state. A broker restart drops the connection, so this also covers a broker that lost its retained messages; Home Assistant's birth message is not needed.
+- Each show calls back every 10 s with its numbers. The callback only stores the newest state; a separate goroutine publishes it, so Home Assistant stays out of the timing path.
+- `OFF` cancels the show, which restores every light exactly as on Ctrl-C. An `ON` that arrives during the restore starts the next show right after it.
 
 ## Effects
 
@@ -183,7 +199,7 @@ Small known issues that are not planned yet: [BACKLOG.md](BACKLOG.md).
 ### Phase 1: engine with a metronome
 
 - **1a (done):** `zigbeat run`: configuration, `BeatSource` interface, metronome, planner, scheduler, rate limiter, closed loop, backoff with pause, robustness, snapshot and restore. Tested against `cmd/fake-z2m`.
-- **1b:** Home Assistant integration through MQTT discovery.
+- **1b (done):** `zigbeat serve`: a Home Assistant switch and sensors through MQTT discovery. Tested against `cmd/fake-z2m` and a throwaway Home Assistant container.
 - **1c:** one-hour soak test on real bulbs with canary measurements alongside.
 
 **Done when:** an hour without Zigbee2MQTT errors, the canary stays within its resting latency, and every bulb is restored at stop.
@@ -203,7 +219,7 @@ Small known issues that are not planned yet: [BACKLOG.md](BACKLOG.md).
 
 ### Phase 4: release
 
-- Container image, example `compose.yml`, documentation for Zigbee2MQTT and Home Assistant users.
+- Container image, example `compose.yml` with a stop grace period long enough for a restore (Docker waits only 10 s by default), documentation for Zigbee2MQTT and Home Assistant users.
 - Releases for linux/amd64 and linux/arm64.
 
 ## Open questions
@@ -240,11 +256,11 @@ Bulb behaviour that zigbeat relies on (seen on IKEA bulbs, to be verified on oth
 
 ```
 cmd/
-  zigbeat/        the binary: zigbeat probe and run, later setup
+  zigbeat/        the binary: zigbeat probe, run and serve, later setup
   fake-z2m/       simulated Zigbee2MQTT: one coordinator queue, time per frame, optional loss, groups
 internal/
   cli/            what the subcommands share: stop signals, flag errors, the time format
-  mqtt/           minimal MQTT 3.1.1 client (QoS 0, retained publish, keepalive, wildcards)
+  mqtt/           minimal MQTT 3.1.1 client (QoS 0, retained publish and will, keepalive, wildcards)
   z2m/            Zigbee2MQTT topics, groups, frame count, the canary limit
   lights/         snapshot and restore of lights, shared by probe and run
   config/         the YAML configuration
@@ -253,6 +269,7 @@ internal/
     show/         the planner: moments, chase, colours, kick, breathe
     flow/         frame budget, one message in flight per light, backoff, canary
     engine/       the show as a state machine without I/O
+  serve/          zigbeat serve: the Home Assistant link, discovery, switch and state
   probe/          zigbeat probe: session, rate steps, climb
     measure/      samples, statistics, verdicts, command tracking, the canary
     palette/      commands whose echoes can be told apart

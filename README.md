@@ -6,8 +6,8 @@ Ordinary Zigbee bulbs on [Zigbee2MQTT](https://www.zigbee2mqtt.io/) have no good
 
 ## Status
 
-- **Works today:** `zigbeat probe` measures how many light commands per second your network handles. `zigbeat run` drives your lights to a fixed-BPM metronome within that budget.
-- **In progress:** a Home Assistant switch, then a real beat source instead of the metronome.
+- **Works today:** `zigbeat probe` measures how many light commands per second your network handles. `zigbeat run` drives your lights to a fixed-BPM metronome within that budget. `zigbeat serve` does the same as a service that Home Assistant switches on and off.
+- **In progress:** a real beat source instead of the metronome.
 - **Later:** `zigbeat setup`, a container image.
 
 ## What it does
@@ -15,8 +15,8 @@ Ordinary Zigbee bulbs on [Zigbee2MQTT](https://www.zigbee2mqtt.io/) have no good
 - Colour bulbs change colour on the beat, a few at a time, with a short brightness kick.
 - Dimmable bulbs breathe slowly up and down.
 - It stays below the budget the probe found, backs off when the network gets busy and pauses when it keeps struggling. Network trouble never ends the show.
-- Every light goes back to how it was when you stop the show with Ctrl-C.
-- Coming: an on/off switch in Home Assistant through MQTT discovery, without any YAML.
+- Every light goes back to how it was when you stop the show, with Ctrl-C or the switch in Home Assistant.
+- Home Assistant gets a switch and sensors through MQTT discovery, without any YAML.
 
 It does not flash on every beat, use Zigbee groups, or switch relays and plugs. [DESIGN.md](DESIGN.md) explains why.
 
@@ -138,6 +138,36 @@ The show keeps going and gets calmer instead:
 - **The broker goes away**: zigbeat reconnects every 5 seconds and carries on. If it is still gone when you stop the show, zigbeat tries for 30 seconds, then prints the saved state of the lights it could not restore and exits with code 1.
 - **A light does not answer at the start**: it is left out with a warning; the show runs with the others.
 
+## Home Assistant
+
+`zigbeat serve` keeps running next to Zigbee2MQTT and adds a **zigbeat** device to Home Assistant through MQTT discovery. No Home Assistant YAML is needed, only the MQTT integration that Zigbee2MQTT already uses.
+
+```bash
+read -rs ZIGBEAT_MQTT_PASSWORD && export ZIGBEAT_MQTT_PASSWORD
+zigbeat serve -config config.yaml -bpm 120
+```
+
+It uses the same config as `zigbeat run`. The show is off when serve starts, also after a restart. Switch it on in Home Assistant: zigbeat reads every light, plays, and puts every light back when you switch it off. Until a real beat source exists, the tempo comes from `-bpm`. Ctrl-C, `kill` or a closed SSH session stops serve, after a restore when a show is on.
+
+| Entity | Shows |
+|---|---|
+| `switch.zigbeat_show` | Starts and stops the show |
+| `sensor.zigbeat_status` | `off`, `starting`, `running`, `paused` or `stopping` |
+| `sensor.zigbeat_frames_per_second` | Zigbee frames sent, always below `budget.max_rate` |
+| `sensor.zigbeat_latency` | Time until Zigbee2MQTT confirms, per frame |
+| `sensor.zigbeat_backoff` | 0 normal, 1 no kick, 2 half as many moments, 3 paused |
+| `sensor.zigbeat_lights_playing`, `sensor.zigbeat_lights_left_alone` | Lights in the show, and lights from the config that do not answer |
+
+The numbers follow every 10 seconds and are unknown while the show is off. When zigbeat stops or loses its connection, the entities become unavailable.
+
+Next to the Zigbee2MQTT topics, the MQTT user for zigbeat needs write access to `homeassistant/device/zigbeat/config` and `zigbeat/#`, and read access to `zigbeat/show/set`. Run one `zigbeat serve` per broker, and no `zigbeat run` while its show is on.
+
+To remove the device from Home Assistant, stop zigbeat and clear its discovery message:
+
+```bash
+mosquitto_pub -r -n -t homeassistant/device/zigbeat/config
+```
+
 ## Build from source
 
 ```bash
@@ -164,6 +194,16 @@ ZIGBEAT_MQTT_PASSWORD=x go run ./cmd/zigbeat run -config config.yaml
 ```
 
 It should stay at backoff 0 at about 4 frames/s. Restart `fake-z2m` with `-loss 0.1` to watch backoff and lights being left alone, or stop and start `mosquitto` to watch it reconnect.
+
+`zigbeat serve` against the same simulation, with `mosquitto_pub` playing the Home Assistant switch:
+
+```bash
+ZIGBEAT_MQTT_PASSWORD=x go run ./cmd/zigbeat serve -config config.yaml &
+mosquitto_sub -p 18830 -v -t 'zigbeat/#' &
+mosquitto_pub -p 18830 -t zigbeat/show/set -m ON
+```
+
+`zigbeat/state` goes from `off` to `starting` and `running`. Publish `OFF` the same way to stop the show and restore the lamps.
 
 Contributor guidelines: [CLAUDE.md](CLAUDE.md).
 
