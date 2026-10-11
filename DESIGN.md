@@ -259,7 +259,7 @@ cmd/
   zigbeat/        the binary: zigbeat probe, run and serve, later setup
   fake-z2m/       simulated Zigbee2MQTT: one coordinator queue, time per frame, optional loss, groups
 internal/
-  cli/            what the subcommands share: stop signals, flag errors, the time format
+  cli/            what the subcommands share: stop signals, flag errors, the time stamp, the 5 s redial
   mqtt/           minimal MQTT 3.1.1 client (QoS 0, retained publish and will, keepalive, wildcards)
   z2m/            Zigbee2MQTT topics, groups, frame count, the canary limit
   lights/         snapshot and restore of lights, shared by probe and run
