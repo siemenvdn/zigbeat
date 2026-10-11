@@ -5,27 +5,7 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/siemenvdn/zigbeat/internal/beat"
-	"github.com/siemenvdn/zigbeat/internal/config"
 )
-
-func testConfig(mode string) config.Config {
-	return config.Config{
-		MQTT:   config.MQTT{Broker: "b:1883", BaseTopic: "zigbee2mqtt"},
-		Budget: config.Budget{MaxRate: 100, LatencyMS: 50},
-		Fixtures: []config.Fixture{
-			{Name: "pendant", Role: "color", Mode: mode, Lights: []string{"lamp-1", "lamp-2", "lamp-3"}},
-			{Name: "floor", Role: "breathe", Lights: []string{"lamp-4"}},
-		},
-		Effects: config.Effects{Cadence: 2 * time.Second, Brightness: 60, Palette: config.DefaultPalette, BreatheRange: [2]int{30, 80}},
-	}
-}
-
-// moment returns beat i at 120 BPM, where every 4th beat is a moment.
-func moment(i int) beat.Beat {
-	return beat.Beat{At: t0.Add(time.Duration(i) * 500 * time.Millisecond), BPM: 120, Index: i, InBar: i % 4, Energy: 1}
-}
 
 // changed lists the colour lights that got a colour in ps.
 func changed(ps []planned) string {

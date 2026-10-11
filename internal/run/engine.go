@@ -10,6 +10,7 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/beat"
 	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/config"
+	"github.com/siemenvdn/zigbeat/internal/run/flow"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
@@ -35,10 +36,10 @@ type send struct {
 // current time, and publishes what due returns. It does no I/O itself.
 type engine struct {
 	plan     *planner
-	lim      *limiter
-	bo       backoff
-	fl       *inflight
-	canary   canaryWatch
+	lim      *flow.Limiter
+	bo       flow.Backoff
+	fl       *flow.InFlight
+	canary   flow.Canary
 	lights   []string
 	queue    map[string][]queued // per light, by send time
 	started  map[int]bool        // units with a message out
@@ -59,9 +60,9 @@ func millis(n int) time.Duration { return time.Duration(n) * time.Millisecond }
 func newEngine(c config.Config, canaryLim time.Duration, now time.Time) *engine {
 	e := &engine{
 		plan:       newPlanner(c),
-		lim:        newLimiter(c.Budget.MaxRate, now),
-		fl:         newInflight(millis(c.Budget.LatencyMS)),
-		canary:     canaryWatch{name: c.Canary, limit: canaryLim, next: now},
+		lim:        flow.NewLimiter(c.Budget.MaxRate, now),
+		fl:         flow.NewInFlight(millis(c.Budget.LatencyMS)),
+		canary:     flow.NewCanary(c.Canary, canaryLim, now),
 		lights:     c.Lights(),
 		queue:      map[string][]queued{},
 		started:    map[int]bool{},
@@ -76,7 +77,7 @@ func newEngine(c config.Config, canaryLim time.Duration, now time.Time) *engine 
 }
 
 func (e *engine) enqueue(ps []planned) {
-	est := e.fl.estimate()
+	est := e.fl.Estimate()
 	for _, p := range ps {
 		if _, gone := e.away[p.light]; gone {
 			continue
@@ -95,17 +96,17 @@ func (e *engine) enqueue(ps []planned) {
 // beat plans b if it is a moment. Beats already past are skipped, so a
 // reconnect does not cause a burst; a pause plans nothing.
 func (e *engine) beat(now time.Time, b beat.Beat) {
-	if e.stopping || e.bo.level >= pauseLevel || b.At.Before(now) {
+	if e.stopping || e.bo.Level() >= flow.PauseLevel || b.At.Before(now) {
 		return
 	}
-	e.enqueue(e.plan.beat(b, e.bo.level))
+	e.enqueue(e.plan.beat(b, e.bo.Level()))
 }
 
 // state handles a state message from a light or the canary.
 func (e *engine) state(light string, at time.Time) {
-	if light == e.canary.name {
-		if e.canary.answer(at) {
-			e.raise(at, pauseLevel, fmt.Sprintf("canary answered after %d ms", e.canary.last.Milliseconds()))
+	if light == e.canary.Name() {
+		if e.canary.Answer(at) {
+			e.raise(at, flow.PauseLevel, fmt.Sprintf("canary answered after %d ms", e.canary.Last().Milliseconds()))
 		}
 		return
 	}
@@ -115,17 +116,17 @@ func (e *engine) state(light string, at time.Time) {
 		delete(e.away, light)
 		e.note(at, light+" answers again; it is back in the show")
 	}
-	if !e.fl.confirm(light, at) {
+	if !e.fl.Confirm(light, at) {
 		return
 	}
-	if !e.slowSeen && e.fl.base > 3*e.latency {
+	if !e.slowSeen && e.fl.Base() > 3*e.latency {
 		e.slowSeen = true
 		e.note(at, fmt.Sprintf("latency %d ms per frame is far above budget.latency_ms %d ms; run zigbeat probe again",
-			e.fl.base.Milliseconds(), e.latency.Milliseconds()))
+			e.fl.Base().Milliseconds(), e.latency.Milliseconds()))
 	}
-	if e.fl.rising() {
-		m, _ := e.fl.median()
-		e.raise(at, pauseLevel, fmt.Sprintf("latency p50 %d ms per frame, show started at %d ms", m.Milliseconds(), e.fl.base.Milliseconds()))
+	if e.fl.Rising() {
+		m, _ := e.fl.Median()
+		e.raise(at, flow.PauseLevel, fmt.Sprintf("latency p50 %d ms per frame, show started at %d ms", m.Milliseconds(), e.fl.Base().Milliseconds()))
 	}
 }
 
@@ -142,12 +143,12 @@ func (e *engine) zigbeeError(at time.Time, msg string) {
 	if _, gone := e.away[light]; gone {
 		return
 	}
-	if e.bo.namedError(at) {
-		e.bo.pause(at)
+	if e.bo.NamedError(at) {
+		e.bo.Pause(at)
 		e.paused(at, "3 Zigbee2MQTT errors about our lights within a minute")
 		return
 	}
-	e.raise(at, pauseLevel, "Zigbee2MQTT error: "+msg)
+	e.raise(at, flow.PauseLevel, "Zigbee2MQTT error: "+msg)
 }
 
 // named returns the light or canary a Zigbee2MQTT message is about, if any.
@@ -157,8 +158,8 @@ func (e *engine) named(msg string) string {
 			return l
 		}
 	}
-	if e.canary.name != "" && strings.Contains(msg, "'"+e.canary.name+"'") {
-		return e.canary.name
+	if e.canary.Name() != "" && strings.Contains(msg, "'"+e.canary.Name()+"'") {
+		return e.canary.Name()
 	}
 	return ""
 }
@@ -181,19 +182,19 @@ func (e *engine) failed(now time.Time, light string) bool {
 }
 
 func (e *engine) raise(now time.Time, max int, why string) {
-	if !e.bo.signal(now, max) {
+	if !e.bo.Signal(now, max) {
 		return
 	}
-	if e.bo.level == pauseLevel {
+	if e.bo.Level() == flow.PauseLevel {
 		e.paused(now, why)
 		return
 	}
-	e.note(now, fmt.Sprintf("backoff %d: %s", e.bo.level, why))
+	e.note(now, fmt.Sprintf("backoff %d: %s", e.bo.Level(), why))
 }
 
 func (e *engine) paused(now time.Time, why string) {
 	clear(e.queue)
-	e.fl.forget()
+	e.fl.Forget()
 	e.note(now, "paused: "+why+"; the show resumes after a quiet minute")
 }
 
@@ -216,21 +217,21 @@ func (e *engine) halt() {
 
 // disconnected forgets what was in flight on a connection that is gone.
 func (e *engine) disconnected() {
-	clear(e.fl.open)
+	e.fl.Clear()
 	clear(e.queue)
-	e.canary.wait = false
+	e.canary.Forget()
 }
 
 func (e *engine) inFlight() int {
-	n := e.fl.count()
-	if e.canary.wait {
+	n := e.fl.Count()
+	if e.canary.Waiting() {
 		n++
 	}
 	return n
 }
 
 func (e *engine) maxInFlight() int {
-	if e.bo.level >= 1 {
+	if e.bo.Level() >= 1 {
 		return 1
 	}
 	return maxPerMoment
@@ -238,16 +239,16 @@ func (e *engine) maxInFlight() int {
 
 // due expires old messages and returns what must be published now.
 func (e *engine) due(now time.Time) []send {
-	for _, l := range e.fl.expire(now) {
+	for _, l := range e.fl.Expire(now) {
 		if !e.failed(now, l) {
-			e.raise(now, pauseLevel, l+" did not answer within 5 s")
+			e.raise(now, flow.PauseLevel, l+" did not answer within 5 s")
 		}
 	}
-	if e.canary.expire(now) {
-		e.raise(now, pauseLevel, "canary did not answer within 5 s")
+	if e.canary.Expire(now) {
+		e.raise(now, flow.PauseLevel, "canary did not answer within 5 s")
 	}
-	if e.bo.tick(now) {
-		e.note(now, fmt.Sprintf("backoff %d: quiet for a minute", e.bo.level))
+	if e.bo.Tick(now) {
+		e.note(now, fmt.Sprintf("backoff %d: quiet for a minute", e.bo.Level()))
 	}
 	if e.stopping {
 		return nil
@@ -255,11 +256,11 @@ func (e *engine) due(now time.Time) []send {
 	e.dropLate(now)
 
 	var out []send
-	if e.canary.due(now) && e.inFlight() < e.maxInFlight() && e.lim.take(now, 1) {
-		e.canary.sentAt(now)
-		out = append(out, send{light: e.canary.name, get: true, payload: map[string]any{"state": ""}})
+	if e.canary.Due(now) && e.inFlight() < e.maxInFlight() && e.lim.Take(now, 1) {
+		e.canary.Sent(now)
+		out = append(out, send{light: e.canary.Name(), get: true, payload: map[string]any{"state": ""}})
 	}
-	if e.bo.level >= pauseLevel {
+	if e.bo.Level() >= flow.PauseLevel {
 		return out
 	}
 	out = append(out, e.retryAway(now)...)
@@ -277,7 +278,7 @@ func (e *engine) due(now time.Time) []send {
 			maps.Copy(payload, m.payload)
 		}
 		frames := z2m.Frames(payload)
-		if !e.lim.take(now, frames) {
+		if !e.lim.Take(now, frames) {
 			break
 		}
 		for _, m := range q[:n] {
@@ -286,7 +287,7 @@ func (e *engine) due(now time.Time) []send {
 			}
 		}
 		e.queue[l] = q[n:]
-		e.fl.add(l, now, echoes(payload), frames)
+		e.fl.Add(l, now, echoes(payload), frames)
 		e.frames += frames
 		out = append(out, send{light: l, payload: payload})
 	}
@@ -298,11 +299,11 @@ func (e *engine) retryAway(now time.Time) []send {
 	var out []send
 	for _, l := range e.lights {
 		next, gone := e.away[l]
-		if !gone || now.Before(next) || e.fl.busy(l) || e.inFlight() >= e.maxInFlight() || !e.lim.take(now, 1) {
+		if !gone || now.Before(next) || e.fl.Busy(l) || e.inFlight() >= e.maxInFlight() || !e.lim.Take(now, 1) {
 			continue
 		}
 		e.away[l] = now.Add(retryAway)
-		e.fl.add(l, now, true, 1)
+		e.fl.Add(l, now, true, 1)
 		out = append(out, send{light: l, get: true, payload: map[string]any{"state": ""}})
 	}
 	return out
@@ -312,7 +313,7 @@ func (e *engine) retryAway(now time.Time) []send {
 func (e *engine) ready(now time.Time) []string {
 	var ls []string
 	for _, l := range e.lights {
-		if q := e.queue[l]; len(q) > 0 && !q[0].sendAt.After(now) && !e.fl.busy(l) {
+		if q := e.queue[l]; len(q) > 0 && !q[0].sendAt.After(now) && !e.fl.Busy(l) {
 			ls = append(ls, l)
 		}
 	}

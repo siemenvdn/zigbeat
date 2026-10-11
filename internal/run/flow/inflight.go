@@ -1,4 +1,4 @@
-package run
+package flow
 
 import (
 	"slices"
@@ -17,33 +17,33 @@ type flight struct {
 	frames int
 }
 
-// inflight holds at most one unconfirmed message per light and measures latency
+// InFlight holds at most one unconfirmed message per light and measures latency
 // per Zigbee frame, the unit zigbeat probe measured in.
-type inflight struct {
+type InFlight struct {
 	open    map[string]flight
 	lat     []time.Duration
 	initial time.Duration
-	base    time.Duration // median of the show's first samples; 0 until known
+	base    time.Duration // Median of the show's first samples; 0 until known
 }
 
-func newInflight(initial time.Duration) *inflight {
-	return &inflight{open: map[string]flight{}, initial: initial}
+func NewInFlight(initial time.Duration) *InFlight {
+	return &InFlight{open: map[string]flight{}, initial: initial}
 }
 
-func (f *inflight) add(light string, now time.Time, echo bool, frames int) {
+func (f *InFlight) Add(light string, now time.Time, echo bool, frames int) {
 	f.open[light] = flight{sent: now, echo: echo, frames: max(1, frames)}
 }
 
-func (f *inflight) busy(light string) bool {
+func (f *InFlight) Busy(light string) bool {
 	_, ok := f.open[light]
 	return ok
 }
 
-func (f *inflight) count() int { return len(f.open) }
+func (f *InFlight) Count() int { return len(f.open) }
 
-// confirm frees light on its first state after the send. It returns true when
+// Confirm frees light on its first state after the send. It returns true when
 // that confirmed an echo, whose latency per frame is then recorded.
-func (f *inflight) confirm(light string, at time.Time) bool {
+func (f *InFlight) Confirm(light string, at time.Time) bool {
 	fl, ok := f.open[light]
 	if !ok || !at.After(fl.sent) {
 		return false
@@ -57,25 +57,25 @@ func (f *inflight) confirm(light string, at time.Time) bool {
 		f.lat = f.lat[1:]
 	}
 	if f.base == 0 && len(f.lat) == samples {
-		f.base, _ = f.median()
+		f.base, _ = f.Median()
 	}
 	return true
 }
 
-// rising reports a median latency above twice the show's own baseline. The baseline,
+// Rising reports a median latency above twice the show's own baseline. The baseline,
 // not the probe's figure, because moments send in bursts the probe never did.
-func (f *inflight) rising() bool {
-	m, _ := f.median()
+func (f *InFlight) Rising() bool {
+	m, _ := f.Median()
 	return f.base > 0 && m > 2*f.base
 }
 
-// forget drops the latency samples but keeps the baseline, so samples from
+// Forget drops the latency samples but keeps the baseline, so samples from
 // before a pause cannot pause the show again after it.
-func (f *inflight) forget() { f.lat = nil }
+func (f *InFlight) Forget() { f.lat = nil }
 
-// expire frees moves after moveHold and returns the lights whose echo did not
+// Expire frees moves after moveHold and returns the lights whose echo did not
 // come within lostAfter, sorted.
-func (f *inflight) expire(now time.Time) []string {
+func (f *InFlight) Expire(now time.Time) []string {
 	var lost []string
 	for l, fl := range f.open {
 		switch {
@@ -90,8 +90,8 @@ func (f *inflight) expire(now time.Time) []string {
 	return lost
 }
 
-// median returns the median latency per frame and the number of samples.
-func (f *inflight) median() (time.Duration, int) {
+// Median returns the median latency per frame and the number of samples.
+func (f *InFlight) Median() (time.Duration, int) {
 	if len(f.lat) == 0 {
 		return 0, 0
 	}
@@ -100,10 +100,16 @@ func (f *inflight) median() (time.Duration, int) {
 	return s[len(s)/2], len(s)
 }
 
-// estimate is the latency per frame to send early by: the median once there are 3 samples.
-func (f *inflight) estimate() time.Duration {
-	if m, n := f.median(); n >= 3 {
+// Estimate is the latency per frame to send early by: the median once there are 3 samples.
+func (f *InFlight) Estimate() time.Duration {
+	if m, n := f.Median(); n >= 3 {
 		return m
 	}
 	return f.initial
 }
+
+// Base is the median of the show's first samples; 0 until there are enough.
+func (f *InFlight) Base() time.Duration { return f.base }
+
+// Clear forgets every message in flight, after the connection is gone.
+func (f *InFlight) Clear() { clear(f.open) }

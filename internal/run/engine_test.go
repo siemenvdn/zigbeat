@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/siemenvdn/zigbeat/internal/run/flow"
 )
 
 func lightsOf(ss []send) string {
@@ -26,8 +28,8 @@ func started(t *testing.T, mode string, maxRate float64) *engine {
 			e.state(s.light, now.Add(40*time.Millisecond))
 		}
 	}
-	if e.inFlight() != 0 || e.bo.level != 0 {
-		t.Fatalf("start pass did not settle: in flight %d, backoff %d", e.inFlight(), e.bo.level)
+	if e.inFlight() != 0 || e.bo.Level() != 0 {
+		t.Fatalf("start pass did not settle: in flight %d, backoff %d", e.inFlight(), e.bo.Level())
 	}
 	return e
 }
@@ -71,7 +73,8 @@ func TestTogetherUnitIsNeverSplit(t *testing.T) {
 	e := started(t, "together", 5)
 	e.beat(t0, moment(8))
 	sendAt := e.queue["lamp-1"][0].sendAt
-	e.lim.tokens, e.lim.last = 2, sendAt
+	e.lim = flow.NewLimiter(5, sendAt)
+	e.lim.Take(sendAt, flow.Burst-2) // room for one kick of 2 frames
 	if got := lightsOf(e.due(sendAt)); got != "lamp-1" {
 		t.Fatalf("tokens for one kick: sent %q", got)
 	}
@@ -109,12 +112,12 @@ func TestMoveFreesAfterOneSecond(t *testing.T) {
 		t.Fatalf("sent %q", got)
 	}
 	e.due(land.Add(999 * time.Millisecond))
-	if !e.fl.busy("lamp-4") {
+	if !e.fl.Busy("lamp-4") {
 		t.Fatal("a move holds its slot for 1 s")
 	}
 	e.due(land.Add(time.Second))
-	if e.fl.busy("lamp-4") || e.bo.level != 0 {
-		t.Fatalf("after 1 s the slot is free without backoff (level %d)", e.bo.level)
+	if e.fl.Busy("lamp-4") || e.bo.Level() != 0 {
+		t.Fatalf("after 1 s the slot is free without backoff (level %d)", e.bo.Level())
 	}
 }
 
@@ -124,8 +127,8 @@ func TestLostMessageBacksOff(t *testing.T) {
 	e.enqueue([]planned{{light: "lamp-1", payload: map[string]any{"brightness": 10}, land: land}})
 	e.due(land)
 	e.due(land.Add(5 * time.Second))
-	if e.bo.level != 1 || e.fl.busy("lamp-1") {
-		t.Fatalf("lost after 5 s: level %d, busy %v", e.bo.level, e.fl.busy("lamp-1"))
+	if e.bo.Level() != 1 || e.fl.Busy("lamp-1") {
+		t.Fatalf("lost after 5 s: level %d, busy %v", e.bo.Level(), e.fl.Busy("lamp-1"))
 	}
 	if notes := e.takeNotes(); len(notes) != 1 || !strings.Contains(notes[0], "lamp-1 did not answer") {
 		t.Errorf("notes %q", notes)
@@ -135,7 +138,7 @@ func TestLostMessageBacksOff(t *testing.T) {
 func TestRisingLatencyBacksOff(t *testing.T) {
 	e := newEngine(testConfig("separate"), 0, t0)
 	confirm := func(i, latency, frames int) {
-		e.fl.add("lamp-1", at(i*1000), true, frames)
+		e.fl.Add("lamp-1", at(i*1000), true, frames)
 		e.state("lamp-1", at(i*1000+latency))
 	}
 	for i := 0; i < 20; i++ {
@@ -144,19 +147,19 @@ func TestRisingLatencyBacksOff(t *testing.T) {
 	for i := 20; i < 29; i++ {
 		confirm(i, 100, 1)
 	}
-	if e.bo.level != 0 || e.fl.base != 40*time.Millisecond {
-		t.Fatalf("median still 40 ms: level %d, base %s", e.bo.level, e.fl.base)
+	if e.bo.Level() != 0 || e.fl.Base() != 40*time.Millisecond {
+		t.Fatalf("median still 40 ms: level %d, base %s", e.bo.Level(), e.fl.Base())
 	}
 	confirm(29, 100, 1)
-	if e.bo.level != 1 {
-		t.Fatalf("median 100 ms is above 2 x 40 ms: level %d", e.bo.level)
+	if e.bo.Level() != 1 {
+		t.Fatalf("median 100 ms is above 2 x 40 ms: level %d", e.bo.Level())
 	}
 }
 
 func TestPauseForgetsOldLatency(t *testing.T) {
 	e := newEngine(testConfig("separate"), 0, t0)
 	confirm := func(ms, latency int) {
-		e.fl.add("lamp-1", at(ms), true, 1)
+		e.fl.Add("lamp-1", at(ms), true, 1)
 		e.state("lamp-1", at(ms+latency))
 	}
 	for i := 0; i < 40; i++ {
@@ -166,28 +169,28 @@ func TestPauseForgetsOldLatency(t *testing.T) {
 		}
 		confirm(i*1000, latency)
 	}
-	e.bo.pause(at(40_000))
+	e.bo.Pause(at(40_000))
 	e.paused(at(40_000), "test")
-	if !e.bo.tick(at(100_000)) || e.bo.level != 2 {
-		t.Fatalf("a quiet minute resumes at level 2, level %d", e.bo.level)
+	if !e.bo.Tick(at(100_000)) || e.bo.Level() != 2 {
+		t.Fatalf("a quiet minute resumes at level 2, level %d", e.bo.Level())
 	}
 	confirm(101_000, 40)
-	if e.bo.level != 2 {
-		t.Fatalf("the network is fast again, but latency from before the pause paused it again: level %d", e.bo.level)
+	if e.bo.Level() != 2 {
+		t.Fatalf("the network is fast again, but latency from before the pause paused it again: level %d", e.bo.Level())
 	}
 }
 
 func TestSlowNetworkNote(t *testing.T) {
 	e := newEngine(testConfig("separate"), 0, t0)
 	for i := 0; i < 20; i++ {
-		e.fl.add("lamp-1", at(i*1000), true, 1)
+		e.fl.Add("lamp-1", at(i*1000), true, 1)
 		e.state("lamp-1", at(i*1000+200))
 	}
 	notes := e.takeNotes()
 	if len(notes) != 1 || !strings.Contains(notes[0], "run zigbeat probe again") {
 		t.Fatalf("200 ms against a 50 ms budget latency: notes %q", notes)
 	}
-	e.fl.add("lamp-1", at(30_000), true, 1)
+	e.fl.Add("lamp-1", at(30_000), true, 1)
 	e.state("lamp-1", at(30_200))
 	if notes := e.takeNotes(); len(notes) != 0 {
 		t.Fatalf("the note is printed once: %q", notes)
@@ -199,21 +202,21 @@ func TestZigbeeErrors(t *testing.T) {
 	for i := 0; i < 4; i++ {
 		e.zigbeeError(at(i*20_000), "Publish 'set' to 'battery-sensor' failed: 'Timeout'")
 	}
-	if e.bo.level != 1 {
-		t.Fatalf("errors elsewhere may only reach level 1, got %d", e.bo.level)
+	if e.bo.Level() != 1 {
+		t.Fatalf("errors elsewhere may only reach level 1, got %d", e.bo.Level())
 	}
 
 	e = newEngine(testConfig("separate"), 0, t0)
 	e.zigbeeError(at(0), "Publish 'set' to 'lamp-1' failed: 'Timeout'")
 	e.zigbeeError(at(1_000), "Publish 'set' to 'lamp-10' failed: 'Timeout'")
 	e.zigbeeError(at(2_000), "Publish 'set' to 'lamp-2' failed: 'Timeout'")
-	if e.bo.level != 1 {
-		t.Fatalf("lamp-10 is not ours, so only two named errors: level %d", e.bo.level)
+	if e.bo.Level() != 1 {
+		t.Fatalf("lamp-10 is not ours, so only two named errors: level %d", e.bo.Level())
 	}
 	e.takeNotes()
 	e.zigbeeError(at(3_000), "Publish 'set' to 'lamp-3' failed: 'Timeout'")
-	if e.bo.level != pauseLevel {
-		t.Fatalf("three named errors within a minute pause the show: level %d", e.bo.level)
+	if e.bo.Level() != flow.PauseLevel {
+		t.Fatalf("three named errors within a minute pause the show: level %d", e.bo.Level())
 	}
 	if notes := e.takeNotes(); len(notes) != 1 || !strings.Contains(notes[0], "paused") {
 		t.Errorf("notes %q", notes)
@@ -227,8 +230,8 @@ func TestZigbeeErrorKeepsTheSlot(t *testing.T) {
 	e.due(land)
 	// The error may be about an older message; only the echo or the 5 s expiry frees the slot.
 	e.zigbeeError(land.Add(time.Second), "Publish 'set' to 'lamp-1' failed: 'Timeout'")
-	if !e.fl.busy("lamp-1") || e.fails["lamp-1"] != 0 {
-		t.Fatalf("busy %v, fails %d", e.fl.busy("lamp-1"), e.fails["lamp-1"])
+	if !e.fl.Busy("lamp-1") || e.fails["lamp-1"] != 0 {
+		t.Fatalf("busy %v, fails %d", e.fl.Busy("lamp-1"), e.fails["lamp-1"])
 	}
 }
 
@@ -236,7 +239,7 @@ func TestPauseSendsOnlyCanaryAndResumes(t *testing.T) {
 	cfg := testConfig("separate")
 	cfg.Canary = "far-lamp"
 	e := newEngine(cfg, time.Second, t0)
-	e.bo.pause(t0)
+	e.bo.Pause(t0)
 	e.paused(t0, "test")
 	e.beat(t0, moment(8))
 	got := e.due(t0)
@@ -244,8 +247,8 @@ func TestPauseSendsOnlyCanaryAndResumes(t *testing.T) {
 		t.Fatalf("a pause only reads the canary, sent %q", lightsOf(got))
 	}
 	e.state("far-lamp", at(100))
-	if !e.bo.tick(at(60_000)) || e.bo.level != 2 {
-		t.Fatalf("a quiet minute resumes at level 2, level %d", e.bo.level)
+	if !e.bo.Tick(at(60_000)) || e.bo.Level() != 2 {
+		t.Fatalf("a quiet minute resumes at level 2, level %d", e.bo.Level())
 	}
 	e.beat(at(60_000), moment(240)) // 120 s; level 2 moments fall on every 8th beat
 	if len(e.queue["lamp-1"])+len(e.queue["lamp-3"]) == 0 {
@@ -271,12 +274,12 @@ func TestUnreachableLightIsLeftAlone(t *testing.T) {
 		e.due(at(ms + 5_000))
 	}
 	lose(10_000)
-	if e.bo.level != 1 {
-		t.Fatalf("the first loss may be the network: level %d", e.bo.level)
+	if e.bo.Level() != 1 {
+		t.Fatalf("the first loss may be the network: level %d", e.bo.Level())
 	}
 	lose(30_000)
-	if _, gone := e.away["lamp-3"]; !gone || e.bo.level != 1 {
-		t.Fatalf("second loss in a row: away %v, level %d", e.away, e.bo.level)
+	if _, gone := e.away["lamp-3"]; !gone || e.bo.Level() != 1 {
+		t.Fatalf("second loss in a row: away %v, level %d", e.away, e.bo.Level())
 	}
 	e.beat(at(36_000), moment(80))
 	if len(e.queue["lamp-3"]) != 0 {
@@ -304,8 +307,8 @@ func TestCanary(t *testing.T) {
 		t.Fatalf("the canary read takes one of the 3 slots: %q", lightsOf(got))
 	}
 	e.state("far-lamp", at(300))
-	if e.bo.level != 1 || e.canary.last != 300*time.Millisecond {
-		t.Fatalf("300 ms is above the 200 ms limit: level %d", e.bo.level)
+	if e.bo.Level() != 1 || e.canary.Last() != 300*time.Millisecond {
+		t.Fatalf("300 ms is above the 200 ms limit: level %d", e.bo.Level())
 	}
 	for _, s := range e.due(at(4_999)) {
 		if s.light == "far-lamp" {
@@ -318,8 +321,8 @@ func TestForeignStatesAreHarmless(t *testing.T) {
 	e := started(t, "separate", 100)
 	e.state("lamp-1", at(20_000)) // Home Assistant changed a light that has nothing in flight
 	e.state("hallway", at(20_000))
-	if e.inFlight() != 0 || e.bo.level != 0 || len(e.fl.lat) != 4 {
-		t.Fatalf("in flight %d, level %d, samples %d", e.inFlight(), e.bo.level, len(e.fl.lat))
+	if _, n := e.fl.Median(); e.inFlight() != 0 || e.bo.Level() != 0 || n != 4 {
+		t.Fatalf("in flight %d, level %d, samples %d", e.inFlight(), e.bo.Level(), n)
 	}
 }
 
@@ -332,7 +335,7 @@ func TestHalt(t *testing.T) {
 		t.Fatal("a halted engine sends nothing")
 	}
 	e.state("lamp-1", at(40))
-	if e.fl.busy("lamp-1") {
+	if e.fl.Busy("lamp-1") {
 		t.Fatal("messages in flight can still be confirmed after halt")
 	}
 }
