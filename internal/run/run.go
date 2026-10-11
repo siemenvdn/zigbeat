@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/beat"
+	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/config"
 )
 
@@ -64,7 +64,7 @@ func Run(args []string) int {
 		return 1
 	}
 
-	ctx, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, stopSignals := signal.NotifyContext(context.Background(), cli.StopSignals...)
 	defer stopSignals()
 	r, err := connect(cfg)
 	if err != nil {

@@ -8,8 +8,9 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"syscall"
 	"time"
+
+	"github.com/siemenvdn/zigbeat/internal/cli"
 )
 
 // Run executes `zigbeat probe` with the given arguments and returns an exit code.
@@ -25,7 +26,7 @@ func Run(args []string) int {
 		return 2
 	}
 
-	ctx, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, stopSignals := signal.NotifyContext(context.Background(), cli.StopSignals...)
 	defer stopSignals()
 	s, err := connect(ctx, cfg, stopSignals)
 	if err != nil {
