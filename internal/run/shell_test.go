@@ -2,6 +2,7 @@ package run
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,6 +19,7 @@ type fakeLink struct {
 	reconnect  bool
 	sets       int
 	reconnects int
+	groups     []string // nil: bridge/groups never arrives
 }
 
 func newShell(t *testing.T) (*runner, *fakeLink) {
@@ -53,6 +55,8 @@ func (f *fakeLink) Get(light string, _ any) error { f.answer(light); return nil 
 func (f *fakeLink) Lost() <-chan struct{}         { return f.lost }
 func (f *fakeLink) Err() error                    { return nil }
 func (f *fakeLink) Close()                        {}
+
+func (f *fakeLink) Groups(context.Context) ([]string, bool) { return f.groups, f.groups != nil }
 
 func (f *fakeLink) Reconnect(context.Context) bool {
 	f.reconnects++
@@ -104,4 +108,15 @@ func TestDrainSurvivesAPanickedEngine(t *testing.T) {
 	r, _ := newShell(t)
 	r.eng = &engine{} // broken: any call into it panics
 	r.drain(50 * time.Millisecond)
+}
+
+func TestStartupRefusesGroups(t *testing.T) {
+	r, f := newShell(t)
+	if err := r.refuseGroups(context.Background()); err != nil {
+		t.Fatalf("no groups known: %v", err)
+	}
+	f.groups = []string{"living-room", "lamp-2"}
+	if err := r.refuseGroups(context.Background()); err == nil || !strings.Contains(err.Error(), "lamp-2") {
+		t.Fatalf("lamp-2 is a group: %v", err)
+	}
 }

@@ -108,3 +108,16 @@ func TestValidate(t *testing.T) {
 		}
 	}
 }
+
+func TestRejectGroups(t *testing.T) {
+	c := valid()
+	if err := c.RejectGroups([]string{"living-room"}); err != nil {
+		t.Errorf("no light is a group: %v", err)
+	}
+	if err := c.RejectGroups([]string{"b"}); err == nil || !strings.Contains(err.Error(), `"b"`) {
+		t.Errorf("light b is a group: %v", err)
+	}
+	if err := c.RejectGroups([]string{"far"}); err == nil {
+		t.Error("the canary is a group")
+	}
+}

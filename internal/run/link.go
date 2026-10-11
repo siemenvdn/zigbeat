@@ -18,6 +18,7 @@ type link interface {
 	Lost() <-chan struct{} // closed when the connection drops
 	Err() error
 	Reconnect(ctx context.Context) bool
+	Groups(ctx context.Context) ([]string, bool)
 	Close()
 }
 
@@ -88,3 +89,26 @@ func (l *mqttLink) Get(light string, p any) error { return l.bridge.Get(light, p
 func (l *mqttLink) Lost() <-chan struct{}         { return l.client.Done() }
 func (l *mqttLink) Err() error                    { return l.client.Err() }
 func (l *mqttLink) Close()                        { l.client.Close() }
+
+// Groups reads the retained list of Zigbee2MQTT groups; false when none came within 2 s.
+func (l *mqttLink) Groups(ctx context.Context) ([]string, bool) {
+	got := make(chan []string, 1)
+	err := l.bridge.OnGroups(func(names []string, _ time.Time) {
+		select {
+		case got <- names:
+		default:
+		}
+	})
+	if err != nil {
+		return nil, false
+	}
+	t := time.NewTimer(2 * time.Second)
+	defer t.Stop()
+	select {
+	case names := <-got:
+		return names, true
+	case <-t.C:
+	case <-ctx.Done():
+	}
+	return nil, false
+}

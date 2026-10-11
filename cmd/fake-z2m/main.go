@@ -31,6 +31,7 @@ func main() {
 	jitter := flag.Duration("jitter", 20*time.Millisecond, "random extra delay per command")
 	queue := flag.Int("queue", 64, "coordinator queue depth before commands fail")
 	loss := flag.Float64("loss", 0, "share of commands that never get an answer, 0 to 1")
+	groups := flag.String("groups", "", "simulated Zigbee2MQTT groups, published retained on bridge/groups")
 	flag.Parse()
 
 	c, err := mqtt.Dial(*broker, mqtt.Options{ClientID: "fake-z2m", Username: os.Getenv("MQTT_USER"), Password: os.Getenv("MQTT_PASSWORD")})
@@ -45,6 +46,14 @@ func main() {
 		known[d] = true
 		state[d] = map[string]any{"state": "ON", "brightness": 180, "color_mode": "xy", "color": map[string]any{"x": 0.47, "y": 0.39}, "linkquality": 120}
 	}
+	gs := []map[string]any{}
+	for i, g := range strings.Split(*groups, ",") {
+		if g != "" {
+			gs = append(gs, map[string]any{"id": i + 1, "friendly_name": g})
+		}
+	}
+	b, _ := json.Marshal(gs)
+	_ = c.PublishRetained(*base+"/bridge/groups", b)
 
 	jobs := make(chan job, *queue)
 	publishLog := func(level, msg string) {

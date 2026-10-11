@@ -72,6 +72,10 @@ func Run(args []string) int {
 		return 1
 	}
 	defer func() { r.link.Close() }()
+	if err := r.refuseGroups(ctx); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
 
 	ok := r.snapshot(ctx)
 	limit := time.Duration(0)

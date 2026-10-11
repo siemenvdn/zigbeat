@@ -49,6 +49,19 @@ func (r *runner) waitState(ctx context.Context, light string, since time.Time, d
 	}
 }
 
+// refuseGroups stops the show before it starts when a light or the canary is a
+// Zigbee2MQTT group. Without bridge/groups it warns and goes on.
+func (r *runner) refuseGroups(ctx context.Context) error {
+	groups, ok := r.link.Groups(ctx)
+	if !ok {
+		if ctx.Err() == nil {
+			fmt.Fprintf(os.Stderr, "warning: no %s/bridge/groups; make sure no light in the config is a group\n", r.cfg.MQTT.BaseTopic)
+		}
+		return nil
+	}
+	return r.cfg.RejectGroups(groups)
+}
+
 // snapshot reads every light, one at a time within the budget. A light that does
 // not answer is left out of the show: without its state it cannot be restored.
 // It returns false when no light answered or ctx was cancelled.
