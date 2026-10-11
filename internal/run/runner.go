@@ -23,6 +23,7 @@ type runner struct {
 	link     link
 	events   chan event
 	eng      *engine.Engine
+	hooks    Hooks
 	snaps    map[string]z2m.State
 	snapJSON []byte
 }
@@ -64,3 +65,10 @@ func (r *runner) offline() bool {
 }
 
 func stamp() string { return time.Now().Format(cli.Clock) }
+
+// report hands the stats to the Status hook, if there is one.
+func (r *runner) report(st engine.Stats) {
+	if r.hooks.Status != nil {
+		r.hooks.Status(st)
+	}
+}

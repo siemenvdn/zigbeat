@@ -27,22 +27,7 @@ func Run(args []string) int {
 	}
 	ctx, stopSignals := signal.NotifyContext(context.Background(), cli.StopSignals...)
 	defer stopSignals()
-	r, err := connect(cfg)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 1
-	}
-	defer func() { r.link.Close() }()
-
-	limit, code, ok := r.start(ctx)
-	if !ok {
-		return code
-	}
-	fmt.Printf("zigbeat run: %d lights, %g BPM, budget %g frames/s\n", len(r.cfg.Lights()), o.bpm, r.cfg.Budget.MaxRate)
-	reason, code := r.show(ctx, beat.Metronome{BPM: o.bpm, Lookahead: time.Second}, limit)
-	stopSignals()
-	fmt.Printf("\nstopping: %s (Ctrl-C again to quit without restoring)\n", reason)
-	return r.stop(code)
+	return Play(ctx, cfg, o.bpm, Hooks{Stopping: stopSignals})
 }
 
 // show plays until ctx is done or the source ends. A panic starts a fresh

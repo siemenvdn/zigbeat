@@ -26,6 +26,7 @@ func (r *runner) play(ctx context.Context, src beat.Source) (reason string, pani
 	defer tick.Stop()
 	status := time.NewTicker(10 * time.Second)
 	defer status.Stop()
+	r.report(r.eng.Stats(time.Now()))
 	for {
 		select {
 		case <-ctx.Done():
@@ -49,7 +50,9 @@ func (r *runner) play(ctx context.Context, src beat.Source) (reason string, pani
 				r.publish(s)
 			}
 		case now := <-status.C:
-			fmt.Println(r.eng.Status(now))
+			st := r.eng.Stats(now)
+			fmt.Println(st.Line())
+			r.report(st)
 		}
 		for _, n := range r.eng.TakeNotes() {
 			fmt.Println(n)

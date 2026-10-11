@@ -5,19 +5,46 @@ import (
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/cli"
+	"github.com/siemenvdn/zigbeat/internal/run/flow"
 )
 
-// Status is the line printed every 10 s; it resets the frame counter.
-func (e *Engine) Status(now time.Time) string {
+// Stats is the show at one status tick.
+type Stats struct {
+	At           time.Time
+	Moments      int
+	Dropped      int
+	FramesPerSec float64
+	InFlight     int
+	P50          time.Duration // latency estimate per frame
+	Backoff      int
+	Canary       time.Duration // last canary answer, 0 before the first
+	Errors       int           // Zigbee2MQTT errors
+	Lights       int           // lights in the show minus those left alone
+}
+
+// Paused reports the deepest backoff level: nothing goes out but canary reads.
+func (s Stats) Paused() bool { return s.Backoff >= flow.PauseLevel }
+
+// Stats reports the show since the last call; it resets the frame counter.
+func (e *Engine) Stats(now time.Time) Stats {
 	rate := 0.0
 	if secs := now.Sub(e.lastStatus).Seconds(); secs > 0 {
 		rate = float64(e.frames) / secs
 	}
 	e.frames, e.lastStatus = 0, now
+	return Stats{
+		At: now, Moments: e.plan.Moments(), Dropped: e.dropped, FramesPerSec: rate, InFlight: e.InFlight(),
+		P50: e.fl.Estimate(), Backoff: e.bo.Level(), Canary: e.canary.Last(), Errors: e.errs,
+		Lights: len(e.lights) - len(e.away),
+	}
+}
+
+// Line is the status line printed every 10 s.
+func (s Stats) Line() string {
 	canary := "-"
-	if e.canary.Last() > 0 {
-		canary = fmt.Sprintf("%d ms", e.canary.Last().Milliseconds())
+	if s.Canary > 0 {
+		canary = fmt.Sprintf("%d ms", s.Canary.Milliseconds())
 	}
 	return fmt.Sprintf("%s  moments %d  dropped %d  frames/s %.1f  in flight %d  p50 %d ms  backoff %d  canary %s  z2m err %d",
-		now.Format(cli.Clock), e.plan.Moments(), e.dropped, rate, e.InFlight(), e.fl.Estimate().Milliseconds(), e.bo.Level(), canary, e.errs)
+		s.At.Format(cli.Clock), s.Moments, s.Dropped, s.FramesPerSec, s.InFlight, s.P50.Milliseconds(), s.Backoff, canary, s.Errors)
 }
