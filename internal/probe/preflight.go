@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"time"
+
+	"github.com/siemenvdn/zigbeat/internal/probe/measure"
 )
 
 // canaryAnswers checks that the canary replies to a state request.
@@ -21,41 +23,41 @@ func (s *session) canaryAnswers() bool {
 
 // baseline measures the canary alone, with nothing else from us on the air.
 // It returns false when interrupted.
-func (s *session) baseline() (latencyStats, bool) {
-	s.ph.set("baseline", 0)
+func (s *session) baseline() (measure.Stats, bool) {
+	s.ph.Set("baseline", 0)
 	fmt.Printf("measuring baseline for %s\n", s.cfg.baseline)
 	if !s.sleep(s.cfg.baseline) {
-		return latencyStats{}, false
+		return measure.Stats{}, false
 	}
-	samples, _ := s.rec.snapshot()
-	var base []sample
+	samples, _ := s.rec.Snapshot()
+	var base []measure.Sample
 	for _, x := range samples {
-		if x.kind == "canary" && x.phase == "baseline" {
+		if x.Kind == "canary" && x.Phase == "baseline" {
 			base = append(base, x)
 		}
 	}
-	return statsOf(base), true
+	return measure.StatsOf(base), true
 }
 
 // selfCheck turns the targets on and checks that each one echoes a command we can match.
 func (s *session) selfCheck() bool {
-	s.ph.set("prep", 0)
+	s.ph.Set("prep", 0)
 	for _, t := range s.cfg.targets {
 		_ = s.bridge.Set(t, map[string]any{"state": "ON", "brightness": 200, "transition": 0})
 	}
 	s.sleep(2 * time.Second)
 
-	s.ph.set("selfcheck", 0)
+	s.ph.Set("selfcheck", 0)
 	for _, t := range s.cfg.targets {
-		cmd := s.gen.nextFor(t)
-		s.tracker.add(t, cmd.key, pending{sent: time.Now(), phase: "selfcheck"})
-		_ = s.bridge.Set(t, cmd.payload)
+		cmd := s.gen.Next(t)
+		s.tracker.Add(t, cmd.Key, measure.Pending{Sent: time.Now(), Phase: "selfcheck"})
+		_ = s.bridge.Set(t, cmd.Payload)
 	}
 	s.drain()
-	samples, _ := s.rec.snapshot()
+	samples, _ := s.rec.Snapshot()
 	matched := 0
 	for _, x := range samples {
-		if x.phase == "selfcheck" && x.ok {
+		if x.Phase == "selfcheck" && x.OK {
 			matched++
 		}
 	}

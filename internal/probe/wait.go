@@ -31,8 +31,8 @@ func (s *session) sleep(d time.Duration) bool {
 
 // drain waits until every command is answered, then counts the rest as lost.
 func (s *session) drain() {
-	waitFor(s.cfg.timeout+300*time.Millisecond, func() bool { return s.tracker.inflight() == 0 })
-	s.tracker.expire(time.Now().Add(s.cfg.timeout))
+	waitFor(s.cfg.timeout+300*time.Millisecond, func() bool { return s.tracker.InFlight() == 0 })
+	s.tracker.Expire(time.Now().Add(s.cfg.timeout))
 }
 
 func waitFor(d time.Duration, cond func() bool) bool {

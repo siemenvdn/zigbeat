@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/cli"
+	"github.com/siemenvdn/zigbeat/internal/probe/measure"
+	"github.com/siemenvdn/zigbeat/internal/probe/report"
 )
 
 // Run executes `zigbeat probe` with the given arguments and returns an exit code.
@@ -38,7 +40,7 @@ func Run(args []string) int {
 	}
 
 	est := cfg.baseline + time.Duration(len(cfg.rates))*(cfg.step+cfg.cooldown+2*time.Second)
-	fmt.Printf("zigbeat probe: %d targets, canary %s, mode %s, palette %d\n", len(cfg.targets), cfg.canary, cfg.mode, s.gen.paletteSize())
+	fmt.Printf("zigbeat probe: %d targets, canary %s, mode %s, palette %d\n", len(cfg.targets), cfg.canary, cfg.mode, s.gen.Size())
 	fmt.Printf("rates %v cmd/s, then +25%% per step until the first sign of trouble (at most %d)\n", cfg.rates, maxRate)
 	fmt.Printf("%s per step, %s cooldown, at least %s in total\n", cfg.step, cfg.cooldown, est.Round(10*time.Second))
 	fmt.Printf("current state (for manual restore): %s\n", s.snapJSON)
@@ -59,16 +61,16 @@ func Run(args []string) int {
 			return 1
 		}
 		s.interrupted()
-		s.finish(nil, latencyStats{})
+		s.finish(nil, measure.Stats{})
 		return 130
 	}
-	if base.n < 3 {
+	if base.N < 3 {
 		fmt.Fprintln(os.Stderr, "canary answered too rarely during the baseline, aborting")
 		s.finish(nil, base)
 		return 1
 	}
-	lim := limits{canaryBaseP50: base.p50, canaryBaseP95: base.p95}
-	fmt.Printf("canary at rest: p50 %s ms, p95 %s ms (step fails above %s ms)\n", ms(base.p50), ms(base.p95), ms(lim.canaryLimit()))
+	lim := measure.Limits{CanaryP50: base.P50, CanaryP95: base.P95}
+	fmt.Printf("canary at rest: p50 %s ms, p95 %s ms (step fails above %s ms)\n", report.Millis(base.P50), report.Millis(base.P95), report.Millis(lim.CanaryLimit()))
 
 	if !s.selfCheck() {
 		s.restore()

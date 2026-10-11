@@ -31,7 +31,7 @@ func (s *session) saveState() bool {
 
 // restore puts every target back to its saved state.
 func (s *session) restore() {
-	s.ph.set("restore", 0)
+	s.ph.Set("restore", 0)
 	fmt.Println()
 	lights.Restore(s, s.snaps, s.cfg.targets, s.cfg.rates[0])
 }

@@ -1,4 +1,4 @@
-package probe
+package measure
 
 import (
 	"sync"
@@ -7,36 +7,37 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
-type pending struct {
-	sent  time.Time
-	phase string
-	rate  float64
+// Pending is a command waiting for its echo.
+type Pending struct {
+	Sent  time.Time
+	Phase string
+	Rate  float64
 }
 
-// cmdTracker matches state echoes to commands via a value that is unique per device
+// Tracker matches state echoes to commands via a value that is unique per device
 // within the timeout window (the colour x or the brightness).
-type cmdTracker struct {
+type Tracker struct {
 	mu      sync.Mutex
-	open    map[string]map[int][]pending
-	rec     *recorder
+	open    map[string]map[int][]Pending
+	rec     *Recorder
 	timeout time.Duration
 	keyOf   func(z2m.State) (int, bool)
 }
 
-func newCmdTracker(rec *recorder, timeout time.Duration, keyOf func(z2m.State) (int, bool)) *cmdTracker {
-	return &cmdTracker{open: map[string]map[int][]pending{}, rec: rec, timeout: timeout, keyOf: keyOf}
+func NewTracker(rec *Recorder, timeout time.Duration, keyOf func(z2m.State) (int, bool)) *Tracker {
+	return &Tracker{open: map[string]map[int][]Pending{}, rec: rec, timeout: timeout, keyOf: keyOf}
 }
 
-func (t *cmdTracker) add(dev string, key int, p pending) {
+func (t *Tracker) Add(dev string, key int, p Pending) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if t.open[dev] == nil {
-		t.open[dev] = map[int][]pending{}
+		t.open[dev] = map[int][]Pending{}
 	}
 	t.open[dev][key] = append(t.open[dev][key], p)
 }
 
-func (t *cmdTracker) onState(dev string, s z2m.State, at time.Time) {
+func (t *Tracker) OnState(dev string, s z2m.State, at time.Time) {
 	key, ok := t.keyOf(s)
 	if !ok {
 		return
@@ -55,20 +56,20 @@ func (t *cmdTracker) onState(dev string, s z2m.State, at time.Time) {
 		} else {
 			m[k] = q[1:]
 		}
-		t.rec.add(sample{sent: p.sent, phase: p.phase, rate: p.rate, kind: "cmd", device: dev, latency: at.Sub(p.sent), ok: true})
+		t.rec.Add(Sample{Sent: p.Sent, Phase: p.Phase, Rate: p.Rate, Kind: "cmd", Device: dev, Latency: at.Sub(p.Sent), OK: true})
 		return
 	}
 }
 
-func (t *cmdTracker) expire(now time.Time) {
+func (t *Tracker) Expire(now time.Time) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	for dev, m := range t.open {
 		for k, q := range m {
 			keep := q[:0]
 			for _, p := range q {
-				if now.Sub(p.sent) > t.timeout {
-					t.rec.add(sample{sent: p.sent, phase: p.phase, rate: p.rate, kind: "cmd", device: dev, ok: false})
+				if now.Sub(p.Sent) > t.timeout {
+					t.rec.Add(Sample{Sent: p.Sent, Phase: p.Phase, Rate: p.Rate, Kind: "cmd", Device: dev, OK: false})
 				} else {
 					keep = append(keep, p)
 				}
@@ -82,13 +83,13 @@ func (t *cmdTracker) expire(now time.Time) {
 	}
 }
 
-func (t *cmdTracker) busy(dev string) bool {
+func (t *Tracker) Busy(dev string) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return len(t.open[dev]) > 0
 }
 
-func (t *cmdTracker) inflight() int {
+func (t *Tracker) InFlight() int {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	n := 0

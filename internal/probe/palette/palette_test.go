@@ -1,18 +1,18 @@
-package probe
+package palette
 
 import "testing"
 
 func TestPaletteKeysUnique(t *testing.T) {
 	for _, mode := range []string{"color", "brightness", "combo"} {
-		g := newGenerator(mode)
+		g := New(mode)
 		seen := map[int]bool{}
-		n := g.paletteSize()
+		n := g.Size()
 		for i := 0; i < n; i++ {
-			c := g.nextFor("a")
-			if seen[c.key] {
-				t.Fatalf("%s: key %d repeats within one palette cycle", mode, c.key)
+			c := g.Next("a")
+			if seen[c.Key] {
+				t.Fatalf("%s: key %d repeats within one palette cycle", mode, c.Key)
 			}
-			seen[c.key] = true
+			seen[c.Key] = true
 		}
 		if n < 20 {
 			t.Errorf("%s: palette only %d entries", mode, n)
