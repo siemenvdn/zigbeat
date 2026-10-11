@@ -42,11 +42,17 @@ func (s *session) restore() {
 	fmt.Println("\nrestoring lights")
 	failed := 0
 	for _, t := range s.cfg.targets {
-		ok := false
-		for attempt := 0; attempt < 2 && !ok; attempt++ {
-			sent := time.Now()
-			_ = s.bridge.Set(t, z2m.RestorePayload(s.snaps[t]))
-			ok = waitFor(3*time.Second, func() bool { _, ok := s.answeredSince(t, sent); return ok })
+		ok := true
+		for _, p := range z2m.RestorePayloads(s.snaps[t]) {
+			ok = false
+			for attempt := 0; attempt < 2 && !ok; attempt++ {
+				sent := time.Now()
+				_ = s.bridge.Set(t, p)
+				ok = waitFor(3*time.Second, func() bool { _, ok := s.answeredSince(t, sent); return ok })
+			}
+			if !ok {
+				break
+			}
 		}
 		if !ok {
 			failed++

@@ -113,7 +113,19 @@ func (r *runner) restore() {
 	fmt.Println("restoring lights")
 	failed := 0
 	for _, l := range r.cfg.Lights() {
-		p := z2m.RestorePayload(r.snaps[l])
+		if !r.restoreLight(l) {
+			failed++
+			fmt.Printf("  could not confirm %s, set it back by hand\n", l)
+		}
+	}
+	if failed == 0 {
+		fmt.Println("  all lights back to their previous state")
+	}
+}
+
+// restoreLight sends the restore payloads of l in order, each confirmed by a state.
+func (r *runner) restoreLight(l string) bool {
+	for _, p := range z2m.RestorePayloads(r.snaps[l]) {
 		ok := false
 		for attempt := 0; attempt < 3 && !ok; attempt++ {
 			sent := time.Now()
@@ -122,11 +134,8 @@ func (r *runner) restore() {
 			time.Sleep(r.pace(z2m.Frames(p)) - time.Since(sent))
 		}
 		if !ok {
-			failed++
-			fmt.Printf("  could not confirm %s, set it back by hand\n", l)
+			return false
 		}
 	}
-	if failed == 0 {
-		fmt.Println("  all lights back to their previous state")
-	}
+	return true
 }
