@@ -121,3 +121,10 @@ func TestRejectGroups(t *testing.T) {
 		t.Error("the canary is a group")
 	}
 }
+
+func TestKeep(t *testing.T) {
+	c := valid().Keep(func(l string) bool { return l != "a" && l != "c" })
+	if len(c.Fixtures) != 1 || strings.Join(c.Lights(), ",") != "b" {
+		t.Errorf("kept %v", c.Fixtures)
+	}
+}

@@ -7,67 +7,8 @@ import (
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/beat"
-	"github.com/siemenvdn/zigbeat/internal/cli"
-	"github.com/siemenvdn/zigbeat/internal/config"
 	"github.com/siemenvdn/zigbeat/internal/run/engine"
-	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
-
-// event is a state message or an error line from Zigbee2MQTT.
-type event struct {
-	light string // empty for a log line
-	st    z2m.State
-	msg   string
-	at    time.Time
-}
-
-// runner connects the engine to Zigbee2MQTT and real time.
-type runner struct {
-	cfg      config.Config
-	link     link
-	events   chan event
-	eng      *engine.Engine
-	snaps    map[string]z2m.State
-	snapJSON []byte
-}
-
-func connect(cfg config.Config) (*runner, error) {
-	r := &runner{cfg: cfg, events: make(chan event, 1024)}
-	l, err := dialLink(cfg.MQTT, r.watched, r.push)
-	if err != nil {
-		return nil, err
-	}
-	r.link = l
-	return r, nil
-}
-
-// watched lists the devices to subscribe to: the lights still in the show and the canary.
-func (r *runner) watched() []string {
-	ds := r.cfg.Lights()
-	if r.cfg.Canary != "" {
-		ds = append(ds, r.cfg.Canary)
-	}
-	return ds
-}
-
-// push hands an event to the loop without blocking the MQTT reader.
-func (r *runner) push(ev event) {
-	select {
-	case r.events <- ev:
-	default:
-	}
-}
-
-func (r *runner) offline() bool {
-	select {
-	case <-r.link.Lost():
-		return true
-	default:
-		return false
-	}
-}
-
-func stamp() string { return time.Now().Format(cli.Clock) }
 
 // play runs the show until ctx is done or the source ends. Network trouble never
 // ends it: backoff pauses, a lost connection is dialled again. A panic returns

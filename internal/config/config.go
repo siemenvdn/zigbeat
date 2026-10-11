@@ -99,3 +99,22 @@ func (c Config) Lights() []string {
 	}
 	return out
 }
+
+// Keep returns c with only the lights for which keep is true; fixtures left empty are dropped.
+func (c Config) Keep(keep func(light string) bool) Config {
+	var fs []Fixture
+	for _, f := range c.Fixtures {
+		var ls []string
+		for _, l := range f.Lights {
+			if keep(l) {
+				ls = append(ls, l)
+			}
+		}
+		if len(ls) > 0 {
+			f.Lights = ls
+			fs = append(fs, f)
+		}
+	}
+	c.Fixtures = fs
+	return c
+}
