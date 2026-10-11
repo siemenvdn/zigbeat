@@ -103,7 +103,7 @@ Copy [`config.example.yaml`](config.example.yaml) to `config.yaml` and fill it i
 - `canary` (optional): a far-away mains-powered device, as for the probe. The show reads it every 5 seconds to watch the rest of the network.
 - `effects` (optional): the time between changes, the base brightness, the colour palette and the breathe range.
 
-Lights that are not in the config are never touched. The MQTT password comes from the environment variable named in `password_env`.
+Lights that are not in the config are never touched. List lights one by one: a Zigbee2MQTT group name is refused, because group commands are broadcasts. The MQTT password comes from the environment variable named in `password_env`.
 
 ### Start it
 
@@ -127,7 +127,7 @@ zigbeat reads the state of every light, prints it as JSON for a manual restore, 
 | `backoff` | 0 normal, 1 no kick, 2 half as many moments, 3 paused |
 | `canary`, `z2m err` | Last canary answer and Zigbee2MQTT errors so far |
 
-Ctrl-C stops the show and puts every light back. A second Ctrl-C quits at once without restoring.
+Ctrl-C, `kill` or a closed SSH session stops the show and puts every light back, lights that were off included. A second Ctrl-C quits at once without restoring.
 
 ### When something goes wrong
 
@@ -135,7 +135,7 @@ The show keeps going and gets calmer instead:
 
 - **The network slows down** (rising latency, lost commands, a slow canary, Zigbee2MQTT errors): the backoff level rises one step at a time. At level 3 the show pauses with the lights in their last colour, and resumes after a quiet minute.
 - **A light stops answering**, for example switched off at the wall: after two misses zigbeat leaves it alone, reads it once a minute and takes it back when it answers.
-- **The broker goes away**: zigbeat reconnects every 5 seconds and carries on.
+- **The broker goes away**: zigbeat reconnects every 5 seconds and carries on. If it is still gone when you stop the show, zigbeat tries for 30 seconds, then prints the saved state of the lights it could not restore and exits with code 1.
 - **A light does not answer at the start**: it is left out with a warning; the show runs with the others.
 
 ## Build from source
