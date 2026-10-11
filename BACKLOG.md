@@ -9,7 +9,6 @@ Small known issues, found in the review of phase 1a and left for later. Plans an
 - **`started` grows all night.** `Engine.started` (`internal/run/engine/`) gets one entry per unit and is never cleared. Delete the entry when the last message of a unit leaves or the unit is dropped.
 - **A pause freezes lights mid-effect.** A pause, a light left alone or an outage leaves breathe lights moving until 100% or their minimum, and colour lights can stay at the kick level because the queued return is cleared. Spec decision: may a pause send one stop or anchor per breathe light?
 - **"dropped" counts units.** The status line counts dropped units (`dropLate` in `internal/run/engine/queue.go`), while the README calls it "moments skipped".
-- **No stack trace after a panic.** The recover in `play` prints only the panic value while it asks for a bug report. Print `debug.Stack()` to stderr.
 - **Restore order.** Lights are restored in config order, so a light that is left alone (9 s of tries) delays the reachable lights behind it. Restore the lights that answered recently first.
 - **The first redial at stop waits 5 s**, also when the broker is already back (`mqttLink.Reconnect`).
 - **Timeouts shorter than the loss rule.** The 2 s drain and the 3 s tries in `lights.Snapshot` and `lights.Restore` are shorter than the 5 s after which a message counts as lost, so a slow bulb can get a second command before the first one was confirmed.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"runtime/debug"
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/beat"
@@ -17,7 +18,7 @@ import (
 func (r *runner) play(ctx context.Context, src beat.Source) (reason string, panicked bool) {
 	defer func() {
 		if p := recover(); p != nil {
-			reason, panicked = fmt.Sprintf("panic: %v", p), true
+			reason, panicked = fmt.Sprintf("panic: %v\n%s", p, debug.Stack()), true
 		}
 	}()
 	srcCtx, cancel := context.WithCancel(ctx)
