@@ -1,6 +1,8 @@
 # Working on zigbeat
 
-Read the [README](README.md) first: it holds the goal, architecture, roadmap and design decisions. This file covers how work is done.
+Read the [README](README.md) and [DESIGN.md](DESIGN.md) first. The README is for users; DESIGN.md holds the architecture, roadmap and design decisions. This file covers how work is done.
+
+Keep the README short and about what works today. Plans, rationale and research go in DESIGN.md.
 
 ## Language and style
 
