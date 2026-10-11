@@ -11,6 +11,7 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/beat"
 	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/config"
+	"github.com/siemenvdn/zigbeat/internal/run/engine"
 )
 
 type options struct {
@@ -76,7 +77,7 @@ func Run(args []string) int {
 	src := beat.Metronome{BPM: o.bpm, Lookahead: time.Second}
 	reason, code := "", 0
 	for panics := 0; ; {
-		r.eng = newEngine(r.cfg, limit, time.Now())
+		r.eng = engine.New(r.cfg, limit, time.Now())
 		why, panicked := r.play(ctx, src)
 		reason = why
 		if !panicked {

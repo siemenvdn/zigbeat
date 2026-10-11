@@ -9,6 +9,7 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/beat"
 	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/config"
+	"github.com/siemenvdn/zigbeat/internal/run/engine"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
@@ -25,7 +26,7 @@ type runner struct {
 	cfg      config.Config
 	link     link
 	events   chan event
-	eng      *engine
+	eng      *engine.Engine
 	snaps    map[string]z2m.State
 	snapJSON []byte
 }
@@ -90,7 +91,7 @@ func (r *runner) play(ctx context.Context, src beat.Source) (reason string, pani
 			return "interrupted", false
 		case <-r.link.Lost():
 			fmt.Printf("%s  mqtt connection lost (%v); reconnecting every 5 s\n", stamp(), r.link.Err())
-			r.eng.disconnected()
+			r.eng.Disconnected()
 			if !r.link.Reconnect(ctx) {
 				return "interrupted", false
 			}
@@ -99,17 +100,17 @@ func (r *runner) play(ctx context.Context, src beat.Source) (reason string, pani
 			if !ok {
 				return "the beat source ended", false
 			}
-			r.eng.beat(time.Now(), b)
+			r.eng.Beat(time.Now(), b)
 		case ev := <-r.events:
 			r.handle(ev)
 		case now := <-tick.C:
-			for _, s := range r.eng.due(now) {
+			for _, s := range r.eng.Due(now) {
 				r.publish(s)
 			}
 		case now := <-status.C:
-			fmt.Println(r.eng.status(now))
+			fmt.Println(r.eng.Status(now))
 		}
-		for _, n := range r.eng.takeNotes() {
+		for _, n := range r.eng.TakeNotes() {
 			fmt.Println(n)
 		}
 	}
@@ -117,18 +118,18 @@ func (r *runner) play(ctx context.Context, src beat.Source) (reason string, pani
 
 func (r *runner) handle(ev event) {
 	if ev.light == "" {
-		r.eng.zigbeeError(ev.at, ev.msg)
+		r.eng.ZigbeeError(ev.at, ev.msg)
 		return
 	}
-	r.eng.state(ev.light, ev.at)
+	r.eng.State(ev.light, ev.at)
 }
 
-func (r *runner) publish(s send) {
-	if s.get {
-		_ = r.link.Get(s.light, s.payload)
+func (r *runner) publish(s engine.Send) {
+	if s.Get {
+		_ = r.link.Get(s.Light, s.Payload)
 		return
 	}
-	_ = r.link.Set(s.light, s.payload)
+	_ = r.link.Set(s.Light, s.Payload)
 }
 
 // drain halts the engine and lets the messages in flight be confirmed, for at most d.
@@ -139,16 +140,16 @@ func (r *runner) drain(d time.Duration) {
 			fmt.Fprintf(os.Stderr, "%s  panic while stopping: %v\n", stamp(), p)
 		}
 	}()
-	r.eng.halt()
+	r.eng.Halt()
 	deadline := time.After(d)
 	tick := time.NewTicker(10 * time.Millisecond)
 	defer tick.Stop()
-	for r.eng.inFlight() > 0 {
+	for r.eng.InFlight() > 0 {
 		select {
 		case ev := <-r.events:
 			r.handle(ev)
 		case now := <-tick.C:
-			r.eng.due(now)
+			r.eng.Due(now)
 		case <-r.link.Lost():
 			return
 		case <-deadline:

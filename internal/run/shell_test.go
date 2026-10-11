@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/siemenvdn/zigbeat/internal/run/engine"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
@@ -106,7 +107,7 @@ func TestStartupStopsOnCtrlC(t *testing.T) {
 
 func TestDrainSurvivesAPanickedEngine(t *testing.T) {
 	r, _ := newShell(t)
-	r.eng = &engine{} // broken: any call into it panics
+	r.eng = &engine.Engine{} // broken: any call into it panics
 	r.drain(50 * time.Millisecond)
 }
 
