@@ -30,7 +30,7 @@ func parseFlags(args []string) (config, error) {
 	fs := flag.NewFlagSet("probe", flag.ContinueOnError)
 	fs.Usage = func() {
 		fmt.Fprintln(fs.Output(), "usage: zigbeat probe -targets <names> -canary <name> [flags]")
-		fmt.Fprintln(fs.Output(), "\nMeasures how many commands per second your Zigbee network handles. See docs/probe.md.")
+		fmt.Fprintln(fs.Output(), "\nMeasures how many commands per second your Zigbee network handles. See the README.")
 		fmt.Fprintln(fs.Output())
 		fs.PrintDefaults()
 	}

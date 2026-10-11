@@ -182,13 +182,84 @@ Light names are Zigbee2MQTT friendly names. A planned `zigbeat setup` reads `zig
 
 ## Getting started
 
-Today you can measure your network:
+Today you can measure your network with `zigbeat probe`. It finds how many light commands per second your network handles before bulbs start lagging or the rest of the house slows down. The engine will use the result as its budget.
+
+### What the probe does
+
+It sends colour commands to a few target bulbs in steps of 1, 2, 3, 4, 6, 8, 10 and 12 commands per second (all targets together), then climbs by 25% per step (15, 19, 24, 30, ...) up to at most 100. Each step takes 20 seconds with 10 seconds of rest in between. For every command it measures how long it takes until Zigbee2MQTT confirms the new state.
+
+Meanwhile it asks a **canary** device for its state about once per second. When the canary slows down, the rest of your house would feel the party.
+
+Safety rails:
+
+- **Baseline first:** 20 seconds with only the canary, to know what normal looks like.
+- **Self-check** before the first step: every target must return a recognisable confirmation, or the probe stops.
+- **Stops at the first overload.** A step fails when more than 5% of commands go unanswered, latency exceeds 1.5 s or keeps rising, the canary slows down clearly (3 times its resting latency or 300 ms more) or Zigbee2MQTT logs errors. The probe then waits for the network to settle and goes no higher.
+- **Warnings are measured twice.** A step with a warning (one lost command, one Zigbee2MQTT error, ...) is repeated at the same rate. A second warning ends the run.
+- **One command in flight per bulb.** The next command for a bulb only goes out after the previous one was confirmed. When all targets are still busy too often, that ends the climb too; more targets may go higher.
+- **Restores your bulbs** at the end, also after Ctrl-C. A second Ctrl-C quits at once without restoring; the starting state is printed as JSON at the top of the output for a manual restore.
+- **Unicast only**, never group commands.
+
+A run takes at least 5 minutes, a few more on a strong network. The targets flash in all colours the whole time.
+
+### Choosing targets and canary
+
+- **Targets:** two to four colour bulbs (xy colour) that zigbeat will drive later. Mains powered, not behind a switch that might be turned off.
+- **Canary:** a mains-powered device as far from the targets as possible, ideally a bulb or plug in another room. Not a battery device: those sleep and answer late. It is only read, never changed.
+
+Names are Zigbee2MQTT friendly names.
+
+### Running it
+
+zigbeat needs an MQTT account. With Mosquitto and a password file:
 
 ```bash
+docker exec mosquitto mosquitto_passwd -b /mosquitto/config/passwd zigbeat '<password>'
+docker kill -s HUP mosquitto
+```
+
+Then, on a machine close to the broker (ideally the same host, so network latency does not distort the result):
+
+```bash
+export MQTT_USER=zigbeat
+read -rs MQTT_PASSWORD && export MQTT_PASSWORD
 zigbeat probe -targets pendant-1,pendant-2,pendant-3 -canary hallway-ceiling
 ```
 
-Pick three colour bulbs as targets and, as canary, a mains-powered device as far away from them as possible. The probe needs 5 to 10 minutes, your target bulbs will flash in all colours, and they are restored afterwards. Full guide: [`docs/probe.md`](docs/probe.md).
+During the run, leave the target bulbs alone, also in Home Assistant. Following `docker logs -f zigbee2mqtt` in a second window is optional. Home Assistant's history records the flashing as a few hundred extra states, nothing more.
+
+### Reading the output
+
+One line per step:
+
+| Column | Meaning |
+|---|---|
+| `sent`, `ok`, `lost` | Commands sent, confirmed, and unanswered after 5 s |
+| `p50`, `p95`, `max` | Time until confirmation: typical, worst 5%, outlier |
+| `drift` | Did latency keep growing during the step? Then a queue is building up |
+| `canary p95`, `canary lost` | How the rest of the network is doing |
+| `z2m err` | Errors Zigbee2MQTT logged during the step |
+| `verdict` | `OK`, `WARN` (borderline, with reason), `STOP` (overloaded, probe stops) or `PARTIAL` (interrupted) |
+
+The summary lists the highest clean rate, a safe budget (half of it) and the latency at that load. The engine sends commands early by that latency so the light lands on the beat. Raw samples go to a CSV file.
+
+**Sanity check:** if `p50` stays below roughly 20 ms everywhere, Zigbee2MQTT confirms before the bulb received the command, and the probe only measured MQTT, not the radio. Please open an issue with your output.
+
+### Probe flags
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `-targets` | required | Comma-separated friendly names of colour bulbs to drive |
+| `-canary` | required | Friendly name of a far-away mains-powered device |
+| `-broker` | `127.0.0.1:1883` | MQTT broker |
+| `-user`, `-password` | `$MQTT_USER`, `$MQTT_PASSWORD` | MQTT credentials |
+| `-base` | `zigbee2mqtt` | Zigbee2MQTT base topic |
+| `-rates` | `1,2,3,4,6,8,10,12` | Starting steps in commands per second; after these the probe climbs by 25% per step |
+| `-step`, `-cooldown`, `-baseline` | `20s`, `10s`, `20s` | Durations |
+| `-timeout` | `5s` | Unanswered after this counts as lost |
+| `-mode` | `color` | `color`, `brightness` or `combo` (colour and brightness in one message, two Zigbee frames) |
+| `-out` | `zigbeat-probe-<time>.csv` | Raw samples |
+| `-yes` | off | Skip the 5 s start countdown |
 
 ## Roadmap
 
@@ -229,7 +300,7 @@ Pick three colour bulbs as targets and, as canary, a mains-powered device as far
 |---|---|
 | Can a Sendspin visualizer listen along while a Chromecast plays? | Beat source A |
 | How reliable is a tempo database for beat timing at a 2 to 5 s cadence? | Beat source B |
-| Does Zigbee2MQTT confirm a command only after the bulb answered, or earlier? (See the sanity check in `docs/probe.md`) | Trusting the probe's latency |
+| Does Zigbee2MQTT confirm a command only after the bulb answered, or earlier? (See the sanity check under [Reading the output](#reading-the-output)) | Trusting the probe's latency |
 | How much does the budget differ between coordinator types (EmberZNet, Z-Stack, deCONZ)? | Defaults for other users |
 | Should ZHA (Home Assistant's own Zigbee stack) be supported later? | Reach |
 
@@ -273,8 +344,6 @@ internal/
   mqtt/         minimal MQTT 3.1.1 client (QoS 0, keepalive, wildcards)
   z2m/          Zigbee2MQTT topics: set, get, state, bridge/logging
   probe/        the network probe
-docs/
-  probe.md
 ```
 
 ```bash
