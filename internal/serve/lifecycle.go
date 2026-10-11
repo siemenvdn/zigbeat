@@ -3,7 +3,6 @@ package serve
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/run"
@@ -28,14 +27,12 @@ func newest(ch chan bool, v bool) {
 	ch <- v
 }
 
-func stamp() string { return time.Now().Format(cli.Clock) }
-
 // loop serves until ctx is done, which only a signal does. A running show is
 // stopped and restored before it returns.
 func (s *server) loop(ctx context.Context) {
 	for {
 		s.put(state{Show: "OFF", Status: "off"})
-		fmt.Printf("%s  waiting for the switch in Home Assistant\n", stamp())
+		fmt.Printf("%s  waiting for the switch in Home Assistant\n", cli.Stamp())
 		if !s.waitOn(ctx) {
 			return
 		}
@@ -61,7 +58,7 @@ func (s *server) waitOn(ctx context.Context) bool {
 // ignored while it runs. A command that arrives during the restore waits in cmds
 // for the loop.
 func (s *server) play(ctx context.Context) {
-	fmt.Printf("%s  switched on in Home Assistant\n", stamp())
+	fmt.Printf("%s  switched on in Home Assistant\n", cli.Stamp())
 	s.put(state{Show: "ON", Status: "starting"})
 	showCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -72,7 +69,7 @@ func (s *server) play(ctx context.Context) {
 			select {
 			case on := <-s.cmds:
 				if !on {
-					fmt.Printf("%s  switched off in Home Assistant\n", stamp())
+					fmt.Printf("%s  switched off in Home Assistant\n", cli.Stamp())
 					s.put(state{Show: "OFF", Status: "stopping"})
 					cancel()
 					return

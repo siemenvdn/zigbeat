@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/config"
 	"github.com/siemenvdn/zigbeat/internal/mqtt"
 )
@@ -120,11 +121,11 @@ func (l *link) run(ctx context.Context) {
 		case <-l.wake:
 			_ = l.client.PublishRetained(stateTopic, l.current())
 		case <-l.client.Done():
-			fmt.Printf("%s  home assistant link lost (%v); reconnecting every 5 s\n", stamp(), l.client.Err())
+			fmt.Printf("%s  home assistant link lost (%v); reconnecting every 5 s\n", cli.Stamp(), l.client.Err())
 			if !l.redial(ctx) {
 				return
 			}
-			fmt.Printf("%s  home assistant link back\n", stamp())
+			fmt.Printf("%s  home assistant link back\n", cli.Stamp())
 		}
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/beat"
+	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/run/engine"
 )
 
@@ -32,12 +33,12 @@ func (r *runner) play(ctx context.Context, src beat.Source) (reason string, pani
 		case <-ctx.Done():
 			return "interrupted", false
 		case <-r.link.Lost():
-			fmt.Printf("%s  mqtt connection lost (%v); reconnecting every 5 s\n", stamp(), r.link.Err())
+			fmt.Printf("%s  mqtt connection lost (%v); reconnecting every 5 s\n", cli.Stamp(), r.link.Err())
 			r.eng.Disconnected()
 			if !r.link.Reconnect(ctx) {
 				return "interrupted", false
 			}
-			fmt.Printf("%s  reconnected\n", stamp())
+			fmt.Printf("%s  reconnected\n", cli.Stamp())
 		case b, ok := <-beats:
 			if !ok {
 				return "the beat source ended", false
@@ -81,7 +82,7 @@ func (r *runner) publish(s engine.Send) {
 func (r *runner) drain(d time.Duration) {
 	defer func() {
 		if p := recover(); p != nil {
-			fmt.Fprintf(os.Stderr, "%s  panic while stopping: %v\n", stamp(), p)
+			fmt.Fprintf(os.Stderr, "%s  panic while stopping: %v\n", cli.Stamp(), p)
 		}
 	}()
 	r.eng.Halt()

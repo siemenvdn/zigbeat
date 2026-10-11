@@ -10,9 +10,6 @@ import (
 // ErrUsage means the flag package already printed the problem and the usage.
 var ErrUsage = errors.New("usage")
 
-// Clock is the time format of every line a command prints.
-const Clock = "15:04:05"
-
 // NewFlagSet returns the flag set of a subcommand; -h prints usage, about and the flags.
 func NewFlagSet(name, usage, about string) *flag.FlagSet {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)

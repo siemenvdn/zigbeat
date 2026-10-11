@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/lights"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
@@ -27,7 +28,7 @@ func (r *runner) online() bool {
 	if !r.offline() {
 		return true
 	}
-	fmt.Printf("%s  mqtt connection lost; reconnecting for up to 30 s\n", stamp())
+	fmt.Printf("%s  mqtt connection lost; reconnecting for up to 30 s\n", cli.Stamp())
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	return r.link.Reconnect(ctx)

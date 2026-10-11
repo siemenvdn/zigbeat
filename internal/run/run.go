@@ -38,7 +38,7 @@ func (r *runner) show(ctx context.Context, src beat.Source, limit time.Duration)
 		if !panicked {
 			return why, 0
 		}
-		fmt.Fprintf(os.Stderr, "%s  %s\n", stamp(), why)
+		fmt.Fprintf(os.Stderr, "%s  %s\n", cli.Stamp(), why)
 		if panics++; panics == 3 {
 			return "the third panic; this is a bug, please report it", 1
 		}

@@ -3,7 +3,6 @@ package run
 import (
 	"time"
 
-	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/config"
 	"github.com/siemenvdn/zigbeat/internal/run/engine"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
@@ -63,8 +62,6 @@ func (r *runner) offline() bool {
 		return false
 	}
 }
-
-func stamp() string { return time.Now().Format(cli.Clock) }
 
 // report hands the stats to the Status hook, if there is one.
 func (r *runner) report(st engine.Stats) {
