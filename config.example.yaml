@@ -1,0 +1,30 @@
+# zigbeat configuration. Copy to config.yaml and adjust.
+# These names match cmd/fake-z2m; use your Zigbee2MQTT friendly names instead.
+
+mqtt:
+  broker: 127.0.0.1:1883
+  username: zigbeat
+  password_env: ZIGBEAT_MQTT_PASSWORD
+  base_topic: zigbee2mqtt
+
+budget:
+  max_rate: 4          # Zigbee frames per second: the budget zigbeat probe suggested
+  latency_ms: 105      # p50 latency zigbeat probe reported at that load
+  audio_offset_ms: 0   # positive when the speakers play later
+
+canary: far-lamp       # optional: a mains-powered device far from the lights
+
+fixtures:
+  - name: pendant
+    role: color
+    mode: alternate    # alternate (default), separate or together
+    lights: [lamp-1, lamp-2, lamp-3]
+  - name: floor-lamp
+    role: breathe
+    lights: [lamp-4]
+
+effects:
+  cadence: 2s                # minimum time between moments
+  brightness: 60             # percent, base level of color lights
+  breathe_range: [30, 80]    # percent
+  # palette: ["#ff2a6d", "#ff7b00", "#ffd400", "#00e5ff", "#2962ff", "#aa00ff"]
