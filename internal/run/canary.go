@@ -14,11 +14,6 @@ type canaryWatch struct {
 	last  time.Duration
 }
 
-// canaryLimit is the probe's rule: 3 times the resting latency or 300 ms more.
-func canaryLimit(slowest time.Duration) time.Duration {
-	return max(3*slowest, slowest+300*time.Millisecond)
-}
-
 func (c *canaryWatch) due(now time.Time) bool {
 	return c.name != "" && !c.wait && !now.Before(c.next)
 }

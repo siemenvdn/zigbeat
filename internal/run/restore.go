@@ -135,7 +135,7 @@ func (r *runner) canaryBaseline(ctx context.Context) time.Duration {
 		return 0
 	}
 	slowest := slices.Max(lat)
-	limit := canaryLimit(slowest)
+	limit := z2m.CanaryLimit(slowest)
 	fmt.Printf("canary %s at rest: slowest %d ms (backoff above %d ms)\n", r.cfg.Canary, slowest.Milliseconds(), limit.Milliseconds())
 	return limit
 }

@@ -3,6 +3,8 @@ package probe
 import (
 	"fmt"
 	"time"
+
+	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
 type stepResult struct {
@@ -24,11 +26,7 @@ type limits struct {
 }
 
 func (l limits) canaryLimit() time.Duration {
-	a, b := 3*l.canaryBaseP95, l.canaryBaseP95+300*time.Millisecond
-	if a > b {
-		return a
-	}
-	return b
+	return z2m.CanaryLimit(l.canaryBaseP95)
 }
 
 func evaluate(r *stepResult, cmds []sample, l limits) {

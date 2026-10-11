@@ -1,13 +1,13 @@
 package probe
 
 import (
-	"errors"
-	"flag"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/siemenvdn/zigbeat/internal/cli"
 )
 
 type config struct {
@@ -21,19 +21,11 @@ type config struct {
 	yes                          bool
 }
 
-// errUsage means the flag package already printed the problem and the usage.
-var errUsage = errors.New("usage")
-
 func parseFlags(args []string) (config, error) {
 	var cfg config
 	var targets, rates string
-	fs := flag.NewFlagSet("probe", flag.ContinueOnError)
-	fs.Usage = func() {
-		fmt.Fprintln(fs.Output(), "usage: zigbeat probe -targets <names> -canary <name> [flags]")
-		fmt.Fprintln(fs.Output(), "\nMeasures how many commands per second your Zigbee network handles. See the README.")
-		fmt.Fprintln(fs.Output())
-		fs.PrintDefaults()
-	}
+	fs := cli.NewFlagSet("probe", "usage: zigbeat probe -targets <names> -canary <name> [flags]",
+		"Measures how many commands per second your Zigbee network handles. See the README.")
 	fs.StringVar(&cfg.broker, "broker", "127.0.0.1:1883", "MQTT broker host:port")
 	fs.StringVar(&cfg.user, "user", "", "MQTT username (falls back to $MQTT_USER)")
 	fs.StringVar(&cfg.password, "password", "", "MQTT password (falls back to $MQTT_PASSWORD)")
@@ -48,11 +40,8 @@ func parseFlags(args []string) (config, error) {
 	fs.StringVar(&cfg.mode, "mode", "color", "command type: color, brightness or combo")
 	fs.StringVar(&cfg.out, "out", "zigbeat-probe-"+time.Now().Format("20060102-150405")+".csv", "CSV file for raw samples")
 	fs.BoolVar(&cfg.yes, "yes", false, "skip the 5 s start countdown")
-	if err := fs.Parse(args); err != nil {
-		if err == flag.ErrHelp {
-			return cfg, err
-		}
-		return cfg, errUsage
+	if err := cli.Parse(fs, args); err != nil {
+		return cfg, err
 	}
 
 	if cfg.user == "" {

@@ -4,7 +4,6 @@ package probe
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -16,14 +15,8 @@ import (
 // Run executes `zigbeat probe` with the given arguments and returns an exit code.
 func Run(args []string) int {
 	cfg, err := parseFlags(args)
-	switch {
-	case err == flag.ErrHelp:
-		return 0
-	case err == errUsage:
-		return 2
-	case err != nil:
-		fmt.Fprintln(os.Stderr, err)
-		return 2
+	if code, stop := cli.Exit(err); stop {
+		return code
 	}
 
 	ctx, stopSignals := signal.NotifyContext(context.Background(), cli.StopSignals...)

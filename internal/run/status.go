@@ -3,6 +3,8 @@ package run
 import (
 	"fmt"
 	"time"
+
+	"github.com/siemenvdn/zigbeat/internal/cli"
 )
 
 // status is the line printed every 10 s; it resets the frame counter.
@@ -17,5 +19,5 @@ func (e *engine) status(now time.Time) string {
 		canary = fmt.Sprintf("%d ms", e.canary.last.Milliseconds())
 	}
 	return fmt.Sprintf("%s  moments %d  dropped %d  frames/s %.1f  in flight %d  p50 %d ms  backoff %d  canary %s  z2m err %d",
-		now.Format("15:04:05"), e.plan.moments, e.dropped, rate, e.inFlight(), e.fl.estimate().Milliseconds(), e.bo.level, canary, e.errs)
+		now.Format(cli.Clock), e.plan.moments, e.dropped, rate, e.inFlight(), e.fl.estimate().Milliseconds(), e.bo.level, canary, e.errs)
 }

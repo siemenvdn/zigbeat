@@ -3,8 +3,6 @@ package run
 
 import (
 	"context"
-	"errors"
-	"flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -20,25 +18,14 @@ type options struct {
 	bpm    float64
 }
 
-// errUsage means the flag package already printed the problem and the usage.
-var errUsage = errors.New("usage")
-
 func parseFlags(args []string) (options, error) {
 	var o options
-	fs := flag.NewFlagSet("run", flag.ContinueOnError)
-	fs.Usage = func() {
-		fmt.Fprintln(fs.Output(), "usage: zigbeat run [-config config.yaml] [-bpm 120]")
-		fmt.Fprintln(fs.Output(), "\nRuns the light show to a metronome until Ctrl-C, then restores every light. See the README.")
-		fmt.Fprintln(fs.Output())
-		fs.PrintDefaults()
-	}
+	fs := cli.NewFlagSet("run", "usage: zigbeat run [-config config.yaml] [-bpm 120]",
+		"Runs the light show to a metronome until Ctrl-C, then restores every light. See the README.")
 	fs.StringVar(&o.config, "config", "config.yaml", "configuration file")
 	fs.Float64Var(&o.bpm, "bpm", 120, "metronome tempo, 30 to 300")
-	if err := fs.Parse(args); err != nil {
-		if err == flag.ErrHelp {
-			return o, err
-		}
-		return o, errUsage
+	if err := cli.Parse(fs, args); err != nil {
+		return o, err
 	}
 	if o.bpm < 30 || o.bpm > 300 {
 		return o, fmt.Errorf("-bpm must be 30 to 300")
@@ -49,14 +36,8 @@ func parseFlags(args []string) (options, error) {
 // Run executes `zigbeat run` and returns an exit code.
 func Run(args []string) int {
 	o, err := parseFlags(args)
-	switch {
-	case err == flag.ErrHelp:
-		return 0
-	case err == errUsage:
-		return 2
-	case err != nil:
-		fmt.Fprintln(os.Stderr, err)
-		return 2
+	if code, stop := cli.Exit(err); stop {
+		return code
 	}
 	cfg, err := config.Load(o.config)
 	if err != nil {

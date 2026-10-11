@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/beat"
+	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/config"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
@@ -197,7 +198,7 @@ func (e *engine) paused(now time.Time, why string) {
 }
 
 func (e *engine) note(now time.Time, s string) {
-	e.notes = append(e.notes, now.Format("15:04:05")+"  "+s)
+	e.notes = append(e.notes, now.Format(cli.Clock)+"  "+s)
 }
 
 // takeNotes returns the lines to print since the last call.

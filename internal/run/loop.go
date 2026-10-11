@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/beat"
+	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/config"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
@@ -65,7 +66,7 @@ func (r *runner) offline() bool {
 	}
 }
 
-func stamp() string { return time.Now().Format("15:04:05") }
+func stamp() string { return time.Now().Format(cli.Clock) }
 
 // play runs the show until ctx is done or the source ends. Network trouble never
 // ends it: backoff pauses, a lost connection is dialled again. A panic returns
