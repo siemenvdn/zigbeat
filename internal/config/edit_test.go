@@ -30,6 +30,16 @@ func TestSetChangesOnlyTheValue(t *testing.T) {
 	}
 }
 
+func TestSetValueWithHash(t *testing.T) {
+	f := edit(t, "canary: far-lamp       # optional\n")
+	if err := f.Set("canary", "lamp #2", "new"); err != nil {
+		t.Fatal(err)
+	}
+	if got := string(f.Bytes()); got != "canary: lamp #2        # new\n" {
+		t.Errorf("got %q", got)
+	}
+}
+
 func TestSetFlowMapping(t *testing.T) {
 	f := edit(t, "budget: {max_rate: 10, latency_ms: 50}   # flow style\n")
 	if err := f.Set("budget.max_rate", "7.5", ""); err != nil {
@@ -102,5 +112,12 @@ func TestSetBlock(t *testing.T) {
 	}
 	if got := string(f.Bytes()); got != "mqtt: {}\n\ncanary: far-lamp\n" {
 		t.Errorf("appended: %q", got)
+	}
+	f = edit(t, "fixtures: [\n  a,\n  b\n]\n  # about canary\ncanary: x\n")
+	if err := f.SetBlock("fixtures", "fixtures: []"); err != nil {
+		t.Fatal(err)
+	}
+	if got := string(f.Bytes()); got != "fixtures: []\n  # about canary\ncanary: x\n" {
+		t.Errorf("bracket on its own line: %q", got)
 	}
 }

@@ -8,12 +8,20 @@ import (
 )
 
 func find(m *yaml.Node, key string) (k, v *yaml.Node) {
-	for i := 0; i+1 < len(m.Content); i += 2 {
-		if m.Content[i].Value == key {
-			return m.Content[i], m.Content[i+1]
-		}
+	if i := keyIndex(m, key); i >= 0 {
+		return m.Content[i], m.Content[i+1]
 	}
 	return nil, nil
+}
+
+// keyIndex is the index of key in m.Content, or -1.
+func keyIndex(m *yaml.Node, key string) int {
+	for i := 0; i+1 < len(m.Content); i += 2 {
+		if m.Content[i].Value == key {
+			return i
+		}
+	}
+	return -1
 }
 
 // lastLine is the last line n covers, 1-based: the 0-based index right after it.

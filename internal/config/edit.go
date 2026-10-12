@@ -48,9 +48,10 @@ func (f *File) replace(v *yaml.Node, value, comment string, byHand func(string) 
 		return byHand("the value spans several lines")
 	}
 	col := commentAt(line, start)
-	line = align(line[:start]+value+line[start+len(v.Value):], start, col)
+	end := start + len(value) // a comment starts after the new value, even one with " #"
+	line = align(line[:start]+value+line[start+len(v.Value):], end, col)
 	if comment != "" {
-		line = withComment(line, start, comment, col)
+		line = withComment(line, end, comment, col)
 	}
 	f.lines[i] = line
 	return nil
@@ -89,17 +90,37 @@ func (f *File) SetBlock(key, text string) error {
 	if text != "" {
 		add = split([]byte(text))
 	}
-	k, v := find(m, key)
-	if k == nil {
+	i := keyIndex(m, key)
+	if i < 0 {
 		if text != "" {
 			f.lines = slices.Concat(f.lines, []string{""}, add)
 		}
 		return nil
 	}
-	from, to := k.Line-1, lastLine(v)
+	from, to := m.Content[i].Line-1, f.blockEnd(m, i)
 	if text == "" && to < len(f.lines) && strings.TrimSpace(f.lines[to]) == "" {
 		to++
 	}
 	f.lines = slices.Concat(f.lines[:from], add, f.lines[to:])
 	return nil
+}
+
+// blockEnd is the index right after the value of the top-level key at m.Content[i]:
+// up to the next key, less the blank lines and comments above that key. Unlike
+// lastLine it counts a closing bracket on a line of its own.
+func (f *File) blockEnd(m *yaml.Node, i int) int {
+	end := len(f.lines)
+	if next := i + 2; next < len(m.Content) {
+		end = m.Content[next].Line - 1
+	}
+	for end > 0 && filler(f.lines[end-1]) {
+		end--
+	}
+	return end
+}
+
+// filler reports whether line is blank or only a comment.
+func filler(line string) bool {
+	t := strings.TrimSpace(line)
+	return t == "" || strings.HasPrefix(t, "#")
 }

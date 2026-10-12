@@ -75,6 +75,11 @@ func (f *File) Save(check func([]byte) error) error {
 		tmp.Close()
 		return err
 	}
+	// Without it a power cut right after the rename can leave an empty config.
+	if err := tmp.Sync(); err != nil {
+		tmp.Close()
+		return err
+	}
 	if err := tmp.Close(); err != nil {
 		return err
 	}

@@ -26,9 +26,6 @@ Small known issues, found in the reviews of phases 1a to 2 and left for later. P
 
 - **The fixture column is a guess.** Setup's table shows the fixture each light would get if every offered light were chosen (`arrange` over all of them in `internal/setup/setup.go`). With only some chosen, a light alone in its stem gets a fixture named after itself instead.
 - **A retained state counts as a canary answer.** When Zigbee2MQTT retains device states, the first read of a canary in `mqttBridge.Read` (`internal/setup/bridge.go`) can be answered by the retained message, with a latency near 0 ms.
-- **A closing bracket on its own line.** `lastLine` in `internal/config/yamltext.go` does not count a `]` or `}` on a line of its own, so `SetBlock` leaves it behind; the save check refuses the result, and setup cannot rewrite such a config.
-- **A new value with " #"** misplaces the comment in `File.Set` (`align` and `withComment` in `internal/config/yamltext.go`). Zigbee2MQTT names have no `#`, so only a hand-made call meets it.
-- **No fsync before the rename** in `File.Save` (`internal/config/file.go`): a power cut right after a save can leave an empty config on some file systems.
 - **`-lights a,a`** fails with a duplicate-fixture error instead of taking the light once, as the question does.
 - **Fixture names from unrenamed devices.** `stem` turns `0x0017880104e45518` into `0x0017880104e`, so two unrenamed bulbs are proposed as one oddly named fixture.
 - **The generated definition in `internal/z2m/testdata/bridge-devices.json`** belongs to an end device, so rule 1 refuses it before the rule about the source of the definition.
