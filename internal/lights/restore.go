@@ -30,18 +30,21 @@ func Restore(c Conn, snaps map[string]z2m.State, lights []string, rate float64) 
 	return nil
 }
 
-// restore sends the payloads for l in order, each confirmed by a state, three
-// tries each. online is false when the broker could not be reached.
+// restoreTries gives a payload lost on a busy mesh another chance or two.
+const restoreTries = 3
+
+// restore sends the payloads for l in order, each confirmed by a state, with
+// restoreTries tries each. online is false when the broker could not be reached.
 func restore(c Conn, l string, s z2m.State, rate float64) (ok, online bool) {
 	for _, p := range payloads(s) {
 		ok = false
-		for attempt := 0; attempt < 3 && !ok; attempt++ {
+		for attempt := 0; attempt < restoreTries && !ok; attempt++ {
 			if !c.Online() {
 				return false, false
 			}
 			sent := time.Now()
 			_ = c.Set(l, p)
-			_, ok = c.Await(context.Background(), l, sent, 3*time.Second)
+			_, ok = c.Await(context.Background(), l, sent, answerWait)
 			time.Sleep(pace(z2m.Frames(p), rate) - time.Since(sent))
 		}
 		if !ok {

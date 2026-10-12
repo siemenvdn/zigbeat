@@ -18,7 +18,7 @@ func payloads(s z2m.State) []map[string]any {
 		return []map[string]any{on}
 	}
 	off := map[string]any{"state": "OFF", "transition": 0}
-	if len(on) == 2 {
+	if len(on) == len(off) { // no level or colour to set first
 		return []map[string]any{off}
 	}
 	return []map[string]any{on, off}

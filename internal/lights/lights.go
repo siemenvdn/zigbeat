@@ -20,6 +20,10 @@ type Conn interface {
 	Online() bool
 }
 
+// answerWait is how long a read or a set waits for the state: far above a normal
+// answer, short enough that a dead light does not hold up the others.
+const answerWait = 3 * time.Second
+
 // pace is the time frames take at rate frames per second.
 func pace(frames int, rate float64) time.Duration {
 	return time.Duration(float64(frames) / rate * float64(time.Second))
