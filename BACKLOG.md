@@ -9,7 +9,6 @@ Small known issues, found in the reviews of phases 1a to 3c and left for later. 
 - **Five album colours for six.** `AlbumColors` (`internal/run/show/album.go`) fills up with the dominant hue ±30°, ±60° and ±90°. A cover with hues between those steps blocks two of them each: red, amber and pink (0°, 45°, 315°) with `album_colors: 6` give five colours. Add ±120°, ±150° and 180° to `fillSteps`; then six always fit.
 - **No test that a dropped part leaves the rest.** Each part of a large unit is its own moment unit (`internal/run/show/parts.go`), but only the separate unit ids are tested. An engine test that drops the first part as late and still sends the second would pin it.
 - **Build counts a dropped unit as changed.** A moment dropped as late still sets its colour in `Planner.current` (`internal/run/show/kick.go`), so `build` takes that light for done and skips it until the target moves on; the light keeps its old colour for a round.
-- **A pickup beat can be a moment just before the downbeat's.** `spacing` (`internal/run/show/moments.go`) keeps the interval in force until a moment of both grids, so the pickup beats of a new track (negative indexes) are moments on the old grid. After a 120 BPM track, a 128 BPM one can play moments at beat -4 and 0, 1.9 s apart at a cadence of 2 s; after a track below 60 BPM, closer still. The budget still caps it. Idea: after a `Track`, a negative index is a moment only when it is on the wanted grid too.
 
 ## Music Assistant source and fake-ma
 

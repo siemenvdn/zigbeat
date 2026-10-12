@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/siemenvdn/zigbeat/internal/music"
 	"github.com/siemenvdn/zigbeat/internal/run/flow"
 )
 
@@ -38,6 +39,21 @@ func TestOnlyMomentsPlan(t *testing.T) {
 				t.Errorf("backoff %d keeps the interval: beat %d is a moment", backoff, i)
 			}
 		}
+	}
+}
+
+// TestPickupBeatsFollowTheNewGrid: a pickup beat before a new track's first
+// downbeat is a moment only on that track's grid too, so the track does not
+// start with two moments closer than its interval.
+func TestPickupBeatsFollowTheNewGrid(t *testing.T) {
+	p := NewPlanner(testConfig("separate"))
+	p.Beat(moment(400), 0)         // 120 BPM: a moment every 4 beats
+	p.Track(music.Track{BPM: 128}) // a moment every 8 beats
+	if ps := p.Beat(moment(-4), 0); ps != nil {
+		t.Error("beat -4 is on the old grid only")
+	}
+	if ps := p.Beat(moment(0), 0); len(ps) == 0 {
+		t.Error("the downbeat is a moment")
 	}
 }
 

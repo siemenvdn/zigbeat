@@ -110,7 +110,7 @@ A moment falls every 1, 2, 4, 8 or 16 beats: the shortest that lasts at least `e
 | 121 to 240 BPM | Every 2 bars |
 | 241 to 300 BPM | Every 4 bars |
 
-`effects.cadence` is 1 to 16 s; 16 beats last 16 s at 60 BPM. A new interval, from the pace or the tempo, starts on a moment of both the old and the new one, so a breathe fade always ends on a moment.
+`effects.cadence` is 1 to 16 s; 16 beats last 16 s at 60 BPM. A new interval, from the pace or the tempo, starts on a moment of both the old and the new one, so a breathe fade always ends on a moment. A pickup beat before a new track's first downbeat is a moment only on that track's grid too.
 
 ### `color` bulbs
 
