@@ -29,7 +29,7 @@ func (e *Engine) failed(now time.Time, light string) bool {
 		return false
 	}
 	e.away[light] = now.Add(retryAway)
-	delete(e.queue, light)
+	e.clearQueue(func(l string) bool { return l == light })
 	e.note(now, light+" does not answer; leaving it alone and retrying every "+cli.Seconds(retryAway))
 	return true
 }

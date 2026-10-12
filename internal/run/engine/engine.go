@@ -79,7 +79,7 @@ func (e *Engine) Halt() {
 // so failure counts start over and lights left alone are read again at once.
 func (e *Engine) Disconnected() {
 	e.fl.Clear()
-	clear(e.queue)
+	e.clearQueue(every)
 	e.canary.Forget()
 	clear(e.fails)
 	for l := range e.away {

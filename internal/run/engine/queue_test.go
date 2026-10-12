@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/music"
+	"github.com/siemenvdn/zigbeat/internal/run/flow"
 	"github.com/siemenvdn/zigbeat/internal/run/show"
 )
 
@@ -111,4 +112,31 @@ func kicked(e *Engine) string {
 		}
 	}
 	return ""
+}
+
+// TestAClearedKickIsPaintedAgain: a pause, a dropped connection and a light
+// left alone clear the queue; build still paints the light whose kick never left.
+func TestAClearedKickIsPaintedAgain(t *testing.T) {
+	for name, clearIt := range map[string]func(e *Engine, light string){
+		"paused":       func(e *Engine, _ string) { e.paused(t0, "test") },
+		"disconnected": func(e *Engine, _ string) { e.Disconnected() },
+		"left alone": func(e *Engine, l string) {
+			e.fails[l] = awayAfter - 1
+			e.failed(t0, l)
+			delete(e.away, l) // it answers again
+		},
+	} {
+		e := started(t, "separate", 100)
+		eff := testConfig("separate").Effects
+		eff.Variant = "build"
+		e.SetEffects(t0, eff)
+		e.Music(t0, moment(8))
+		first := kicked(e)
+		clearIt(e, first)
+		e.bo = flow.Backoff{}
+		e.Music(t0, moment(12))
+		if got := kicked(e); got != first {
+			t.Errorf("%s: build painted %q, want %q again", name, got, first)
+		}
+	}
 }

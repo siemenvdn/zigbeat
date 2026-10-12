@@ -72,3 +72,22 @@ func (e *Engine) drop(late func(queued) bool) int {
 	}
 	return n
 }
+
+// clearQueue empties the queue of every light for which gone holds; the
+// planner hears of each colour change that will not go.
+func (e *Engine) clearQueue(gone func(light string) bool) {
+	for l, q := range e.queue {
+		if !gone(l) {
+			continue
+		}
+		for _, m := range q {
+			if m.Drop {
+				e.plan.Missed(m.Message)
+			}
+		}
+		delete(e.queue, l)
+	}
+}
+
+// every is a clearQueue filter for every light.
+func every(string) bool { return true }

@@ -20,7 +20,7 @@ func (e *Engine) raise(now time.Time, max int, why string) {
 }
 
 func (e *Engine) paused(now time.Time, why string) {
-	clear(e.queue)
+	e.clearQueue(every)
 	e.fl.Forget()
 	e.note(now, "paused: "+why+"; the show resumes after "+cli.Seconds(flow.RecoverAfter)+" of quiet")
 }
