@@ -36,6 +36,7 @@ type message struct {
 	f              frame
 	t1, t2, t3, t4 int64 // a time answer, in µs
 	palette        []music.RGB
+	samples        []byte // of a waveform frame, which ends at f.ts
 	err            error
 }
 
@@ -66,7 +67,7 @@ func parse(m ws.Message, now int64) message {
 		case m.Data[0] == beatTag && len(m.Data) >= beatLen:
 			return message{kind: kindBeat, f: frame{ts: ts, down: m.Data[headerLen]&downBit != 0}}
 		case m.Data[0] == waveTag:
-			return message{kind: kindWave}
+			return message{kind: kindWave, f: frame{ts: ts}, samples: m.Data[headerLen:]}
 		}
 		return message{}
 	}

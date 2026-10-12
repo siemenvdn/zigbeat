@@ -44,7 +44,6 @@ func Run(args []string) int {
 // moment it should sound, beats arriving ahead, until ctx is done or the source ends.
 func print(ctx context.Context, events <-chan music.Event, offset time.Duration, e config.Effects, w io.Writer) {
 	var due []music.Beat
-	bpm := float64(music.DefaultBPM)
 	t := time.NewTimer(time.Hour) // stopped at once; any duration works
 	t.Stop()
 	for {
@@ -60,7 +59,6 @@ func print(ctx context.Context, events <-chan music.Event, offset time.Duration,
 				due = nil
 				t.Stop()
 			case music.Track:
-				bpm = ev.BPM
 				fmt.Fprintf(w, "%s  %s\n", time.Now().Format(cli.ClockMS), trackLine(ev, e))
 			case music.Beat:
 				if due = append(due, ev); len(due) == 1 {
@@ -69,7 +67,7 @@ func print(ctx context.Context, events <-chan music.Event, offset time.Duration,
 			}
 		case <-t.C:
 			b := due[0]
-			fmt.Fprintf(w, "%s  bar %d beat %d  %.1f BPM\n", b.At.Add(offset).Format(cli.ClockMS), (b.Index-b.InBar)/music.PerBar, b.InBar+1, bpm)
+			fmt.Fprintf(w, "%s  bar %d beat %d  energy %.2f\n", b.At.Add(offset).Format(cli.ClockMS), (b.Index-b.InBar)/music.PerBar, b.InBar+1, b.Energy)
 			if due = due[1:]; len(due) > 0 {
 				t.Reset(time.Until(due[0].At.Add(offset)))
 			}

@@ -23,6 +23,7 @@ type session struct {
 	n    *notes
 	clk  *clock
 	g    grid
+	m    *meter
 
 	synced, announced  bool // announced: the track's burst of beats is complete and reported
 	pings              int
@@ -98,6 +99,7 @@ func (s *session) handle(ctx context.Context, m message) (wait time.Duration, do
 			s.arm()
 		}
 	case kindWave:
+		s.m.add(m.f.ts, m.samples)
 		if s.waveSince.IsZero() {
 			s.waveSince = time.Now()
 		}
@@ -129,6 +131,7 @@ func (s *session) handle(ctx context.Context, m message) (wait time.Duration, do
 func (s *session) forget(ctx context.Context, note string) bool {
 	delivered := s.g.started
 	s.g.clear()
+	s.m.reset()
 	s.emit.Stop()
 	s.report.Stop()
 	s.announced, s.beatSeen, s.hinted, s.waveSince, s.sent = false, false, false, time.Time{}, nil

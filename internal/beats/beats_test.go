@@ -16,15 +16,15 @@ import (
 func TestPrintAtTheBeat(t *testing.T) {
 	events := make(chan music.Event, 3)
 	events <- music.Track{BPM: 124}
-	events <- music.Beat{At: time.Now().Add(50 * time.Millisecond), Index: -1, InBar: 3}
-	events <- music.Beat{At: time.Now().Add(100 * time.Millisecond), Index: 0, InBar: 0}
+	events <- music.Beat{At: time.Now().Add(50 * time.Millisecond), Index: -1, InBar: 3, Energy: music.UnknownEnergy}
+	events <- music.Beat{At: time.Now().Add(100 * time.Millisecond), Index: 0, InBar: 0, Energy: 1}
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
 	defer cancel()
 	var out bytes.Buffer
 	print(ctx, events, 20*time.Millisecond, config.DefaultEffects, &out)
 	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
 	if len(lines) != 3 || !strings.HasSuffix(lines[0], "track 124.0 BPM, no album colours; the palette plays") ||
-		!strings.HasSuffix(lines[1], "bar -1 beat 4  124.0 BPM") || !strings.HasSuffix(lines[2], "bar 0 beat 1  124.0 BPM") {
+		!strings.HasSuffix(lines[1], "bar -1 beat 4  energy 0.50") || !strings.HasSuffix(lines[2], "bar 0 beat 1  energy 1.00") {
 		t.Errorf("lines %q", lines)
 	}
 }
@@ -53,7 +53,7 @@ func TestClearDropsPendingLines(t *testing.T) {
 	var out bytes.Buffer
 	print(ctx, events, 0, config.DefaultEffects, &out)
 	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
-	if len(lines) != 1 || !strings.HasSuffix(lines[0], "bar 0 beat 1  120.0 BPM") {
+	if len(lines) != 1 || !strings.HasSuffix(lines[0], "bar 0 beat 1  energy 0.00") {
 		t.Errorf("a clear drops the beats not printed yet: %q", lines)
 	}
 }

@@ -3,11 +3,18 @@ package ma
 import (
 	"context"
 	"time"
+
+	"github.com/siemenvdn/zigbeat/internal/music"
 )
 
 // minLeadPct of the lead must be left when a beat is sent; a later one came
 // too late to plan like the rest, and is numbered but not sent.
 const minLeadPct = 90
+
+// bar is the length of a bar at the track's tempo, in µs on MA's clock.
+func (s *session) bar() int64 {
+	return int64(music.PerBar * float64(time.Minute.Microseconds()) / s.g.bpm())
+}
 
 // arm sets the timer for the next beat, one lead before it sounds. Nothing is
 // delivered before the burst is complete: a beat numbered earlier could miss
@@ -36,6 +43,7 @@ func (s *session) deliver(ctx context.Context) bool {
 			break
 		}
 		b := s.g.deliver(at)
+		b.Energy = s.m.energy(f.ts, s.bar())
 		if lead < s.src.lead()*minLeadPct/100 {
 			continue
 		}
