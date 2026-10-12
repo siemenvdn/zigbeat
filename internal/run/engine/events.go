@@ -53,8 +53,7 @@ func (e *Engine) State(light string, at time.Time) {
 		return
 	}
 	if e.fl.Rising() {
-		m, _ := e.fl.Median()
-		e.raise(at, flow.PauseLevel, fmt.Sprintf("latency p50 %d ms per frame, show started at %d ms", m.Milliseconds(), e.fl.Base().Milliseconds()))
+		e.raise(at, flow.PauseLevel, fmt.Sprintf("latency p50 %d ms per queued frame, show started at %d ms", e.fl.Served().Milliseconds(), e.fl.Base().Milliseconds()))
 	}
 }
 

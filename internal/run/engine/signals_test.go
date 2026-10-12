@@ -29,6 +29,39 @@ func TestRisingLatencyBacksOff(t *testing.T) {
 	}
 }
 
+// TestBurstsAreNoRisingLatency: messages that leave together wait for each
+// other at a coordinator that sends one frame at a time. A moment of four
+// one-frame messages after a phrase of single kicks is no slower network.
+func TestBurstsAreNoRisingLatency(t *testing.T) {
+	e := New(testConfig("separate"), 0, t0)
+	const service = 90 // ms per frame, as fake-z2m's default
+	for i := 0; i < 20; i++ {
+		e.fl.Add("lamp-1", at(i*1000), 2) // a kick alone sets the baseline
+		e.State("lamp-1", at(i*1000+2*service))
+	}
+	burst := func(i, service int) {
+		ls := []string{"lamp-1", "lamp-2", "lamp-3", "lamp-4"}
+		for _, l := range ls {
+			e.fl.Add(l, at(i*1000), 1)
+		}
+		for k, l := range ls {
+			e.State(l, at(i*1000+(k+1)*service))
+		}
+	}
+	for i := 20; i < 40; i++ {
+		burst(i, service)
+	}
+	if e.bo.Level() != 0 {
+		t.Fatalf("the same coordinator, only busier moments: level %d", e.bo.Level())
+	}
+	for i := 40; i < 60; i++ {
+		burst(i, 3*service)
+	}
+	if e.bo.Level() == 0 {
+		t.Fatal("a coordinator three times slower under the same moments backs off")
+	}
+}
+
 func TestPauseForgetsOldLatency(t *testing.T) {
 	e := New(testConfig("separate"), 0, t0)
 	confirm := func(ms, latency int) {
