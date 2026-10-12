@@ -14,11 +14,9 @@ func (s *session) track(ctx context.Context) bool {
 	if !s.announced || s.sent != nil && s.sent.BPM == t.BPM && slices.Equal(s.sent.Palette, t.Palette) {
 		return true
 	}
-	select {
-	case s.out <- t:
-		s.sent = &t
-		return true
-	case <-ctx.Done():
+	if !s.send(ctx, t) {
 		return false
 	}
+	s.sent = &t
+	return true
 }

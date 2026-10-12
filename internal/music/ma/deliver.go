@@ -47,12 +47,20 @@ func (s *session) deliver(ctx context.Context) bool {
 		if lead < s.src.lead()*minLeadPct/100 {
 			continue
 		}
-		select {
-		case s.out <- b:
-		case <-ctx.Done():
+		if !s.send(ctx, b) {
 			return false
 		}
 	}
 	s.arm()
 	return true
+}
+
+// send hands ev to the show. It returns false when ctx ended the wait.
+func (s *session) send(ctx context.Context, ev music.Event) bool {
+	select {
+	case s.out <- ev:
+		return true
+	case <-ctx.Done():
+		return false
+	}
 }

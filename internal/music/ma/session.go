@@ -136,13 +136,5 @@ func (s *session) forget(ctx context.Context, note string) bool {
 	s.report.Stop()
 	s.announced, s.beatSeen, s.hinted, s.waveSince, s.sent = false, false, false, time.Time{}, nil
 	s.n.say("%s", note)
-	if !delivered {
-		return true
-	}
-	select {
-	case s.out <- music.Clear{}:
-		return true
-	case <-ctx.Done():
-		return false
-	}
+	return !delivered || s.send(ctx, music.Clear{})
 }
