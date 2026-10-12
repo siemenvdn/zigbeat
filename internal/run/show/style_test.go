@@ -3,7 +3,6 @@ package show
 import (
 	"slices"
 	"testing"
-	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/config"
 	"github.com/siemenvdn/zigbeat/internal/music"
@@ -78,14 +77,14 @@ func TestSlowerPaceStartsOnASharedMoment(t *testing.T) {
 	p := NewPlanner(testConfig("separate"))
 	p.Start(t0)
 	p.Beat(moment(4), 0)
-	p.SetEffects(style(func(e *config.Effects) { e.Cadence = 8 * time.Second }))
+	p.SetEffects(style(func(e *config.Effects) { e.Pace = 16 }))
 	var got []int
 	for i := 5; i <= 40; i++ {
 		if p.Beat(moment(i), 0) != nil {
 			got = append(got, i)
 		}
 	}
-	// 8 s at 120 BPM is 16 beats; the grid of 4 holds until beat 16, on both.
+	// 16 beats; the grid of 4 holds until beat 16, on both.
 	if want := []int{8, 12, 16, 32}; !slices.Equal(got, want) {
 		t.Errorf("moments at %v, want %v", got, want)
 	}

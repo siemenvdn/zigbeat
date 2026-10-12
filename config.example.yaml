@@ -29,9 +29,10 @@ fixtures:
     lights: [lamp-4]
 
 effects:
-  cadence: 2s                # minimum time between moments, 1s to 16s
+  pace: 2                    # beats between moments: 1, 2, 4 (a bar), 8 or 16
   brightness: 60             # percent, base level of color lights
-  breathe_range: [30, 80]    # percent
+  breathe_range: [10, 100]   # percent: breathe lights pulse or flip between these
+  breathe_variant: rotation  # rotation (pulse, then flip and pulse per 16 bars), pulse or flip
   album_palette: true        # the colours of the album art when Music Assistant has them; false keeps the palette
   album_colors: 3            # colours made from the album art, 2 to 6
   variant: rotation          # rotation (build, then walk, shuffle and swap per 16 bars), walk, shuffle, swap or build

@@ -4,9 +4,9 @@ import (
 	"errors"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/config"
+	"github.com/siemenvdn/zigbeat/internal/music"
 )
 
 // The style topics. Home Assistant sets each setting on its own topic,
@@ -61,8 +61,8 @@ var settings = []setting{
 		func(e *config.Effects) *string { return &e.Variant }, func(p string) (string, error) { return p, nil }),
 	field("brightness", slider("Brightness", "mdi:brightness-6", config.MinPercent, config.MaxPercent, "%"),
 		func(e *config.Effects) *int { return &e.Brightness }, whole),
-	field("cadence", slider("Pace", "mdi:metronome", config.MinCadence.Seconds(), config.MaxCadence.Seconds(), "s"),
-		func(e *config.Effects) *time.Duration { return &e.Cadence }, seconds),
+	field("pace", map[string]any{"platform": "select", "name": "Pace", "icon": "mdi:metronome", "options": paceLabels()},
+		func(e *config.Effects) *int { return &e.Pace }, pace),
 }
 
 // slider is a number entity on a slider, in whole steps.
@@ -125,12 +125,24 @@ func whole(p string) (int, error) {
 	return n, nil
 }
 
-// seconds reads Home Assistant's seconds, such as 2 or 2.5. As a duration it
-// refuses NaN, Inf, exponents and overflow.
-func seconds(p string) (time.Duration, error) {
-	d, err := time.ParseDuration(p + "s")
-	if err != nil {
-		return 0, errors.New("not a number of seconds")
+// paceLabel is how Home Assistant shows a pace: every beat, every 2 beats, every bar.
+func paceLabel(beats int) string { return "every " + music.Span(beats) }
+
+// paceLabels are the select's options, one per pace.
+func paceLabels() []string {
+	ls := make([]string, len(config.Paces))
+	for i, n := range config.Paces {
+		ls[i] = paceLabel(n)
 	}
-	return d, nil
+	return ls
+}
+
+// pace reads a pace label back to its beats.
+func pace(p string) (int, error) {
+	for _, n := range config.Paces {
+		if paceLabel(n) == p {
+			return n, nil
+		}
+	}
+	return 0, errors.New("not a pace")
 }

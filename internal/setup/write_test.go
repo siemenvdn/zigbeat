@@ -72,9 +72,10 @@ fixtures:
     lights: [floor-lamp]
 
 # effects:
-#   cadence: 2s
+#   pace: 2
 #   brightness: 60
-#   breathe_range: [30, 80]
+#   breathe_range: [10, 100]
+#   breathe_variant: rotation
 #   album_palette: true
 #   album_colors: 3
 #   variant: rotation

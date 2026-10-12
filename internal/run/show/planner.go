@@ -43,7 +43,7 @@ type Planner struct {
 	rng          *rand.Rand
 	variantState // deck, turn and target of the variant that plays
 	moments      int
-	cadence      time.Duration
+	pace         int     // effects.pace: beats between moments
 	every        int     // beats between moments in force; 0 before the first beat
 	bpm          float64 // the tempo of the current track
 	base         int     // Zigbee2MQTT brightness 0..z2m.MaxBrightness

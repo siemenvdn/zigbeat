@@ -5,7 +5,6 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/config"
 )
@@ -18,7 +17,7 @@ func defaults() config.Effects {
 
 func TestStyleEntities(t *testing.T) {
 	cs := decode(t, Discovery("v1"))["components"].(map[string]any)
-	for _, key := range []string{"album_palette", "album_colors", "variant", "brightness", "cadence"} {
+	for _, key := range []string{"album_palette", "album_colors", "variant", "brightness", "pace"} {
 		c := cs[key].(map[string]any)
 		topic := StyleTopic(key)
 		if c["command_topic"] != topic || c["retain"] != true || strings.Replace(StyleFilter, "+", key, 1) != topic || StyleKey(topic) != key {
@@ -28,7 +27,6 @@ func TestStyleEntities(t *testing.T) {
 	for key, want := range map[string][2]float64{
 		"album_colors": {config.MinAlbumColors, config.MaxAlbumColors},
 		"brightness":   {config.MinPercent, config.MaxPercent},
-		"cadence":      {config.MinCadence.Seconds(), config.MaxCadence.Seconds()},
 	} {
 		c := cs[key].(map[string]any)
 		if c["platform"] != "number" || c["min"] != want[0] || c["max"] != want[1] || c["mode"] != "slider" {
@@ -41,6 +39,13 @@ func TestStyleEntities(t *testing.T) {
 	}
 	if !slices.Equal(opts, config.Variants) {
 		t.Errorf("variant options %v", opts)
+	}
+	opts = nil
+	for _, o := range cs["pace"].(map[string]any)["options"].([]any) {
+		opts = append(opts, o.(string))
+	}
+	if want := []string{"every beat", "every 2 beats", "every bar", "every 2 bars", "every 4 bars"}; cs["pace"].(map[string]any)["platform"] != "select" || !slices.Equal(opts, want) {
+		t.Errorf("pace options %v, want %v", opts, want)
 	}
 }
 
@@ -62,12 +67,10 @@ func TestChoose(t *testing.T) {
 		{"brightness", "150", "effects.brightness must be 1 to 100"},
 		{"brightness", "1e3", "not a whole number"},
 		{"brightness", "", "60"},
-		{"cadence", "2.5", "2.5s"},
-		{"cadence", "16", "16s"},
-		{"cadence", "17", "effects.cadence must be 1s to 16s"},
-		{"cadence", "NaN", "not a number of seconds"},
-		{"cadence", "Inf", "not a number of seconds"},
-		{"cadence", "1e3", "not a number of seconds"},
+		{"pace", "every bar", "4"},
+		{"pace", "every 3 beats", "not a pace"},
+		{"pace", "4", "not a pace"},
+		{"pace", "", "2"},
 		{"speed", "3", "no such setting"},
 	} {
 		got, err := Choose(cur, base, c.key, c.payload)
@@ -85,11 +88,11 @@ func TestChoose(t *testing.T) {
 
 func TestStyleInTheState(t *testing.T) {
 	e := defaults()
-	e.Cadence = 2500 * time.Millisecond
+	e.Pace = 4
 	st := Off
 	st.Style = StyleOf(e)
 	m := decode(t, st.JSON())
-	want := map[string]any{"show": "OFF", "album_palette": "ON", "album_colors": 3.0, "variant": "rotation", "brightness": 60.0, "cadence": 2.5}
+	want := map[string]any{"show": "OFF", "album_palette": "ON", "album_colors": 3.0, "variant": "rotation", "brightness": 60.0, "pace": "every bar"}
 	for k, v := range want {
 		if m[k] != v {
 			t.Errorf("%s = %v, want %v", k, m[k], v)

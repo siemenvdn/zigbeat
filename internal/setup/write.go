@@ -74,7 +74,8 @@ func newConfig(path string, m config.MQTT, canary string, fs []config.Fixture, t
 	}
 	b.WriteString("\n" + renderFixtures(fs))
 	e := config.DefaultEffects
-	fmt.Fprintf(&b, "\n# effects:\n#   cadence: %v\n#   brightness: %d\n#   breathe_range: [%d, %d]\n", e.Cadence, e.Brightness, e.BreatheRange[0], e.BreatheRange[1])
+	fmt.Fprintf(&b, "\n# effects:\n#   pace: %d\n#   brightness: %d\n#   breathe_range: [%d, %d]\n#   breathe_variant: %s\n",
+		e.Pace, e.Brightness, e.BreatheRange[0], e.BreatheRange[1], e.BreatheVariant)
 	fmt.Fprintf(&b, "#   album_palette: %t\n#   album_colors: %d\n#   variant: %s\n", e.AlbumPalette, e.AlbumColors, e.Variant)
 	b.WriteString("\n# music_assistant:\n#   url: ws://music-assistant:8095\n#   token_env: ZIGBEAT_MA_TOKEN\n")
 	return b.String()

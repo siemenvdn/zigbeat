@@ -12,7 +12,7 @@ import (
 // changes nothing.
 func (p *Planner) SetEffects(e config.Effects) {
 	p.fallback, p.album, p.albumColors = e.Palette, e.AlbumPalette, e.AlbumColors
-	p.setting, p.cadence = e.Variant, e.Cadence
+	p.setting, p.pace = e.Variant, e.Pace
 	p.base = level(e.Brightness)
 	p.kick = level(min(e.Brightness+kickPoints, config.MaxPercent))
 	p.choose()

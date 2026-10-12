@@ -7,7 +7,9 @@ import (
 )
 
 func TestBreathe(t *testing.T) {
-	p := NewPlanner(testConfig("separate"))
+	c := testConfig("separate")
+	c.Effects.BreatheRange = [2]int{30, 80}
+	p := NewPlanner(c)
 	var moves []string
 	for i := 0; i < 5; i++ {
 		for _, pl := range p.Beat(moment(4*i), 0) {

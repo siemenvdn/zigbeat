@@ -52,6 +52,9 @@ func ParseDraft(data []byte, getenv func(string) string) (Config, error) {
 }
 
 func parse(data []byte, getenv func(string) string, r rules) (Config, error) {
+	if err := removed(data); err != nil {
+		return Config{}, err
+	}
 	c := Config{
 		MQTT:    MQTT{Broker: mqtt.DefaultBroker, BaseTopic: z2m.DefaultBaseTopic},
 		Effects: DefaultEffects,

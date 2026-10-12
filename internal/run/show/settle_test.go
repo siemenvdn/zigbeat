@@ -13,7 +13,7 @@ func TestSettle(t *testing.T) {
 		t.Errorf("within a beat of the latest one: %v", ps)
 	}
 	ps := p.Settle(at(3100))
-	if len(ps) != 1 || ps[0].Light != "lamp-4" || ps[0].Payload["brightness"] != level(30) || !ps[0].Land.Equal(at(3100)) {
+	if len(ps) != 1 || ps[0].Light != "lamp-4" || ps[0].Payload["brightness"] != level(10) || !ps[0].Land.Equal(at(3100)) {
 		t.Fatalf("a gap settles the breathe light at its low end: %+v", ps)
 	}
 	if again := p.Settle(at(9000)); again != nil {

@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	// moments covers more than three phrases at the default cadence.
+	// moments covers more than three phrases at the test config's pace.
 	moments = 200
 	// styleEvery: moments between style changes, as Home Assistant may send them.
 	styleEvery = 10

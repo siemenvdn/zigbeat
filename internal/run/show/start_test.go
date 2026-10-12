@@ -11,7 +11,7 @@ func TestStart(t *testing.T) {
 	if ps[0].Payload["state"] != "ON" || ps[0].Payload["brightness"] != 152 || ps[0].Drop {
 		t.Errorf("colour start: %+v", ps[0])
 	}
-	if ps[3].Payload["brightness"] != 76 || ps[3].Payload["color"] != nil {
+	if ps[3].Payload["brightness"] != level(10) || ps[3].Payload["color"] != nil {
 		t.Errorf("breathe start: %+v", ps[3])
 	}
 }
