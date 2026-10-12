@@ -9,7 +9,7 @@ import (
 // Track takes the properties of the track that plays now: its tempo, and its
 // album colours when the style wants them.
 func (p *Planner) Track(t music.Track) {
-	p.bpm, p.art = t.BPM, t.Palette
+	p.bpm, p.art, p.lowBar = t.BPM, t.Palette, false // a new track is full until a bar says otherwise
 	p.choose()
 }
 

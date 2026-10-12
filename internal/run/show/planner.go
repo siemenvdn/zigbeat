@@ -42,6 +42,7 @@ type Planner struct {
 	rng          *rand.Rand
 	variantState // deck, turn and target of the variant that plays
 	whiteState   // the breathe variant, levels and turn of the breathe lights
+	energyState  // whether the show follows the energy, and plays a quiet part
 	moments      int
 	pace         int     // effects.pace: beats between moments
 	rate         float64 // frames per second the moments may use
@@ -90,16 +91,18 @@ func level(percent int) int {
 func (p *Planner) Moments() int { return p.moments }
 
 // Beat returns the messages for b, or nothing when b is not a moment: the
-// colour changes, their kicks when they fit the room, then the white.
+// colour changes, their kicks when they fit the room, then the white. A quiet
+// part plays like the calm level of backoff, one pace slower.
 func (p *Planner) Beat(b music.Beat, backoff int) []Message {
 	p.lastBeat, p.lastPeriod, p.settled = b.At, p.period(), false
+	p.hear(b)
 	n := p.interval()
 	if b.Index%n != 0 {
 		return nil
 	}
 	p.noteStretch(n)
 	p.noteVariants(b)
-	calm := backoff >= flow.CalmLevel
+	calm := backoff >= flow.CalmLevel || p.quiet
 	room := p.room(n)
 	st := stroke{at: b.At, fall: p.fall(n)}
 	out := p.colour(st, calm, room)

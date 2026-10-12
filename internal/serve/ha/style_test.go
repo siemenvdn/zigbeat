@@ -17,7 +17,7 @@ func defaults() config.Config {
 
 func TestStyleEntities(t *testing.T) {
 	cs := decode(t, Discovery("v1"))["components"].(map[string]any)
-	for _, key := range []string{"album_palette", "album_colors", "variant", "brightness", "pace", "breathe_variant", "breathe_low", "breathe_high", "audio_offset_ms"} {
+	for _, key := range []string{"album_palette", "album_colors", "variant", "brightness", "pace", "breathe_variant", "breathe_low", "breathe_high", "follow_energy", "audio_offset_ms"} {
 		c := cs[key].(map[string]any)
 		topic := StyleTopic(key)
 		if c["command_topic"] != topic || c["retain"] != true || strings.Replace(StyleFilter, "+", key, 1) != topic || StyleKey(topic) != key {
@@ -87,6 +87,8 @@ func TestChoose(t *testing.T) {
 		{"breathe_high", "50", "50"},
 		{"breathe_low", "100", "effects.breathe_range must be [low, high] within 1 to 100 with low below high"},
 		{"breathe_high", "5", "effects.breathe_range must be [low, high] within 1 to 100 with low below high"},
+		{"follow_energy", "OFF", "false"},
+		{"follow_energy", "", "true"},
 		{"audio_offset_ms", "180", "180"},
 		{"audio_offset_ms", "-60", "-60"},
 		{"audio_offset_ms", "2500", "budget.audio_offset_ms must be -500 to 2000"},
@@ -131,7 +133,7 @@ func TestStyleInTheState(t *testing.T) {
 	st.Style = StyleOf(c)
 	m := decode(t, st.JSON())
 	want := map[string]any{"show": "OFF", "album_palette": "ON", "album_colors": 3.0, "variant": "rotation", "brightness": 60.0, "pace": "every bar",
-		"breathe_variant": "rotation", "breathe_low": 10.0, "breathe_high": 100.0, "audio_offset_ms": 120.0}
+		"breathe_variant": "rotation", "breathe_low": 10.0, "breathe_high": 100.0, "follow_energy": "ON", "audio_offset_ms": 120.0}
 	for k, v := range want {
 		if m[k] != v {
 			t.Errorf("%s = %v, want %v", k, m[k], v)

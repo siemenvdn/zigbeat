@@ -9,13 +9,13 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/run/flow"
 )
 
-// interval is the beats between moments: the pace, or the next longer of
+// interval is the beats between moments: the pace that plays, or the next longer of
 // config.Paces while the colour changes of a moment without kicks do not fit
 // its room. A beat is a moment when its index is a multiple of it, so moments
 // stay on the grid when the pace or the tempo changes, and a pickup beat of a
 // new track is a moment only on that track's grid.
 func (p *Planner) interval() int {
-	n := p.pace
+	n := p.paceNow()
 	colour := float64(min(flow.MaxPerMoment, p.nColor) * p.changeFrames(false))
 	for _, longer := range config.Paces {
 		if colour <= p.room(n) {
@@ -48,14 +48,15 @@ func (p *Planner) fall(n int) time.Duration {
 
 // noteStretch tells the operator when the budget stretches the pace, and when it no longer does.
 func (p *Planner) noteStretch(n int) {
+	pace := p.paceNow()
 	switch {
-	case n != p.pace && n != p.stretched:
-		p.notes = append(p.notes, fmt.Sprintf("pace every %s; the budget allows every %s at %.0f BPM", music.Span(p.pace), music.Span(n), p.bpm))
-	case n == p.pace && p.stretched != 0:
-		p.notes = append(p.notes, fmt.Sprintf("pace every %s again", music.Span(p.pace)))
+	case n != pace && n != p.stretched:
+		p.notes = append(p.notes, fmt.Sprintf("pace every %s; the budget allows every %s at %.0f BPM", music.Span(pace), music.Span(n), p.bpm))
+	case n == pace && p.stretched != 0:
+		p.notes = append(p.notes, fmt.Sprintf("pace every %s again", music.Span(pace)))
 	}
 	p.stretched = 0
-	if n != p.pace {
+	if n != pace {
 		p.stretched = n
 	}
 }

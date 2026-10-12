@@ -64,6 +64,7 @@ type Effects struct {
 	AlbumPalette   bool     `yaml:"album_palette"`   // the album art's colours when the source has them
 	AlbumColors    int      `yaml:"album_colors"`    // colours made from the album art
 	Variant        string   `yaml:"variant"`         // how the colour lights change, or rotation
+	FollowEnergy   bool     `yaml:"follow_energy"`   // quiet parts of the music play calmer
 }
 
 // DefaultEffects fills what the effects block leaves out; the palette comes after decoding.
@@ -75,6 +76,7 @@ var DefaultEffects = Effects{
 	AlbumPalette:   true,            // the colours follow the music when they can
 	AlbumColors:    3,               // a few colours keep the mood of the cover
 	Variant:        "rotation",      // a new way of changing every 16 bars
+	FollowEnergy:   true,            // breakdowns and drops look different; the metronome has no energy
 }
 
 // DefaultPalette is used when effects.palette is empty.

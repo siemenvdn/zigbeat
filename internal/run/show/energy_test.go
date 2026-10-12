@@ -1,0 +1,86 @@
+package show
+
+import (
+	"slices"
+	"strings"
+	"testing"
+
+	"github.com/siemenvdn/zigbeat/internal/music"
+)
+
+// beatWith is beat i of a bar with energy e.
+func beatWith(i int, e float64) music.Beat {
+	b := moment(i)
+	b.Energy = e
+	return b
+}
+
+// kicks tells whether a colour change in ps kicks, or a breathe light goes to the top of its range.
+func kicks(p *Planner, ps []Message) bool {
+	return slices.ContainsFunc(ps, func(m Message) bool {
+		return m.Payload["color"] != nil && m.Payload["brightness"] != nil || m.Light == "lamp-4" && m.Payload["brightness"] == p.high
+	})
+}
+
+// TestQuietPartPlaysCalmer: a bar below quietEnergy changes colour without
+// kicks or white pulses, at half the pace, until a loud bar; each change is noted.
+func TestQuietPartPlaysCalmer(t *testing.T) {
+	c := testConfig("separate")
+	c.Effects.BreatheVariant = "pulse"
+	p := NewPlanner(c)
+	p.Start(t0)
+	p.TakeNotes()
+	if ps := p.Beat(beatWith(0, 0.1), 0); changed(ps) == "" || kicks(p, ps) {
+		t.Errorf("a quiet bar: %+v", ps)
+	}
+	if ps := p.Beat(beatWith(4, 0.1), 0); ps != nil {
+		t.Errorf("a quiet part plays every 2 bars, not every bar: %+v", ps)
+	}
+	if ps := p.Beat(beatWith(8, 0.9), 0); !kicks(p, ps) {
+		t.Errorf("a loud bar kicks: %+v", ps)
+	}
+	want := []string{"energy quiet, no kicks from bar 0: every 2 bars", "energy full from bar 2: every bar"}
+	n := slices.DeleteFunc(p.TakeNotes(), func(s string) bool { return !strings.HasPrefix(s, "energy") })
+	if !slices.Equal(n, want) {
+		t.Errorf("notes %q, want %q", n, want)
+	}
+}
+
+func TestFollowEnergyOff(t *testing.T) {
+	c := testConfig("separate")
+	c.Effects.FollowEnergy = false
+	p := NewPlanner(c)
+	p.Start(t0)
+	if ps := p.Beat(beatWith(0, 0), 0); !kicks(p, ps) {
+		t.Errorf("without follow_energy a quiet bar still kicks: %+v", ps)
+	}
+}
+
+// TestNewTrackIsFull: a quiet end of one track does not hold the pickup of the next.
+func TestNewTrackIsFull(t *testing.T) {
+	p := NewPlanner(testConfig("separate"))
+	p.Start(t0)
+	p.Beat(beatWith(0, 0), 0)
+	p.Track(music.Track{BPM: music.DefaultBPM})
+	pickup := beatWith(5, music.UnknownEnergy)
+	pickup.InBar = 3
+	p.Beat(pickup, 0)
+	if p.quiet {
+		t.Error("a new track starts quiet")
+	}
+}
+
+// TestSwitchOffInAQuietPart: switching follow_energy off ends a quiet part at the next beat.
+func TestSwitchOffInAQuietPart(t *testing.T) {
+	c := testConfig("separate")
+	p := NewPlanner(c)
+	p.Start(t0)
+	p.Beat(beatWith(0, 0), 0)
+	c.Effects.FollowEnergy = false
+	p.SetEffects(c.Effects)
+	p.TakeNotes()
+	p.Beat(beatWith(1, 0), 0)
+	if p.quiet || !slices.Contains(p.TakeNotes(), "energy full from bar 0: every bar") {
+		t.Error("the switch did not end the quiet part")
+	}
+}

@@ -8,10 +8,10 @@ import (
 )
 
 // SetEffects takes the style of the show from the next moment on: the album
-// colours, the variants, the brightness, the breathe range and the pace. The
-// same style again changes nothing.
+// colours, the variants, the brightness, the breathe range, the pace and
+// whether it follows the energy. The same style again changes nothing.
 func (p *Planner) SetEffects(e config.Effects) {
-	p.fallback, p.album, p.albumColors = e.Palette, e.AlbumPalette, e.AlbumColors
+	p.fallback, p.album, p.albumColors, p.follow = e.Palette, e.AlbumPalette, e.AlbumColors, e.FollowEnergy
 	p.setting, p.pace, p.breatheSetting = e.Variant, e.Pace, e.BreatheVariant
 	p.base = level(e.Brightness)
 	p.kick = level(min(e.Brightness+kickPoints, config.MaxPercent))

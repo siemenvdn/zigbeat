@@ -69,6 +69,8 @@ var settings = []setting{
 		func(c *config.Config) *int { return &c.Effects.BreatheRange[0] }, whole),
 	field("breathe_high", slider("Breathe high", "mdi:brightness-7", config.MinPercent, config.MaxPercent, "%"),
 		func(c *config.Config) *int { return &c.Effects.BreatheRange[1] }, whole),
+	field("follow_energy", map[string]any{"platform": "switch", "name": "Follow energy", "icon": "mdi:equalizer"},
+		func(c *config.Config) *bool { return &c.Effects.FollowEnergy }, onOff),
 	field("audio_offset_ms", map[string]any{"platform": "number", "name": "Audio offset", "icon": "mdi:av-timer",
 		"min": config.MinOffsetMS, "max": config.MaxOffsetMS, "step": config.OffsetStepMS, "mode": "box", "unit_of_measurement": "ms"},
 		func(c *config.Config) *int { return &c.Budget.AudioOffsetMS }, whole),

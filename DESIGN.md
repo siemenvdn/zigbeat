@@ -40,7 +40,7 @@ How zigbeat works and why. To use it, start with the [README](README.md).
 | The beats come from Music Assistant's own analysis, through its visualizer relay | Real beat times with downbeats, on any speaker Music Assistant plays to and from any of its providers. See [Beat sources](#beat-sources) |
 | The source reports what plays as one ordered stream: tracks, with their tempo and album colours, and their beats, with their energy | A beat should not carry the properties of its track. One stream keeps the order a show relies on: a clear, then the next track, then its first beat |
 | The album art's colours play vivid: hue and saturation only, greys and near-black dropped, hues 30° apart | Zigbee2MQTT sends a hex colour as xy and ignores its brightness; pale or dark colours look like a tint of white on a bulb |
-| Energy is the low band of the coming bar within its track, measured and printed but not yet steering the lights | The waveform is the raw decoded audio, before volume normalisation, so levels only compare within a track. Limited masters differ between sections below 150 Hz, hardly in the full band. It needs to be seen on real music first |
+| Energy is the low band of the coming bar within its track. At each bar line a bar below 0.3 is a quiet part: the colour changes at the next longer pace, without kicks, and the breathe lights stay low, as at backoff level 1. `effects.follow_energy` switches it off | The waveform is the raw decoded audio, before volume normalisation, so levels only compare within a track. Limited masters differ between sections below 150 Hz, hardly in the full band. On real music a breakdown measured 0, a verse 0.15 to 0.2, a pre-chorus 0.77 and a drop above 0.9. A quiet part only takes messages away, so it never strains the network |
 | The colour bulbs rotate through variants per 16 bars, with `build` at a track's start | One change at a time shows no motion; variants differ in how many bulbs change and how many colours the room shows |
 | The audio offset is calibrated by ear while the show plays: typed in `zigbeat run`, or set in Home Assistant for `zigbeat serve` | One number per speaker setup. Home Assistant sets it too, so a change of speakers, such as a laptop and later the TV, needs no terminal |
 | Roles and fixtures instead of device names in code | Works in any home |
@@ -91,7 +91,7 @@ The latency signal is relative to the show itself, not to the probe: a moment se
 | `zigbeat/availability` | yes | `online` after connecting; `offline` on a clean stop and as the MQTT will |
 | `zigbeat/state` | yes | One JSON object for every entity; the numbers are `null` (unknown) while the show does not play, the style is always there |
 | `zigbeat/show/set` | no | `ON` or `OFF` from the switch |
-| `zigbeat/style/<key>/set` | yes, by Home Assistant | A choice for `effects.<key>`: `album_palette` (`ON`, `OFF`), `album_colors`, `variant`, `brightness`, `pace` (`every beat` to `every 4 bars`), `breathe_variant`, `breathe_low` or `breathe_high` (one end of `breathe_range`), or for `budget.audio_offset_ms` (`audio_offset_ms`); empty is no choice |
+| `zigbeat/style/<key>/set` | yes, by Home Assistant | A choice for `effects.<key>`: `album_palette` (`ON`, `OFF`), `album_colors`, `variant`, `brightness`, `pace` (`every beat` to `every 4 bars`), `breathe_variant`, `breathe_low` or `breathe_high` (one end of `breathe_range`), `follow_energy` (`ON`, `OFF`), or for `budget.audio_offset_ms` (`audio_offset_ms`); empty is no choice |
 
 - The discovery message carries `cadence`, the pace in seconds of an older zigbeat, with only its platform, which removes that slider from the device. A kept choice for a setting that is gone gets a line with the command that wipes it.
 - On every connect serve clears a retained switch command first, subscribes to the switch and to the style topics, whose retained choices arrive as commands, then publishes `online`, the discovery message and the last state. A broker restart drops the connection, so this also covers a broker that lost its retained messages; Home Assistant's birth message is not needed.
@@ -223,6 +223,7 @@ effects:
   album_palette: true         # the album art's colours when Music Assistant has them, default true
   album_colors: 3             # colours made from the album art, 2 to 6, default 3
   variant: rotation           # rotation (default), walk, shuffle, swap or build
+  follow_energy: true         # quiet parts play calmer, default true
 ```
 
 Unknown keys are an error, so typos do not pass silently; `effects.cadence`, the pace in seconds of an older zigbeat, gets a message that says what to set instead. Every light belongs to exactly one fixture, and the canary is not one of the lights.
@@ -271,6 +272,7 @@ Small known issues that are not planned yet: [BACKLOG.md](BACKLOG.md). Ideas for
 - **3a (built):** `zigbeat setup` with an allowlist of what may be driven, `zigbeat probe -config` writing the budget, `save` for the audio offset, and the check of every light at the start. Tested against `cmd/fake-z2m`. To do: classify the device list of a real home.
 - **3b (built):** variants of the chase that rotate per 16 bars, a palette per track from the album art, and energy from the music, measured and printed. Tested against `cmd/fake-ma` and `cmd/fake-z2m`. To do: judge the colours and variants on real lights.
 - **3c (built):** the style of the show from Home Assistant: album colours on or off and how many, the variant, the brightness and the pace, with the config as the fallback. Tempo and beats stay out of Home Assistant; the audio offset came later, for a change of speakers without a terminal. Tested against `cmd/fake-ma`, `cmd/fake-z2m` and a throwaway Home Assistant container. To do: use it at a party.
+- **3d (built):** quiet parts of the music play calmer, switched in Home Assistant, and the audio offset set there. Tested against `cmd/fake-ma` and `cmd/fake-z2m`; energy measured on one real track.
 
 ### Phase 4: release
 
@@ -294,7 +296,7 @@ Small known issues that are not planned yet: [BACKLOG.md](BACKLOG.md). Ideas for
 | Do bulbs with only `color_hs` show the colours zigbeat sends as hex? | Offering them as `color` |
 | How long is the null palette between two tracks on a real Music Assistant, and does it ever pass 10 s? | Bridging a track change with the previous album's colours |
 | Do the album colours look like the cover on real bulbs, at saturation 0.75 and 30° apart? | Album colours |
-| Does the energy follow intro, drop and breakdown on real music? | Letting energy steer the lights |
+| Does the energy follow intro, drop and breakdown on more real music than one EDM track? | The quiet part at 0.3 |
 | Which variants look good on real lights, and is 16 bars the right phrase? | The rotation |
 | Does a fixture of more than three bulbs look good when it changes three at a time? | Large fixtures |
 | Does the user's broker keep retained messages over its restart? | Choices surviving a broker and zigbeat restart together |

@@ -35,18 +35,24 @@ type Style struct {
 	BreatheVariant string `json:"breathe_variant"`
 	BreatheLow     int    `json:"breathe_low"`
 	BreatheHigh    int    `json:"breathe_high"`
+	FollowEnergy   string `json:"follow_energy"` // ON or OFF, as the switch says
 	AudioOffsetMS  int    `json:"audio_offset_ms"`
 }
 
 // StyleOf is the style of c for the state.
 func StyleOf(c config.Config) Style {
 	e := c.Effects
-	on := "OFF"
-	if e.AlbumPalette {
-		on = "ON"
+	return Style{AlbumPalette: onOffOf(e.AlbumPalette), AlbumColors: e.AlbumColors, Variant: e.Variant, Brightness: e.Brightness, Pace: paceLabel(e.Pace),
+		BreatheVariant: e.BreatheVariant, BreatheLow: e.BreatheRange[0], BreatheHigh: e.BreatheRange[1], FollowEnergy: onOffOf(e.FollowEnergy),
+		AudioOffsetMS: c.Budget.AudioOffsetMS}
+}
+
+// onOffOf is a switch's state.
+func onOffOf(on bool) string {
+	if on {
+		return "ON"
 	}
-	return Style{AlbumPalette: on, AlbumColors: e.AlbumColors, Variant: e.Variant, Brightness: e.Brightness, Pace: paceLabel(e.Pace),
-		BreatheVariant: e.BreatheVariant, BreatheLow: e.BreatheRange[0], BreatheHigh: e.BreatheRange[1], AudioOffsetMS: c.Budget.AudioOffsetMS}
+	return "OFF"
 }
 
 // fpsDecimals rounds frames per second for Home Assistant.

@@ -8,7 +8,7 @@ Ordinary Zigbee bulbs on [Zigbee2MQTT](https://www.zigbee2mqtt.io/) have no good
 
 - **Works today:** `zigbeat setup` finds your lights in Zigbee2MQTT and writes the configuration. `zigbeat probe` measures how many light commands per second your network handles and writes that budget into it. `zigbeat run` drives your lights within that budget to the beats of the music that [Music Assistant](https://www.music-assistant.io/) plays, or to a fixed-BPM metronome. `zigbeat serve` does the same as a service that Home Assistant switches on and off, and whose style it sets: the album colours, the way the bulbs change, the brightness, the pace and the breathe bulbs.
 - **In progress:** checking on real speakers that the lights land on the beat by ear.
-- **Later:** effects that follow the energy of the music, a container image.
+- **Later:** more effects that follow the energy of the music, a container image.
 
 ## What it does
 
@@ -16,6 +16,7 @@ Ordinary Zigbee bulbs on [Zigbee2MQTT](https://www.zigbee2mqtt.io/) have no good
 - Colour bulbs change colour on the beat, every 2 beats by default, a few at a time, with a short brightness kick. With Music Assistant they take the colours of the album that plays.
 - Every 16 bars the colour bulbs change in another way: at the start of a track they fill the room with one colour bulb by bulb, then the colour walks through the room, shuffles, and two groups take turns with a new colour.
 - Dimmable bulbs pulse on the beat or flip between high and low in turns, changing between the two every 16 bars.
+- With Music Assistant the show follows the energy of the music: in quiet parts, such as a breakdown, the colour bulbs change half as often without a kick and the dimmable bulbs stay low; at a drop everything plays again.
 - It stays below the budget the probe found: when a moment holds more than the budget, the white goes first, then the kick, so faster music never makes the lights slower. It backs off when the network gets busy and pauses when it keeps struggling. Network trouble never ends the show.
 - Every light goes back to how it was when you stop the show, with Ctrl-C or the switch in Home Assistant.
 - Home Assistant gets a switch, controls for the style of the show and sensors through MQTT discovery, without any YAML.
@@ -128,7 +129,7 @@ If `p50` stays below about 20 ms everywhere, Zigbee2MQTT confirmed before the bu
   - `color` for colour bulbs. `mode` decides how a fixture changes: `separate` (one bulb at a time), `together` (the whole fixture at once) or `alternate` (switches between the two every few moments, the default). A fixture of more than three bulbs changes three at a time.
   - `breathe` for dimmable bulbs.
 - `canary` (optional): a far-away mains-powered device, as for the probe. The show reads it every 5 seconds to watch the rest of the network.
-- `effects` (optional): how many beats between changes (`pace`, 2 by default), the base brightness, the colour palette, the breathe range and how the breathe bulbs move (`breathe_variant`: `rotation`, or always `pulse` or `flip`), whether the album art's colours play and how many (`album_palette`, `album_colors`), and how the colour bulbs change (`variant`: `rotation`, or always `walk`, `shuffle`, `swap` or `build`). A config without these keys plays the album colours and the rotation, also one from before they existed: `album_palette: false` keeps your own `palette`, and `variant: walk` brings back the earlier chase.
+- `effects` (optional): how many beats between changes (`pace`, 2 by default), the base brightness, the colour palette, the breathe range and how the breathe bulbs move (`breathe_variant`: `rotation`, or always `pulse` or `flip`), whether the album art's colours play and how many (`album_palette`, `album_colors`), how the colour bulbs change (`variant`: `rotation`, or always `walk`, `shuffle`, `swap` or `build`), and whether quiet parts of the music play calmer (`follow_energy`, on by default). A config without these keys plays the album colours and the rotation, also one from before they existed: `album_palette: false` keeps your own `palette`, and `variant: walk` brings back the earlier chase.
 - `music_assistant` (optional): where the beats come from, see [Play to the music](#play-to-the-music). Without it the show runs to a metronome.
 
 Lights that are not in the config are never touched. List lights one by one: a Zigbee2MQTT group name is refused, because group commands are broadcasts. At the start, the show also refuses a light that `zigbeat setup` would not offer, such as a plug, and a `color` light without xy colour. The MQTT password comes from the environment variable named in `password_env`.
@@ -190,7 +191,7 @@ zigbeat follows the beats that Music Assistant's own analysis finds. It works fo
    zigbeat beats -config config.yaml
    ```
 
-   Play a track through Music Assistant. After a line such as `412 beats ahead, 124.0 BPM, 103 downbeats` it prints the track with the colours the show would play, such as `track 124.0 BPM, album colours #406cff #ff943d #7340ff (Music Assistant sent 6)`, then one line per beat when it should sound, such as `21:14:10.500  bar 3 beat 1  energy 0.82`. Energy is how loud the coming bar is within the track: 0.50 until the track has had a louder or a quieter part. The lights do not follow it yet. The first time a track plays, its beats arrive 5 to 10 seconds after it starts; the analysis is kept for the next time.
+   Play a track through Music Assistant. After a line such as `412 beats ahead, 124.0 BPM, 103 downbeats` it prints the track with the colours the show would play, such as `track 124.0 BPM, album colours #406cff #ff943d #7340ff (Music Assistant sent 6)`, then one line per beat when it should sound, such as `21:14:10.500  bar 3 beat 1  energy 0.82`. Energy is how loud the coming bar is within the track: 0.50 until the track has had a louder or a quieter part. Below 0.30 the show plays a quiet part. The first time a track plays, its beats arrive 5 to 10 seconds after it starts; the analysis is kept for the next time.
 
 `zigbeat run` and `zigbeat serve` then use the same block. Lines starting with `music assistant:` tell what the source does: a new track, the music stopping, a lost connection, a refused token. During the show, lines such as `album colours #406cff #ff943d #7340ff` and `variant walk from bar 16` say what the lights do.
 
@@ -248,6 +249,7 @@ Next to the switch you set the style of the show, before it starts or while it p
 | `select.zigbeat_breathe_variant` | How the breathe bulbs move: `rotation`, `pulse` or `flip` | `effects.breathe_variant` |
 | `number.zigbeat_breathe_low` | The low end of the breathe bulbs, 1 to 100 % | `effects.breathe_range` |
 | `number.zigbeat_breathe_high` | The high end of the breathe bulbs, 1 to 100 %, above the low end | `effects.breathe_range` |
+| `switch.zigbeat_follow_energy` | Whether quiet parts of the music play calmer | `effects.follow_energy` |
 | `number.zigbeat_audio_offset` | How much later than the beat the lights change, for the delay of TV and speakers: -500 to 2000 ms. See [Calibrate the audio offset](#calibrate-the-audio-offset) | `budget.audio_offset_ms` |
 
 A pace that the budget cannot carry at the tempo that plays gets slower only when even the colour changes without kicks do not fit; `zigbeat run` prints a line when that happens.
@@ -266,7 +268,7 @@ To remove the device from Home Assistant, stop zigbeat and clear its discovery m
 
 ```bash
 mosquitto_pub -r -n -t homeassistant/device/zigbeat/config
-for k in album_palette album_colors variant brightness pace breathe_variant breathe_low breathe_high audio_offset_ms cadence; do mosquitto_pub -r -n -t zigbeat/style/$k/set; done
+for k in album_palette album_colors variant brightness pace breathe_variant breathe_low breathe_high follow_energy audio_offset_ms cadence; do mosquitto_pub -r -n -t zigbeat/style/$k/set; done
 ```
 
 ## Build from source

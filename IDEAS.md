@@ -18,7 +18,7 @@ Ideas for later, grouped by topic. Nothing here is planned yet; plans live in th
 
 ## Effects
 
-- **Energy that steers the effects,** within the room of a moment and the breathe range: how full a moment is (no white and no kick in a breakdown, everything at a drop), how high the kick goes, which variant plays, how deep the breathe bulbs go, and a burst at a drop (energy rising by 0.5 or more between bars). First see energy on real music: `zigbeat beats` prints it. The next project once Music Assistant runs on the Pi.
+- **Energy that steers the effects,** within the room of a moment and the breathe range. Built: a quiet part plays calmer (`follow_energy`). Still ideas: how high the kick goes, which variant plays, how deep the breathe bulbs go, and a burst at a drop (energy rising by 0.5 or more between bars). `zigbeat beats` prints the energy per beat.
 - **A random variant per phrase**, never the same twice in a row, in place of the fixed rotation (`rotation` in `internal/run/show/rotation.go`).
 - **Pale fill-ins:** when a cover has fewer hues than `album_colors`, pale versions of its hues instead of other hues, as Music Assistant's Hue plugin does.
 - **A section event** for a detected drop or breakdown, next to `Track` and `Beat` in the music stream.
