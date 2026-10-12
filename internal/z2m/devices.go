@@ -1,10 +1,5 @@
 package z2m
 
-import (
-	"encoding/json"
-	"time"
-)
-
 // Device is one entry of Zigbee2MQTT's bridge/devices, with the fields zigbeat reads.
 type Device struct {
 	Name        string      `json:"friendly_name"`
@@ -34,17 +29,6 @@ type Expose struct {
 	Endpoint string   `json:"endpoint"`
 	Access   int      `json:"access"`
 	Features []Expose `json:"features"`
-}
-
-// OnDevices calls fn with the device list, from the retained bridge/devices
-// message and every update after it.
-func (b *Bridge) OnDevices(fn func(devs []Device, at time.Time)) error {
-	return b.c.Subscribe(b.base+"/bridge/devices", func(_ string, p []byte, at time.Time) {
-		var ds []Device
-		if json.Unmarshal(p, &ds) == nil {
-			fn(ds, at)
-		}
-	})
 }
 
 // Find returns the device called name.

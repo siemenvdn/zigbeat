@@ -19,8 +19,8 @@ type link interface {
 	Lost() <-chan struct{} // closed when the connection drops
 	Err() error
 	Reconnect(ctx context.Context) bool
-	Groups(ctx context.Context) ([]string, bool)
-	Devices(ctx context.Context) ([]z2m.Device, bool)
+	Groups(ctx context.Context) ([]string, error)
+	Devices(ctx context.Context) ([]z2m.Device, error)
 	Close()
 }
 
@@ -80,8 +80,8 @@ func (l *mqttLink) Lost() <-chan struct{}         { return l.client.Done() }
 func (l *mqttLink) Err() error                    { return l.client.Err() }
 func (l *mqttLink) Close()                        { l.client.Close() }
 
-// Groups reads the retained list of Zigbee2MQTT groups; false when none came.
-func (l *mqttLink) Groups(ctx context.Context) ([]string, bool) { return l.bridge.Groups(ctx) }
+// Groups reads the retained list of Zigbee2MQTT groups.
+func (l *mqttLink) Groups(ctx context.Context) ([]string, error) { return l.bridge.Groups(ctx) }
 
-// Devices reads the retained list of Zigbee2MQTT devices; false when none came.
-func (l *mqttLink) Devices(ctx context.Context) ([]z2m.Device, bool) { return l.bridge.Devices(ctx) }
+// Devices reads the retained list of Zigbee2MQTT devices.
+func (l *mqttLink) Devices(ctx context.Context) ([]z2m.Device, error) { return l.bridge.Devices(ctx) }

@@ -2,6 +2,9 @@ package z2m
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"time"
 )
 
@@ -10,33 +13,49 @@ import (
 // bridge/devices of 1.5 MB from a busy Raspberry Pi.
 const RetainedWait = 5 * time.Second
 
-// Groups waits up to RetainedWait for the retained list of groups; false when none came.
-func (b *Bridge) Groups(ctx context.Context) ([]string, bool) { return first(ctx, b.OnGroups) }
+// ErrNoRetained is the start of the error when no retained message came within RetainedWait.
+var ErrNoRetained = errors.New("no retained")
 
-// Devices waits up to RetainedWait for the retained device list; false when none came.
-func (b *Bridge) Devices(ctx context.Context) ([]Device, bool) { return first(ctx, b.OnDevices) }
+// Groups waits up to RetainedWait for the retained list of group names.
+func (b *Bridge) Groups(ctx context.Context) ([]string, error) {
+	return first(ctx, b, "bridge/groups", groupNames)
+}
 
-// first subscribes with on and returns the first message, or false after
-// RetainedWait or when ctx is done.
-func first[T any](ctx context.Context, on func(func(T, time.Time)) error) (T, bool) {
+// Devices waits up to RetainedWait for the retained device list.
+func (b *Bridge) Devices(ctx context.Context) ([]Device, error) {
+	return first(ctx, b, "bridge/devices", func(p []byte) (ds []Device, err error) {
+		return ds, json.Unmarshal(p, &ds)
+	})
+}
+
+// first subscribes to topic, decodes the first message and unsubscribes again,
+// so later updates (bridge/devices is up to 1.5 MB) are not read during a show.
+func first[T any](ctx context.Context, b *Bridge, topic string, decode func([]byte) (T, error)) (T, error) {
 	var none T
-	got := make(chan T, 1)
-	err := on(func(v T, _ time.Time) {
+	topic = b.base + "/" + topic
+	got := make(chan []byte, 1)
+	err := b.c.Subscribe(topic, func(_ string, p []byte, _ time.Time) {
 		select {
-		case got <- v:
+		case got <- p:
 		default:
 		}
 	})
 	if err != nil {
-		return none, false
+		return none, err
 	}
+	defer b.c.Unsubscribe(topic)
 	t := time.NewTimer(RetainedWait)
 	defer t.Stop()
 	select {
-	case v := <-got:
-		return v, true
+	case p := <-got:
+		v, err := decode(p)
+		if err != nil {
+			return none, fmt.Errorf("%s: %w", topic, err)
+		}
+		return v, nil
 	case <-t.C:
+		return none, fmt.Errorf("%w %s within %v", ErrNoRetained, topic, RetainedWait)
 	case <-ctx.Done():
+		return none, ctx.Err()
 	}
-	return none, false
 }

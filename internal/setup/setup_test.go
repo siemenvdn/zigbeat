@@ -135,7 +135,7 @@ func TestNothingWritten(t *testing.T) {
 		}
 	}
 	code, out := start(t, &fakeBridge{}, filepath.Join(t.TempDir(), "config.yaml"), "", "")
-	if code != 1 || !strings.Contains(out, "no retained zigbee2mqtt/bridge/devices within 5s") {
+	if code != 1 || !strings.Contains(out, "no retained zigbee2mqtt/bridge/devices within 5s; is Zigbee2MQTT running, with retain on?") {
 		t.Errorf("no bridge/devices: exit %d\n%s", code, out)
 	}
 }

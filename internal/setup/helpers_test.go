@@ -3,6 +3,7 @@ package setup
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -19,7 +20,12 @@ type fakeBridge struct {
 	stop   func() // cancels the context of setup
 }
 
-func (f *fakeBridge) Devices(context.Context) ([]z2m.Device, bool) { return f.devs, f.devs != nil }
+func (f *fakeBridge) Devices(context.Context) ([]z2m.Device, error) {
+	if f.devs == nil {
+		return nil, fmt.Errorf("%w zigbee2mqtt/bridge/devices within %v", z2m.ErrNoRetained, z2m.RetainedWait)
+	}
+	return f.devs, nil
+}
 
 func (f *fakeBridge) Read(_ context.Context, name string) (time.Duration, bool) {
 	f.reads = append(f.reads, name)

@@ -2,9 +2,11 @@ package run
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/run/flow"
@@ -14,11 +16,9 @@ import (
 // start checks the config against Zigbee2MQTT, takes the snapshot and measures
 // the canary. Nothing is changed yet, so a stop here needs no restore.
 func (r *runner) start(ctx context.Context) (limit time.Duration, code int, ok bool) {
-	for _, refuse := range []func(context.Context) error{r.refuseGroups, r.refuseDevices} {
-		if err := refuse(ctx); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			return 0, 1, false
-		}
+	if err := r.refuse(ctx); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 0, 1, false
 	}
 	snapped := r.snapshot(ctx)
 	if snapped {
@@ -35,13 +35,30 @@ func (r *runner) start(ctx context.Context) (limit time.Duration, code int, ok b
 	return limit, 0, true
 }
 
+// refuse runs refuseGroups and refuseDevices at once, so a Zigbee2MQTT without
+// retain costs one RetainedWait, not two.
+func (r *runner) refuse(ctx context.Context) error {
+	var wg sync.WaitGroup
+	refusals := []func(context.Context) error{r.refuseGroups, r.refuseDevices}
+	errs := make([]error, len(refusals))
+	for i, refuse := range refusals {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			errs[i] = refuse(ctx)
+		}()
+	}
+	wg.Wait()
+	return errors.Join(errs...)
+}
+
 // refuseGroups stops the show before it starts when a light or the canary is a
 // Zigbee2MQTT group. Without bridge/groups it warns and goes on.
 func (r *runner) refuseGroups(ctx context.Context) error {
-	groups, ok := r.link.Groups(ctx)
-	if !ok {
+	groups, err := r.link.Groups(ctx)
+	if err != nil {
 		if ctx.Err() == nil {
-			fmt.Fprintf(os.Stderr, "warning: no %s/bridge/groups; make sure no light in the config is a group\n", r.cfg.MQTT.BaseTopic)
+			fmt.Fprintf(os.Stderr, "warning: %v; make sure no light in the config is a group\n", err)
 		}
 		return nil
 	}
@@ -52,10 +69,10 @@ func (r *runner) refuseGroups(ctx context.Context) error {
 // in its role, by the rules of zigbeat setup: they also hold for a config
 // edited by hand. Without bridge/devices it warns and goes on.
 func (r *runner) refuseDevices(ctx context.Context) error {
-	devs, ok := r.link.Devices(ctx)
-	if !ok {
+	devs, err := r.link.Devices(ctx)
+	if err != nil {
 		if ctx.Err() == nil {
-			fmt.Fprintf(os.Stderr, "warning: no %s/bridge/devices; the lights in the config were not checked against it\n", r.cfg.MQTT.BaseTopic)
+			fmt.Fprintf(os.Stderr, "warning: %v; the lights in the config were not checked against it\n", err)
 		}
 		return nil
 	}

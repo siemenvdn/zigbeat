@@ -14,7 +14,7 @@ import (
 
 // bridge is what setup needs from Zigbee2MQTT; tests replace it with a fake.
 type bridge interface {
-	Devices(ctx context.Context) ([]z2m.Device, bool)
+	Devices(ctx context.Context) ([]z2m.Device, error)
 	// Read asks name for its state and returns how long the answer took.
 	Read(ctx context.Context, name string) (time.Duration, bool)
 }
@@ -38,7 +38,7 @@ func dial(m config.MQTT) (*mqttBridge, error) {
 	return &mqttBridge{client: c, z2m: z2m.New(c, m.BaseTopic)}, nil
 }
 
-func (b *mqttBridge) Devices(ctx context.Context) ([]z2m.Device, bool) { return b.z2m.Devices(ctx) }
+func (b *mqttBridge) Devices(ctx context.Context) ([]z2m.Device, error) { return b.z2m.Devices(ctx) }
 
 func (b *mqttBridge) Read(ctx context.Context, name string) (time.Duration, bool) {
 	if b.watched != name {

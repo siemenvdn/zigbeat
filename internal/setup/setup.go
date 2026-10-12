@@ -2,6 +2,7 @@ package setup
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -45,12 +46,15 @@ type session struct {
 }
 
 func (s *session) run(ctx context.Context) int {
-	devs, ok := s.br.Devices(ctx)
-	if !ok {
+	devs, err := s.br.Devices(ctx)
+	if err != nil {
 		if ctx.Err() != nil {
 			return s.nothing()
 		}
-		fmt.Fprintf(s.err, "no retained %s/bridge/devices within %v; is Zigbee2MQTT running, with retain on?\n", s.o.mqtt.BaseTopic, z2m.RetainedWait)
+		if errors.Is(err, z2m.ErrNoRetained) {
+			err = fmt.Errorf("%w; is Zigbee2MQTT running, with retain on?", err)
+		}
+		fmt.Fprintln(s.err, err)
 		return 1
 	}
 	offered, refused, others := survey(devs)

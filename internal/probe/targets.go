@@ -10,10 +10,10 @@ import (
 // refuseTargets stops the probe before anything changes when a target may not
 // be driven by the rules of zigbeat setup. Without bridge/devices it warns and goes on.
 func (s *session) refuseTargets() error {
-	devs, ok := s.bridge.Devices(s.ctx)
-	if !ok {
+	devs, err := s.bridge.Devices(s.ctx)
+	if err != nil {
 		if s.ctx.Err() == nil {
-			fmt.Fprintf(os.Stderr, "warning: no %s/bridge/devices; the targets were not checked against it\n", s.cfg.base)
+			fmt.Fprintf(os.Stderr, "warning: %v; the targets were not checked against it\n", err)
 		}
 		return nil
 	}

@@ -59,9 +59,19 @@ func (f *fakeLink) Err() error { return nil }
 
 func (f *fakeLink) Close() {}
 
-func (f *fakeLink) Groups(context.Context) ([]string, bool) { return f.groups, f.groups != nil }
+func (f *fakeLink) Groups(context.Context) ([]string, error) {
+	if f.groups == nil {
+		return nil, z2m.ErrNoRetained
+	}
+	return f.groups, nil
+}
 
-func (f *fakeLink) Devices(context.Context) ([]z2m.Device, bool) { return f.devices, f.devices != nil }
+func (f *fakeLink) Devices(context.Context) ([]z2m.Device, error) {
+	if f.devices == nil {
+		return nil, z2m.ErrNoRetained
+	}
+	return f.devices, nil
+}
 
 func (f *fakeLink) Reconnect(context.Context) bool {
 	f.reconnects++
