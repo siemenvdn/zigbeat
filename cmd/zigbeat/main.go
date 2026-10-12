@@ -10,6 +10,7 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/probe"
 	"github.com/siemenvdn/zigbeat/internal/run"
 	"github.com/siemenvdn/zigbeat/internal/serve"
+	"github.com/siemenvdn/zigbeat/internal/setup"
 )
 
 var version = "dev"
@@ -19,6 +20,7 @@ const usage = `zigbeat: make your Zigbee lights move with music, without floodin
 usage: zigbeat <command> [flags]
 
 commands:
+  setup     find your lights in Zigbee2MQTT and write the configuration
   probe     measure how many light commands per second your network handles
   run       run the light show to the music, or to a metronome
   serve     run the show as a service that Home Assistant switches on and off
@@ -34,6 +36,8 @@ func main() {
 		os.Exit(cli.ExitUsage)
 	}
 	switch os.Args[1] {
+	case "setup":
+		os.Exit(setup.Run(os.Args[2:]))
 	case "probe":
 		os.Exit(probe.Run(os.Args[2:]))
 	case "run":
