@@ -71,7 +71,7 @@ Anything without a role is never touched. That is also how relays and plugs stay
 |---|---|
 | `music.Source` | One ordered stream of what plays, at least 1 s ahead: a track with its tempo and album colours, its beats with their energy, and a clear when they no longer apply. Music Assistant is the source when the config has it, else a fixed-BPM metronome. See [Beat sources](#beat-sources). |
 | Planner | Decides per moment which bulbs change and how: the variant, the colour, the brightness kick, the breathing direction. See [Effects](#effects). |
-| Scheduler | Sends each message early by its number of Zigbee frames times the measured latency per frame, plus a configurable audio offset for TV and amplifier delay, which `zigbeat run` can change while it plays. The estimate starts at `budget.latency_ms` and follows the median of the last 20 confirmations. A moment that cannot leave within 150 ms of its send time is dropped as a whole; returns and breathe are never dropped. Due messages for one bulb are merged. |
+| Scheduler | Sends each message early by its number of Zigbee frames times the measured latency per frame, plus a configurable audio offset for TV and amplifier delay, which `zigbeat run` can change while it plays. The estimate starts at `budget.latency_ms` and follows the median of the last 20 confirmations. A colour change that cannot leave within 150 ms of its send time is dropped on its own, so a `together` fixture can miss one bulb for a moment; returns and breathe are never dropped. Due messages for one bulb are merged. |
 | Rate limiter | Token bucket in Zigbee frames at `budget.max_rate`, holding one moment (6 frames). A hard ceiling, never a target. Colour plus brightness in one message is two frames. |
 | Closed loop | At most one message in flight per bulb and three in total. A message is confirmed by the bulb's next state; a `brightness_move` publishes none, so it frees its slot after 1 s. Unanswered after 5 s counts as lost. |
 | Backoff | Level 0 normal, 1 no kick and one message in flight, 2 pause: nothing is sent but canary reads. Signals: latency per frame above twice the show's own starting median, a lost message, a slow canary, a Zigbee2MQTT error. One step per 10 s at most; one step back after a quiet minute. Errors about other devices raise it to 1 at most. |
@@ -479,7 +479,7 @@ What each package offers the others. Unexported helpers are left out; `go doc ./
 | `Settle(now) []Message` | Breathe lights to their low end when the beats stop |
 | `TakeNotes() []string`, `Moments() int` | Notes since the last call; moments planned so far |
 | `AlbumColors(palette, n) []string` | n vivid hex colours from album art, or nil; also used by `zigbeat beats` |
-| `Message` | One message: the light, the payload, when it must land, its moment unit, whether it may be dropped |
+| `Message` | One message: the light, the payload, when it must land, whether it may be dropped |
 
 | `run/flow` | Does |
 |---|---|

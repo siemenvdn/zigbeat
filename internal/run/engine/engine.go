@@ -27,7 +27,6 @@ type Engine struct {
 	canary   flow.Canary
 	lights   []string
 	queue    map[string][]queued // per light, by send time
-	started  map[int]bool        // units with a message out
 	fails    map[string]int      // failures in a row per light
 	away     map[string]time.Time
 	offset   time.Duration
@@ -49,7 +48,6 @@ func New(c config.Config, canaryLim time.Duration, now time.Time) *Engine {
 		canary:     flow.NewCanary(c.Canary, canaryLim, now),
 		lights:     c.Lights(),
 		queue:      map[string][]queued{},
-		started:    map[int]bool{},
 		fails:      map[string]int{},
 		away:       map[string]time.Time{},
 		offset:     c.Budget.AudioOffset(),

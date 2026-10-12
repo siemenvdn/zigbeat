@@ -149,7 +149,7 @@ zigbeat run -config config.yaml
 | Field | Meaning |
 |---|---|
 | `moments` | Moments played so far |
-| `dropped` | Changes skipped because they could not land on the beat: one bulb of a `separate` fixture, or a whole `together` fixture |
+| `dropped` | Colour changes skipped because they could not land on the beat, per light |
 | `frames/s` | Zigbee frames sent, always below `budget.max_rate` |
 | `p50` | Time until Zigbee2MQTT confirms, per frame |
 | `backoff` | 0 normal, 1 no kick, 2 paused |

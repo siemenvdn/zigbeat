@@ -18,7 +18,6 @@ type Message struct {
 	Light   string
 	Payload map[string]any
 	Land    time.Time
-	Unit    int  // > 0: belongs to a moment unit, dropped only as a whole
 	Drop    bool // may be dropped when it cannot leave on time
 }
 
@@ -43,7 +42,6 @@ type Planner struct {
 	rng          *rand.Rand
 	variantState // deck, turn and target of the variant that plays
 	moments      int
-	units        int
 	cadence      time.Duration
 	every        int     // beats between moments in force; 0 before the first beat
 	bpm          float64 // the tempo of the current track

@@ -48,9 +48,6 @@ func TestLargeUnitChangesInParts(t *testing.T) {
 	if a["f0-1"] != b["f0-4"] || a["f0-1"] != b["f0-5"] {
 		t.Errorf("one colour for the whole fixture: %v then %v", a, b)
 	}
-	if first[0].Unit == second[0].Unit {
-		t.Error("each part is a unit of its own, dropped alone")
-	}
 	if got := changed(p.Beat(moment(8), 0)); got != "f0-1,f0-2,f0-3" {
 		t.Errorf("then the fixture starts again: %q", got)
 	}

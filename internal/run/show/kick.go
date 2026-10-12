@@ -19,23 +19,22 @@ func (p *Planner) change(u []string, c string, b music.Beat, calm bool) []Messag
 }
 
 // paint gives lights colour c, with a brightness kick that falls back one beat
-// later; calm leaves out the kick. The lights are one moment unit.
+// later; calm leaves out the kick.
 func (p *Planner) paint(lights []string, c string, b music.Beat, calm bool) []Message {
-	p.units++
 	var out []Message
 	for _, l := range lights {
-		// A dropped unit still counts as given; the next colour may then repeat once.
+		// A dropped kick still counts as given; the next colour may then repeat once.
 		p.current[l] = c
 		hex := map[string]string{"hex": c}
 		if calm {
-			out = append(out, Message{Light: l, Land: b.At, Unit: p.units, Drop: true,
+			out = append(out, Message{Light: l, Land: b.At, Drop: true,
 				Payload: map[string]any{"color": hex, "transition": colorBlend}})
 			continue
 		}
 		out = append(out,
-			Message{Light: l, Land: b.At, Unit: p.units, Drop: true,
+			Message{Light: l, Land: b.At, Drop: true,
 				Payload: map[string]any{"color": hex, "brightness": p.kick, "transition": colorBlend}},
-			Message{Light: l, Land: b.At.Add(p.period()), Unit: p.units,
+			Message{Light: l, Land: b.At.Add(p.period()),
 				Payload: map[string]any{"brightness": p.base, "transition": kickFall}})
 	}
 	return out

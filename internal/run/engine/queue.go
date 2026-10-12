@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"maps"
 	"slices"
 	"time"
 
@@ -9,7 +8,7 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
-const lateLimit = 150 * time.Millisecond // a moment message this late is dropped
+const lateLimit = 150 * time.Millisecond // a colour change this late is dropped
 
 type queued struct {
 	show.Message
@@ -47,45 +46,23 @@ func (e *Engine) ready(now time.Time) []string {
 	return ls
 }
 
-// dropLate removes moment units that can no longer land on time, as long as
-// none of their messages has left.
+// dropLate drops the colour changes that can no longer land on time, each on
+// its own, and counts them. Their returns stay.
 func (e *Engine) dropLate(now time.Time) {
-	e.dropped += e.dropUnits(func(m queued) bool { return now.Sub(m.sendAt) > lateLimit })
+	e.dropped += e.drop(func(m queued) bool { return now.Sub(m.sendAt) > lateLimit })
 }
 
-// forget drops the moments planned from beats that no longer apply, because
-// the music jumped or stopped. A unit with a message out keeps its return;
-// breathe stays.
-func (e *Engine) forget() { e.dropUnits(func(queued) bool { return true }) }
+// forget drops the colour changes planned from beats that no longer apply,
+// because the music jumped or stopped. Returns and breathe stay.
+func (e *Engine) forget() { e.drop(func(queued) bool { return true }) }
 
-// dropUnits removes every moment unit with a droppable message for which drop
-// holds, as long as none of the unit's messages has left, and counts them.
-func (e *Engine) dropUnits(drop func(queued) bool) int {
-	units := map[int]bool{}
-	for _, q := range e.queue {
-		for _, m := range q {
-			if m.Drop && !e.started[m.Unit] && drop(m) {
-				units[m.Unit] = true
-			}
-		}
-	}
-	if len(units) == 0 {
-		return 0
-	}
+// drop removes every droppable message for which late holds and returns how
+// many it removed.
+func (e *Engine) drop(late func(queued) bool) int {
+	n := 0
 	for l, q := range e.queue {
-		e.queue[l] = slices.DeleteFunc(q, func(m queued) bool { return units[m.Unit] })
+		e.queue[l] = slices.DeleteFunc(q, func(m queued) bool { return m.Drop && late(m) })
+		n += len(q) - len(e.queue[l])
 	}
-	return len(units)
-}
-
-// forgetStarted drops the units with nothing left in the queue: started only
-// matters for messages that could still be dropped.
-func (e *Engine) forgetStarted() {
-	left := map[int]bool{}
-	for _, q := range e.queue {
-		for _, m := range q {
-			left[m.Unit] = true
-		}
-	}
-	maps.DeleteFunc(e.started, func(u int, _ bool) bool { return !left[u] })
+	return n
 }

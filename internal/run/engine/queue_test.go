@@ -5,11 +5,10 @@ import (
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/music"
-	"github.com/siemenvdn/zigbeat/internal/run/flow"
 	"github.com/siemenvdn/zigbeat/internal/run/show"
 )
 
-func TestLateMomentIsDroppedWithItsReturn(t *testing.T) {
+func TestLateKickIsDroppedItsReturnStays(t *testing.T) {
 	e := started(t, "separate", 100)
 	e.Music(t0, moment(8)) // At t0+4s: kicks for lamp-1 and lamp-2, breathe for lamp-4
 	sendAt := e.queue["lamp-1"][0].sendAt
@@ -17,29 +16,11 @@ func TestLateMomentIsDroppedWithItsReturn(t *testing.T) {
 	if got != "lamp-4" {
 		t.Fatalf("200 ms late: sent %q, want only the breathe light", got)
 	}
-	if len(e.queue["lamp-1"])+len(e.queue["lamp-2"]) != 0 {
-		t.Fatalf("returns of a dropped unit must go too: %v %v", e.queue["lamp-1"], e.queue["lamp-2"])
+	if len(e.queue["lamp-1"]) != 1 || len(e.queue["lamp-2"]) != 1 {
+		t.Fatalf("each return stays: %v %v", e.queue["lamp-1"], e.queue["lamp-2"])
 	}
 	if e.dropped != 2 {
-		t.Errorf("two separate units dropped, counted %d", e.dropped)
-	}
-}
-
-func TestTogetherUnitIsNeverSplit(t *testing.T) {
-	e := started(t, "together", 5)
-	e.Music(t0, moment(8))
-	sendAt := e.queue["lamp-1"][0].sendAt
-	e.lim = flow.NewLimiter(5, sendAt)
-	e.lim.Take(sendAt, flow.Burst-2) // room for one kick of 2 frames
-	if got := lightsOf(e.Due(sendAt)); got != "lamp-1" {
-		t.Fatalf("tokens for one kick: sent %q", got)
-	}
-	e.State("lamp-1", sendAt.Add(40*time.Millisecond))
-	if got := lightsOf(e.Due(sendAt.Add(400 * time.Millisecond))); got != "lamp-2" {
-		t.Fatalf("400 ms late, the unit already started: sent %q, want lamp-2", got)
-	}
-	if len(e.queue["lamp-3"]) == 0 {
-		t.Fatal("lamp-3 of a started unit must not be dropped")
+		t.Errorf("two late kicks, counted %d", e.dropped)
 	}
 }
 
@@ -84,8 +65,8 @@ func TestClearDropsPlannedMoments(t *testing.T) {
 	e := started(t, "separate", 100)
 	e.Music(t0, moment(8)) // kicks for lamp-1 and lamp-2, breathe for lamp-4
 	e.Music(t0, music.Clear{})
-	if len(e.queue["lamp-1"])+len(e.queue["lamp-2"]) != 0 || len(e.queue["lamp-4"]) == 0 {
-		t.Errorf("a seek drops the planned kicks with their returns and keeps breathe: %v %v %v",
+	if len(e.queue["lamp-1"]) != 1 || len(e.queue["lamp-2"]) != 1 || len(e.queue["lamp-4"]) == 0 {
+		t.Errorf("a seek drops the planned kicks and keeps their returns and breathe: %v %v %v",
 			e.queue["lamp-1"], e.queue["lamp-2"], e.queue["lamp-4"])
 	}
 	if e.dropped != 0 {
@@ -98,19 +79,5 @@ func TestClearDropsPlannedMoments(t *testing.T) {
 	e.Music(t0, music.Clear{})
 	if len(e.queue["lamp-1"]) != 1 || len(e.queue["lamp-2"]) != 1 {
 		t.Errorf("a kick that left keeps its return: %v %v", e.queue["lamp-1"], e.queue["lamp-2"])
-	}
-}
-
-func TestStartedUnitsAreForgotten(t *testing.T) {
-	e := started(t, "separate", 100)
-	e.Music(t0, moment(8))
-	q := e.queue["lamp-1"]
-	for now := q[0].sendAt; !now.After(q[len(q)-1].sendAt.Add(time.Second)); now = now.Add(50 * time.Millisecond) {
-		for _, s := range e.Due(now) {
-			e.State(s.Light, now.Add(40*time.Millisecond))
-		}
-	}
-	if len(e.started) != 0 {
-		t.Errorf("units that left whole are still kept: %v", e.started)
 	}
 }

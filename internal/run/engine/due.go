@@ -57,16 +57,10 @@ func (e *Engine) Due(now time.Time) []Send {
 		if !e.lim.Take(now, frames) {
 			break
 		}
-		for _, m := range q[:n] {
-			if m.Unit > 0 {
-				e.started[m.Unit] = true
-			}
-		}
 		e.queue[l] = q[n:]
 		e.fl.Add(l, now, z2m.Echoes(payload), frames)
 		e.frames += frames
 		out = append(out, Send{Light: l, Payload: payload})
 	}
-	e.forgetStarted()
 	return out
 }
