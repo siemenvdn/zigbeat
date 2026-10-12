@@ -79,7 +79,7 @@ func (r *runner) refuseDevices(ctx context.Context) error {
 	for _, f := range r.cfg.Fixtures {
 		for _, l := range f.Lights {
 			if err := z2m.Check(devs, l, f.Role); err != nil {
-				return err
+				return fmt.Errorf("%w; fix the config or run zigbeat setup again", err)
 			}
 		}
 	}

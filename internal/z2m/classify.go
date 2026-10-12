@@ -84,9 +84,9 @@ func Classify(d Device) (role, why string) {
 	return "breathe", ""
 }
 
-// Check says why the config may not drive the light called name in role, or
-// returns nil. Role breathe takes every light Classify offers, color only
-// lights with xy colour.
+// Check says why the light called name may not be driven in role, or returns
+// nil; the advice is the caller's. Role breathe takes every light Classify
+// offers, color only lights with xy colour.
 func Check(devs []Device, name, role string) error {
 	d, ok := Find(devs, name)
 	if !ok {
@@ -95,9 +95,9 @@ func Check(devs []Device, name, role string) error {
 	got, why := Classify(d)
 	switch {
 	case got == "":
-		return fmt.Errorf("light %q is not offered by zigbeat setup (%s); remove it from the config", name, why)
+		return fmt.Errorf("light %q is not offered by zigbeat setup (%s)", name, why)
 	case role == "color" && got != "color":
-		return fmt.Errorf("light %q has no xy colour; give it role breathe or remove it", name)
+		return fmt.Errorf("light %q has no xy colour", name)
 	}
 	return nil
 }

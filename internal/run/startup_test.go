@@ -63,7 +63,7 @@ func TestStartupRefusesDevices(t *testing.T) {
 	for want, mutate := range cases {
 		f.devices = []z2m.Device{bulb("lamp-1", true), bulb("lamp-2", true), bulb("lamp-3", true), bulb("lamp-4", false)}
 		mutate(f.devices)
-		if err := r.refuseDevices(context.Background()); err == nil || !strings.HasPrefix(err.Error(), want) {
+		if err := r.refuseDevices(context.Background()); err == nil || !strings.HasPrefix(err.Error(), want) || !strings.HasSuffix(err.Error(), "run zigbeat setup again") {
 			t.Errorf("want %s, got %v", want, err)
 		}
 	}

@@ -76,6 +76,11 @@ func TestClassifyRules(t *testing.T) {
 		t.Errorf("two lights: %q", why)
 	}
 	d = bulb()
+	d.Definition.Source = "generated" // the one in testdata is refused earlier, as an end device
+	if _, why := Classify(d); why != "generated definition" {
+		t.Errorf("generated: %q", why)
+	}
+	d = bulb()
 	d.Supported = false
 	if _, why := Classify(d); why != "not supported by Zigbee2MQTT" {
 		t.Errorf("unsupported: %q", why)
@@ -100,8 +105,8 @@ func TestCheck(t *testing.T) {
 		{"bulb_color_2", "color", ""},
 		{"bulb_color_2", "breathe", ""},
 		{"white-bulb", "breathe", ""},
-		{"white-bulb", "color", `light "white-bulb" has no xy colour; give it role breathe or remove it`},
-		{"power_plug", "breathe", `light "power_plug" is not offered by zigbeat setup (switch, never driven); remove it from the config`},
+		{"white-bulb", "color", `light "white-bulb" has no xy colour`},
+		{"power_plug", "breathe", `light "power_plug" is not offered by zigbeat setup (switch, never driven)`},
 		{"lamp-9", "color", `light "lamp-9" is not a Zigbee2MQTT device`},
 	}
 	for _, c := range cases {
