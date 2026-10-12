@@ -56,12 +56,18 @@ func (e *Engine) dropLate(now time.Time) {
 // because the music jumped or stopped. Returns and breathe stay.
 func (e *Engine) forget() { e.drop(func(queued) bool { return true }) }
 
-// drop removes every droppable message for which late holds and returns how
-// many it removed.
+// drop removes every droppable message for which late holds, tells the
+// planner, and returns how many it removed.
 func (e *Engine) drop(late func(queued) bool) int {
 	n := 0
 	for l, q := range e.queue {
-		e.queue[l] = slices.DeleteFunc(q, func(m queued) bool { return m.Drop && late(m) })
+		e.queue[l] = slices.DeleteFunc(q, func(m queued) bool {
+			gone := m.Drop && late(m)
+			if gone {
+				e.plan.Missed(m.Message)
+			}
+			return gone
+		})
 		n += len(q) - len(e.queue[l])
 	}
 	return n

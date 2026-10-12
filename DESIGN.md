@@ -353,7 +353,7 @@ flowchart LR
   src["music.Source<br/>ma.Source or music.Metronome"] -->|"Clear, Track, Beat"| loop["run: the loop"]
   serve["serve"] -->|"run.Play with Hooks"| loop
   loop -->|"Music, State, ZigbeeError, Due, SetEffects"| eng["engine.Engine"]
-  eng -->|"Track, Beat, SetEffects, Start, Settle"| plan["show.Planner"]
+  eng -->|"Track, Beat, SetEffects, Start, Settle, Missed"| plan["show.Planner"]
   eng -->|"Take, Add, Confirm, Signal"| flow["run/flow: Limiter, InFlight,<br/>Backoff, Canary"]
   loop -->|"Set, Get"| link["run.link: z2m.Bridge<br/>over mqtt.Client"]
   link -.->|"states, log lines"| loop
@@ -477,6 +477,7 @@ What each package offers the others. Unexported helpers are left out; `go doc ./
 | `SetEffects(config.Effects)` | Takes the style from the next moment: album colours from the last track, the variant, the brightness, the pace |
 | `Beat(b, backoff) []Message` | The messages of a moment, or nil when b is no moment: the variant, colours, kick and return, breathe |
 | `Settle(now) []Message` | Breathe lights to their low end when the beats stop |
+| `Missed(Message)` | A colour change the engine dropped no longer counts as shown, so `build` gives that light the colour again |
 | `TakeNotes() []string`, `Moments() int` | Notes since the last call; moments planned so far |
 | `AlbumColors(palette, n) []string` | n vivid hex colours from album art, or nil; also used by `zigbeat beats` |
 | `Message` | One message: the light, the payload, when it must land, whether it may be dropped |

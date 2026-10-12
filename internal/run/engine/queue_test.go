@@ -81,3 +81,32 @@ func TestClearDropsPlannedMoments(t *testing.T) {
 		t.Errorf("a kick that left keeps its return: %v %v", e.queue["lamp-1"], e.queue["lamp-2"])
 	}
 }
+
+// TestBuildPaintsADroppedKickAgain: a light whose kick was dropped does not
+// show the colour, so build gives it that colour again.
+func TestBuildPaintsADroppedKickAgain(t *testing.T) {
+	e := started(t, "separate", 100)
+	eff := testConfig("separate").Effects
+	eff.Variant = "build"
+	e.SetEffects(t0, eff)
+	kicked := func() string {
+		for l, q := range e.queue {
+			for _, m := range q {
+				if m.Drop {
+					return l
+				}
+			}
+		}
+		return ""
+	}
+	e.Music(t0, moment(8))
+	first := kicked()
+	e.Due(e.queue[first][0].sendAt.Add(200 * time.Millisecond))
+	if kicked() != "" {
+		t.Fatal("the late kick was not dropped")
+	}
+	e.Music(at(4_300), moment(12))
+	if got := kicked(); got != first {
+		t.Errorf("build painted %q, want %q again", got, first)
+	}
+}

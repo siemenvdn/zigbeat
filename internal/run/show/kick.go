@@ -23,7 +23,6 @@ func (p *Planner) change(u []string, c string, b music.Beat, calm bool) []Messag
 func (p *Planner) paint(lights []string, c string, b music.Beat, calm bool) []Message {
 	var out []Message
 	for _, l := range lights {
-		// A dropped kick still counts as given; the next colour may then repeat once.
 		p.current[l] = c
 		hex := map[string]string{"hex": c}
 		if calm {
@@ -38,4 +37,12 @@ func (p *Planner) paint(lights []string, c string, b music.Beat, calm bool) []Me
 				Payload: map[string]any{"brightness": p.base, "transition": kickFall}})
 	}
 	return out
+}
+
+// Missed takes back the colour of a message the engine dropped, while it is
+// still the light's latest, so the light no longer counts as showing it.
+func (p *Planner) Missed(m Message) {
+	if c, ok := m.Payload["color"].(map[string]string); ok && p.current[m.Light] == c["hex"] {
+		delete(p.current, m.Light)
+	}
 }

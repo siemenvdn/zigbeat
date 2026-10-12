@@ -18,3 +18,13 @@ func TestKickAndReturn(t *testing.T) {
 		}
 	}
 }
+
+func TestMissedKeepsANewerColour(t *testing.T) {
+	p := NewPlanner(testConfig("separate"))
+	kick := p.Beat(moment(0), 0)[0]
+	p.current[kick.Light] = "#000000" // a later moment gave it another colour
+	p.Missed(kick)
+	if p.current[kick.Light] != "#000000" {
+		t.Errorf("a dropped older kick took back the newer colour: %q", p.current[kick.Light])
+	}
+}
