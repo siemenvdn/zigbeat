@@ -96,6 +96,9 @@ func (s *session) handle(m message) (wait time.Duration, done bool) {
 		s.forget("new track or seek, waiting for beats")
 	case kindEnd:
 		s.forget("music stopped")
+		if s.src.Player == "" {
+			return cli.RedialEvery, true // MA picks whichever player plays when the source dials again
+		}
 	}
 	return 0, false
 }

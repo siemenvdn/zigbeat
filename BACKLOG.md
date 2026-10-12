@@ -18,7 +18,6 @@ Small known issues, found in the reviews of phases 1a to 2 and left for later. P
 
 ## Music Assistant
 
-- **Another player after the music stops.** Without `music_assistant.player`, the relay picks the playing player when zigbeat connects and stays with it. Music stopping on one speaker and starting on another leaves zigbeat silent until the connection drops or the show restarts. Reconnecting on `stream/end` when no player is set would follow, at the cost of up to 5 s after every resume.
 - **Beats already handed over survive a seek.** Up to 1 s of beats sits in the engine when a `stream/clear` or `stream/end` comes, so one kick and its return can still land on the old grid. Inherent to the 1 s lookahead; an engine call to drop future units would fix it.
 
 ## zigbeat serve

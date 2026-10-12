@@ -15,7 +15,7 @@ budget:
 # music_assistant:              # the beat source; without it the show runs to a metronome
 #   url: ws://127.0.0.1:8095    # Music Assistant's webserver
 #   token_env: ZIGBEAT_MA_TOKEN # a long-lived token created in Music Assistant
-#   player: ""                  # optional MA player id; empty: the one playing when zigbeat connects
+#   player: ""                  # optional MA player id; empty follows whichever player is playing
 
 canary: far-lamp       # optional: a mains-powered device far from the lights
 

@@ -170,3 +170,30 @@ func TestNumbersTheBurstAsAWhole(t *testing.T) {
 		t.Errorf("the beat after the downbeat is 1, not 5: %+v", second)
 	}
 }
+
+func TestEndFollowsTheNextPlayer(t *testing.T) {
+	old := cli.RedialEvery
+	cli.RedialEvery = 50 * time.Millisecond
+	t.Cleanup(func() { cli.RedialEvery = old })
+	for _, c := range []struct {
+		player string
+		redial bool
+	}{{"", true}, {"kitchen", false}} {
+		f := startMA(t)
+		_, notes := listen(t, f, c.player, "good")
+		conn := <-f.conns
+		notes.waitFor(t, "connected")
+		_ = conn.WriteText([]byte(`{"type": "stream/end"}`))
+		notes.waitFor(t, "music stopped")
+		select {
+		case <-f.conns:
+			if !c.redial {
+				t.Errorf("player %q: a named player keeps its connection", c.player)
+			}
+		case <-time.After(500 * time.Millisecond):
+			if c.redial {
+				t.Errorf("player %q: without a player the source dials again, so MA picks the next one that plays", c.player)
+			}
+		}
+	}
+}
