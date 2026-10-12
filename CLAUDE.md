@@ -12,7 +12,7 @@ Keep the README short and about what works today. Plans, rationale and research 
 
 ## Code
 
-- Go, standard library only, plus `go.yaml.in/yaml/v3` for configuration. Any other dependency is a decision: propose it first, with the reason.
+- Go, standard library only, plus `go.yaml.in/yaml/v3` for configuration and `github.com/lucasb-eyer/go-colorful` for colour conversion. Any other dependency is a decision: propose it first, with the reason.
 - Before every commit: `gofmt -l .` is empty, `go vet ./...` and `go test ./...` pass.
 - The binary is static: `CGO_ENABLED=0`. Release targets are linux/amd64 and linux/arm64.
 - New Zigbee behaviour is tested against `cmd/fake-z2m` first. Extend the fake when it cannot simulate something.

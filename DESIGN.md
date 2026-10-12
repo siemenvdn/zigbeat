@@ -36,11 +36,15 @@ How zigbeat works and why. To use it, start with the [README](README.md).
 | serve has its own MQTT connection; each show opens its own | A stuck Home Assistant link never slows the show, and an idle serve subscribes to no light |
 | serve always starts with the show off | A restart must never start a show on its own |
 | The beats come from Music Assistant's own analysis, through its visualizer relay | Real beat times with downbeats, on any speaker Music Assistant plays to and from any of its providers. See [Beat sources](#beat-sources) |
+| The source reports what plays as one ordered stream: tracks, with their tempo and album colours, and their beats, with their energy | A beat should not carry the properties of its track. One stream keeps the order a show relies on: a clear, then the next track, then its first beat |
+| The album art's colours play vivid: hue and saturation only, greys and near-black dropped, hues 30° apart | Zigbee2MQTT sends a hex colour as xy and ignores its brightness; pale or dark colours look like a tint of white on a bulb |
+| Energy is the low band of the coming bar within its track, measured and printed but not yet steering the lights | The waveform is the raw decoded audio, before volume normalisation, so levels only compare within a track. Limited masters differ between sections below 150 Hz, hardly in the full band. It needs to be seen on real music first |
+| The colour bulbs rotate through variants per 16 bars, with `build` at a track's start | At one change every 2 to 5 s no motion is seen; variants differ in how many bulbs change and how many colours the room shows |
 | Own WebSocket client, no dependency | The relay needs no extensions, compression or TLS; about 200 lines, like the MQTT client |
 | The audio offset is calibrated by ear while `zigbeat run` plays | One number per speaker setup; Home Assistant stays on and off only |
 | Roles and fixtures instead of device names in code | Works in any home |
 | Measure first, then build | The budget shapes the effect design |
-| Go, standard library plus `go.yaml.in/yaml/v3` | A single static binary; YAML is friendlier than JSON to edit by hand |
+| Go, standard library plus `go.yaml.in/yaml/v3` and `go-colorful` | A single static binary; YAML is friendlier than JSON to edit by hand; colour conversion is not worth own code |
 
 ## Roles and fixtures
 
@@ -63,8 +67,8 @@ Anything without a role is never touched. That is also how relays and plugs stay
 
 | Part | Job |
 |---|---|
-| `BeatSource` | Interface that delivers beats at least 1 s before they become audible. Music Assistant is the source when the config has it, else a fixed-BPM metronome. See [Beat sources](#beat-sources). |
-| Planner | Decides per moment which bulbs change: colour, brightness kick, breathing direction. See [Effects](#effects). |
+| `music.Source` | One ordered stream of what plays, at least 1 s ahead: a track with its tempo and album colours, its beats with their energy, and a clear when they no longer apply. Music Assistant is the source when the config has it, else a fixed-BPM metronome. See [Beat sources](#beat-sources). |
+| Planner | Decides per moment which bulbs change and how: the variant, the colour, the brightness kick, the breathing direction. See [Effects](#effects). |
 | Scheduler | Sends each message early by its number of Zigbee frames times the measured latency per frame, plus a configurable audio offset for TV and amplifier delay, which `zigbeat run` can change while it plays. The estimate starts at `budget.latency_ms` and follows the median of the last 20 confirmations. A moment that cannot leave within 150 ms of its send time is dropped as a whole; returns and breathe are never dropped. Due messages for one bulb are merged. |
 | Rate limiter | Token bucket in Zigbee frames at `budget.max_rate`, holding one moment (6 frames). A hard ceiling, never a target. Colour plus brightness in one message is two frames. |
 | Closed loop | At most one message in flight per bulb and three in total. A message is confirmed by the bulb's next state; a `brightness_move` publishes none, so it frees its slot after 1 s. Unanswered after 5 s counts as lost. |
@@ -106,12 +110,21 @@ Backoff level 2 doubles the interval.
 
 ### `color` bulbs
 
-- **Chase:** at each moment the next bulbs in config order change, about half of them and at most three messages, so colour travels through the room.
-- **Fixture mode:** `separate` changes one bulb at a time, `together` the whole fixture at once in one colour, `alternate` switches between the two every 4 moments (the default).
-- **Colour:** the next palette colour that no bulb of the same fixture shows. Zigbee2MQTT gets it as hex and converts it per bulb.
+- **Variants:** what changes at a moment, at most three messages:
+
+  | Variant | Who changes | The room |
+  |---|---|---|
+  | `walk` | About half the bulbs, in config order from where the last moment stopped | Many colours, travelling |
+  | `shuffle` | As many, in a shuffled order; every bulb once before any comes back | Many colours, no pattern |
+  | `swap` | One of two groups dealt round-robin (more groups when one would hold more than three bulbs); the groups take turns, each in one colour | Two colours, like a checkerboard |
+  | `build` | One bulb, to a shared target colour; when every bulb shows it, the next colour | Fills slowly with one colour |
+
+- **Rotation** (`variant: rotation`, the default): `build` for the first 16 bars of a track (Index below 64, so also after a seek), then `walk`, `shuffle` and `swap`, 16 bars each. A fixed variant plays all the time.
+- **Fixture mode:** `separate` changes one bulb at a time, `together` the whole fixture at once in one colour, `alternate` switches between the two every 4 moments (the default). A fixture of more than three bulbs changes in parts of three, one part per moment, in one colour; the variant waits for it.
+- **Colour:** in `walk` and `shuffle` the next palette colour that no bulb of the same fixture shows, in `swap` one that the other groups do not show, in `build` the target. Zigbee2MQTT gets it as hex and converts it per bulb.
+- **Album colours** (`album_palette`, the default): from the colours Music Assistant sends per cover. Greys (saturation below 0.25) and near-black (value below 0.15) are dropped, hues stay at least 30° apart, saturation is lifted to 0.75, and there are `album_colors` of them (3 by default), filled up with the most dominant hue ±30°, ±60°, ±90°. Without usable colours `palette` plays. A new palette applies from the next colour a bulb gets.
 - **Kick:** on the moment, colour (blending over 0.7 s) and brightness 30 points above the base in one message; one beat later back to the base. From backoff level 1 the kick is left out.
 - **Start:** every bulb is switched on at the base brightness with a first colour.
-- **Later:** a palette per track, possibly from the album art.
 
 ### `breathe` bulbs
 
@@ -141,16 +154,19 @@ The source is Music Assistant (MA) 2.10 or later. Its Smart Fades analysis runs 
 | Connect | `ws://<ma>:8095/milkdrop_visualizer`, optionally `?player=<id>`; a long-lived MA token as the first message. Without a player, MA picks the one that is playing when zigbeat connects, and zigbeat connects again when the music stops, so it follows whichever player plays next; after a pause the beats return within 5 s of the resume |
 | Clock | Bursts of 8 `client/time` requests every 10 s; the answer with the shortest round trip in the last 30 s maps MA's monotonic clock onto zigbeat's |
 | Beats | Binary frames `[17][timestamp µs][downbeat]`, every remaining beat of a track at once when the analysis is there: on a first play about 5 to 10 s into the track, at once when it is cached. `stream/clear` (new track, seek, resume) and `stream/end` drop them, and the source tells the show, which drops the moments it planned from them that have not left |
+| Colours | `{"type":"color"}` with Music Assistant's palette roles (`primary`, `accent`, `on_dark`, `on_light` and two backgrounds), sent when the artwork changes and again on every connect. At a track change MA first sends all null while it looks up the palette; a null counts only after 10 s without a real one |
+| Energy | Waveform frames `[22][timestamp µs][1024 × uint8]`: the raw decoded audio, mono, 5 s ahead, at the source's sample rate. Two one-pole low-passes at 150 Hz; per beat the mean square of the coming bar, against the quietest and loudest bar of the timeline (at most 15 dB apart); 0.5 until they are 6 dB apart, 0 below -45 dBFS |
 | Numbering | `Index` counts per track and jumps to the next multiple of 4 at every downbeat, so moments stay on the first beat of a bar. The tempo is the median interval of the track |
-| Delivery | Each beat 1 s before it sounds, once the burst of a track is complete (200 ms without a new beat), so the first beat is numbered from its downbeat; a beat less than 0.9 s ahead by then is skipped |
+| Delivery | Each beat 1 s before it sounds, once the burst of a track is complete (200 ms without a new beat), so the first beat is numbered from its downbeat; a beat less than 0.9 s ahead by then is skipped. The tempo and the colours come in a track event before the first beat, and again when they change |
 | Trouble | Notes on change only; a lost connection or no player is retried every 5 s, a refused token every 60 s. The source never ends the show |
 
 The relay anchors a track's beats on the position the player reports. A constant error, such as TV and amplifier delay, is the audio offset; an error that differs per track is not (an open question).
 
 **Rejected:**
 
-- **Sendspin visualizer.** It only gets data inside a Sendspin group; a Chromecast joins only through MA's experimental Sendspin over Cast, which is rarely in sync without a delay set by hand per speaker. Sendspin 1.0 also requires Noise encryption and pairing. A later upgrade behind the same `BeatSource`.
+- **Sendspin visualizer.** It only gets data inside a Sendspin group; a Chromecast joins only through MA's experimental Sendspin over Cast, which is rarely in sync without a delay set by hand per speaker. Sendspin 1.0 also requires Noise encryption and pairing. A later upgrade behind the same `music.Source`.
 - **Tempo database plus playback position.** No free database gives the time of the first beat; Home Assistant's Spotify integration reports the position in whole seconds every 30 s; databases disagree by 0.1 to 0.2 BPM. A change every 2 to 5 s is judged like a single flash and beep (noticed from about 45 ms late or 125 ms early, ITU-R BT.1359), so a random phase misses most of the time and a rounded tempo drifts off within half a minute.
+- **Music Assistant's `audio_analysis/wave_form`** for energy: the RMS of a whole track in 1800 bins, but through the main API, and without a mapping from media time to the relay's clock.
 - Microphones and other extra hardware; Spotify's audio analysis API (closed in November 2024).
 
 ## Configuration
@@ -190,6 +206,9 @@ effects:
   brightness: 60              # percent, base of color bulbs, default 60
   palette: ["#ff2a6d", "#ff7b00", "#ffd400", "#00e5ff", "#2962ff", "#aa00ff"]  # the default
   breathe_range: [30, 80]     # percent, default [30, 80]
+  album_palette: true         # the album art's colours when Music Assistant has them, default true
+  album_colors: 3             # colours made from the album art, 2 to 6, default 3
+  variant: rotation           # rotation (default), walk, shuffle, swap or build
 ```
 
 Unknown keys are an error, so typos do not pass silently. Every light belongs to exactly one fixture, and the canary is not one of the lights.
@@ -236,7 +255,8 @@ Small known issues that are not planned yet: [BACKLOG.md](BACKLOG.md). Ideas for
 ### Phase 3: setup and effects
 
 - **3a (built):** `zigbeat setup` with an allowlist of what may be driven, `zigbeat probe -config` writing the budget, `save` for the audio offset, and the check of every light at the start. Tested against `cmd/fake-z2m`. To do: classify the device list of a real home.
-- **3b:** effect tuning: chase variants, a palette per track from the album art, energy from the music.
+- **3b (built):** variants of the chase that rotate per 16 bars, a palette per track from the album art, and energy from the music, measured and printed. Tested against `cmd/fake-ma` and `cmd/fake-z2m`. To do: judge the colours and variants on real lights.
+- **3c:** the style of the show from Home Assistant: album colours on or off and how many, the variant, the brightness and the pace, with the config as the fallback. Tempo, beats and the audio offset stay out of Home Assistant.
 
 ### Phase 4: release
 
@@ -260,6 +280,11 @@ Small known issues that are not planned yet: [BACKLOG.md](BACKLOG.md). Ideas for
 | Should ZHA (Home Assistant's own Zigbee stack) be supported later? | Reach |
 | Does the allowlist offer every bulb in a real home, and nothing else? | What setup offers, and the start check |
 | Do bulbs with only `color_hs` show the colours zigbeat sends as hex? | Offering them as `color` |
+| How long is the null palette between two tracks on a real Music Assistant, and does it ever pass 10 s? | Bridging a track change with the previous album's colours |
+| Do the album colours look like the cover on real bulbs, at saturation 0.75 and 30° apart? | Album colours |
+| Does the energy follow intro, drop and breakdown on real music? | Letting energy steer the lights |
+| Which variants look good on real lights, and is 16 bars the right phrase? | The rotation |
+| Does a fixture of more than three bulbs look good when it changes three at a time? | Large fixtures |
 
 ## Why Zigbee needs care
 
@@ -283,7 +308,7 @@ Bulb behaviour that zigbeat relies on (seen on IKEA bulbs, to be verified on oth
 cmd/
   zigbeat/        the binary: zigbeat setup, probe, run, serve and beats
   fake-z2m/       simulated Zigbee2MQTT: one coordinator queue, time per frame, optional loss, groups, kinds of device, a landing log
-  fake-ma/        simulated Music Assistant relay: tracks, analysis delay, seeks, gaps, its own clock
+  fake-ma/        simulated Music Assistant relay: tracks, analysis delay, seeks, gaps, its own clock, palettes, music
 internal/
   cli/            what the subcommands share: stop signals, flag errors, the time stamp, the 5 s redial
   mqtt/           minimal MQTT 3.1.1 client (QoS 0, retained publish and will, live-only subscribe, keepalive, wildcards)
@@ -291,12 +316,12 @@ internal/
   z2m/            Zigbee2MQTT topics, groups, the device list and which lights may be driven, frame count, the canary limit
   lights/         snapshot and restore of lights, shared by probe and run
   config/         the YAML configuration, and editing it in place
-  beat/           beats, the Source interface, the metronome
-    ma/           the Music Assistant source: connection, clock sync, beat grid
+  music/          what plays: tracks, beats and clears in one stream, the Source interface, the metronome
+    ma/           the Music Assistant source: connection, clock sync, beat grid, album colours, energy
   beats/          zigbeat beats: the beats from Music Assistant, printed without touching a light
   setup/          zigbeat setup: the device survey, the questions, fixtures, writing the config
   run/            zigbeat run: connection, startup, the real-time loop, stop and restore
-    show/         the planner: moments, chase, colours, kick, breathe
+    show/         the planner: moments, variants, colours, album colours, kick, breathe
     flow/         frame budget, one message in flight per light, backoff, canary
     engine/       the show as a state machine without I/O
   serve/          zigbeat serve: the Home Assistant link, the switch and the show lifecycle
@@ -329,3 +354,7 @@ Packages are small and split by concern; a file rarely passes 150 lines.
 - [ITU-R BT.1359: relative timing of sound and vision](https://www.itu.int/rec/R-REC-BT.1359)
 - [RFC 6455: the WebSocket protocol](https://www.rfc-editor.org/rfc/rfc6455)
 - [go.yaml.in/yaml, the maintained continuation of go-yaml](https://github.com/Go-yaml/yaml)
+- [Music Assistant: palette extraction from artwork (helpers/colors.py)](https://github.com/music-assistant/server/blob/dev/music_assistant/helpers/colors.py)
+- [Music Assistant: the Hue Entertainment plugin, palette to light colours (analyzer.py)](https://github.com/music-assistant/server/tree/dev/music_assistant/providers/hue_entertainment)
+- [zigbee-herdsman-converters: hex to xy (src/lib/color.ts)](https://github.com/Koenkk/zigbee-herdsman-converters/blob/master/src/lib/color.ts)
+- [go-colorful](https://github.com/lucasb-eyer/go-colorful)

@@ -8,12 +8,13 @@ Ordinary Zigbee bulbs on [Zigbee2MQTT](https://www.zigbee2mqtt.io/) have no good
 
 - **Works today:** `zigbeat setup` finds your lights in Zigbee2MQTT and writes the configuration. `zigbeat probe` measures how many light commands per second your network handles and writes that budget into it. `zigbeat run` drives your lights within that budget to the beats of the music that [Music Assistant](https://www.music-assistant.io/) plays, or to a fixed-BPM metronome. `zigbeat serve` does the same as a service that Home Assistant switches on and off.
 - **In progress:** checking on real speakers that the lights land on the beat by ear.
-- **Later:** effects that follow the music more closely, a container image.
+- **Later:** effects that follow the energy of the music, the style of the show from Home Assistant, a container image.
 
 ## What it does
 
 - It follows the beats Music Assistant finds in what it plays, from any of its music sources and on any speaker it plays to.
-- Colour bulbs change colour on the beat, a few at a time, with a short brightness kick.
+- Colour bulbs change colour on the beat, a few at a time, with a short brightness kick. With Music Assistant they take the colours of the album that plays.
+- Every 16 bars the colour bulbs change in another way: at the start of a track they fill the room with one colour bulb by bulb, then the colour walks through the room, shuffles, and two colours swap places.
 - Dimmable bulbs breathe slowly up and down.
 - It stays below the budget the probe found, backs off when the network gets busy and pauses when it keeps struggling. Network trouble never ends the show.
 - Every light goes back to how it was when you stop the show, with Ctrl-C or the switch in Home Assistant.
@@ -124,10 +125,10 @@ If `p50` stays below about 20 ms everywhere, Zigbee2MQTT confirmed before the bu
 
 - `budget.max_rate` and `budget.latency_ms`: written by `zigbeat probe -config`. The show will not start without them.
 - `fixtures`: your lights, grouped as they hang. Give each fixture a role:
-  - `color` for colour bulbs. `mode` decides how a fixture changes: `separate` (one bulb at a time), `together` (the whole fixture at once) or `alternate` (switches between the two every few moments, the default).
+  - `color` for colour bulbs. `mode` decides how a fixture changes: `separate` (one bulb at a time), `together` (the whole fixture at once) or `alternate` (switches between the two every few moments, the default). A fixture of more than three bulbs changes three at a time.
   - `breathe` for dimmable bulbs.
 - `canary` (optional): a far-away mains-powered device, as for the probe. The show reads it every 5 seconds to watch the rest of the network.
-- `effects` (optional): the time between changes, the base brightness, the colour palette and the breathe range.
+- `effects` (optional): the time between changes, the base brightness, the colour palette, the breathe range, whether the album art's colours play and how many (`album_palette`, `album_colors`), and how the colour bulbs change (`variant`: `rotation`, or always `walk`, `shuffle`, `swap` or `build`).
 - `music_assistant` (optional): where the beats come from, see [Play to the music](#play-to-the-music). Without it the show runs to a metronome.
 
 Lights that are not in the config are never touched. List lights one by one: a Zigbee2MQTT group name is refused, because group commands are broadcasts. At the start, the show also refuses a light that `zigbeat setup` would not offer, such as a plug, and a `color` light without xy colour. The MQTT password comes from the environment variable named in `password_env`.
@@ -189,9 +190,9 @@ zigbeat follows the beats that Music Assistant's own analysis finds. It works fo
    zigbeat beats -config config.yaml
    ```
 
-   Play a track through Music Assistant. After a line such as `412 beats ahead, 124.0 BPM, 103 downbeats` it prints one line per beat when it should sound, such as `21:14:10.500  bar 3 beat 1  124.0 BPM`. The first time a track plays, its beats arrive 5 to 10 seconds after it starts; the analysis is kept for the next time.
+   Play a track through Music Assistant. After a line such as `412 beats ahead, 124.0 BPM, 103 downbeats` it prints the track with the colours the show would play, such as `track 124.0 BPM, album colours #406cff #ff943d #7340ff (Music Assistant sent 6)`, then one line per beat when it should sound, such as `21:14:10.500  bar 3 beat 1  energy 0.82`. Energy is how loud the coming bar is within the track: 0.50 until the track has had a louder or a quieter part. The lights do not follow it yet. The first time a track plays, its beats arrive 5 to 10 seconds after it starts; the analysis is kept for the next time.
 
-`zigbeat run` and `zigbeat serve` then use the same block. Lines starting with `music assistant:` tell what the source does: a new track, the music stopping, a lost connection, a refused token.
+`zigbeat run` and `zigbeat serve` then use the same block. Lines starting with `music assistant:` tell what the source does: a new track, the music stopping, a lost connection, a refused token. During the show, lines such as `album colours #406cff #ff943d #7340ff` and `variant walk from bar 16` say what the lights do.
 
 ### Calibrate the audio offset
 
@@ -284,7 +285,7 @@ mosquitto_pub -p 18830 -t zigbeat/show/set -m ON
 
 `zigbeat/state` goes from `off` to `starting` and `running`. Publish `OFF` the same way to stop the show and restore the lamps.
 
-`fake-ma` simulates Music Assistant's beats, here three tracks of 30 seconds:
+`fake-ma` simulates Music Assistant: the beats, the album colours and the music itself, here three tracks of 30 seconds:
 
 ```bash
 go run ./cmd/fake-ma -listen 127.0.0.1:18831 -tracks 80:30s,124:30s,172:30s &
@@ -293,7 +294,7 @@ sed -e 's/1883$/18830/' -e 's|^# music_assistant:.*|music_assistant:|' -e 's|^# 
 ZIGBEAT_MQTT_PASSWORD=x ZIGBEAT_MA_TOKEN=fake-token go run ./cmd/zigbeat run -config config.yaml
 ```
 
-The beats of each track arrive 6 seconds after it starts, as on a first play in Music Assistant. `fake-ma -h` lists seeks, gaps and a clock offset to try; `fake-z2m -log` prints when each command lands.
+The beats of each track arrive 6 seconds after it starts, as on a first play in Music Assistant. The first track has a navy cover with an orange title, the second none, the third a red one; each plays an intro, a drop, a silent breakdown and the drop again. `fake-ma -h` lists seeks, gaps, palettes and a clock offset to try; `fake-z2m -log` prints when each command lands.
 
 Contributor guidelines: [CLAUDE.md](CLAUDE.md).
 

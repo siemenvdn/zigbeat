@@ -6,6 +6,7 @@ Small known issues, found in the reviews of phases 1a to 2 and left for later. P
 
 - **A silent broker drop can still pause the show.** A drop that only the keepalive finds (up to 30 s) gives the lights losses that raise backoff. After the reconnect their failure counts start over and lights left alone are read at once, but a pause holds those reads until the backoff steps down, up to a minute. Idea: a loss while the canary does not answer either is the network's, not the light's.
 - **A pause freezes lights mid-effect.** During a backoff pause, a light left alone or an outage, breathe lights keep moving until 100% or their minimum, and colour lights can stay at the kick level because the queued return is cleared. Breathe lights get their low end when the pause ends (`Planner.Settle`); during it they still run free. Spec decision: may a pause send one stop or anchor per breathe light?
+- **Build counts a dropped unit as changed.** A moment dropped as late still sets its colour in `Planner.current` (`internal/run/show/kick.go`), so `build` takes that light for done and skips it until the target moves on; the light keeps its old colour for a round.
 
 ## zigbeat serve
 
