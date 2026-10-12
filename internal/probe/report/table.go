@@ -40,6 +40,10 @@ func Row(w io.Writer, r measure.Step) {
 	fmt.Fprintln(w)
 }
 
+// headroom divides the highest clean rate into the suggested budget: the probe
+// ran minutes on a quiet network, a show runs hours next to the rest of the house.
+const headroom = 2
+
 // Summary prints the highest clean rate and the budget it suggests.
 func Summary(w io.Writer, results []measure.Step, base measure.Stats, canary string) {
 	fmt.Fprintln(w, "\n== Summary ==")
@@ -58,7 +62,7 @@ func Summary(w io.Writer, results []measure.Step, base measure.Stats, canary str
 		return
 	}
 	top := results[clean]
-	budget := top.Rate / 2
+	budget := top.Rate / headroom
 	fmt.Fprintf(w, "Highest clean rate: %g cmd/s\n", top.Rate)
 	switch {
 	case results[len(results)-1].Verdict == "PARTIAL":
@@ -66,7 +70,7 @@ func Summary(w io.Writer, results []measure.Step, base measure.Stats, canary str
 	case clean == len(results)-1:
 		fmt.Fprintln(w, "  (every step was clean, the real ceiling is higher than tested)")
 	}
-	fmt.Fprintf(w, "Suggested sustained budget: %g cmd/s (half the clean rate)\n", budget)
+	fmt.Fprintf(w, "Suggested sustained budget: %g cmd/s (the clean rate / %d)\n", budget, headroom)
 	ref := top
 	for _, r := range results[:clean+1] {
 		if r.Rate <= budget {

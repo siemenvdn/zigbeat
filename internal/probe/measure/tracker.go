@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/siemenvdn/zigbeat/internal/probe/palette"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
@@ -45,19 +46,21 @@ func (t *Tracker) OnState(dev string, s z2m.State, at time.Time) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	m := t.open[dev]
-	for _, k := range []int{key, key - 1, key + 1} {
-		q := m[k]
-		if len(q) == 0 {
-			continue
+	for d := range palette.KeySlack + 1 {
+		for _, k := range []int{key - d, key + d} {
+			q := m[k]
+			if len(q) == 0 {
+				continue
+			}
+			p := q[0]
+			if len(q) == 1 {
+				delete(m, k)
+			} else {
+				m[k] = q[1:]
+			}
+			t.rec.Add(Sample{Sent: p.Sent, Phase: p.Phase, Rate: p.Rate, Kind: "cmd", Device: dev, Latency: at.Sub(p.Sent), OK: true})
+			return
 		}
-		p := q[0]
-		if len(q) == 1 {
-			delete(m, k)
-		} else {
-			m[k] = q[1:]
-		}
-		t.rec.Add(Sample{Sent: p.Sent, Phase: p.Phase, Rate: p.Rate, Kind: "cmd", Device: dev, Latency: at.Sub(p.Sent), OK: true})
-		return
 	}
 }
 

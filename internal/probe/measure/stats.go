@@ -38,6 +38,14 @@ func pct(sorted []time.Duration, p float64) time.Duration {
 	return sorted[i]
 }
 
+const (
+	minDrift = 9 // answers needed to judge drift: three in each third
+	// A step drifts when the median of its last third is driftFactor times that
+	// of its first, and driftMin more: a doubled tiny latency is noise.
+	driftFactor = 2
+	driftMin    = 200 * time.Millisecond
+)
+
 // Drifting compares the median latency of the first and last third of a step.
 func Drifting(cmds []Sample) bool {
 	var ok []Sample
@@ -46,12 +54,12 @@ func Drifting(cmds []Sample) bool {
 			ok = append(ok, s)
 		}
 	}
-	if len(ok) < 9 {
+	if len(ok) < minDrift {
 		return false
 	}
 	sort.Slice(ok, func(i, j int) bool { return ok[i].Sent.Before(ok[j].Sent) })
 	third := len(ok) / 3
 	first := StatsOf(ok[:third]).P50
 	last := StatsOf(ok[len(ok)-third:]).P50
-	return last > 2*first && last-first > 200*time.Millisecond
+	return last > driftFactor*first && last-first > driftMin
 }

@@ -3,6 +3,19 @@ package palette
 
 import "github.com/siemenvdn/zigbeat/internal/z2m"
 
+const (
+	hueStep   = 5  // degrees between the candidate hues
+	maxColors = 36 // plenty: one command per light is in flight at a time
+	// KeySlack is how far an echoed key may be off the key sent: the bulb rounds
+	// the colour into its own range.
+	KeySlack = 1
+	// The levels of brightness mode, levelStep apart: more than twice KeySlack,
+	// so an echo never matches a neighbouring level.
+	minLevel, maxLevel, levelStep = 40, 250, 6
+	// comboLow alternates with z2m.MaxBrightness, so every combo command changes the level too.
+	comboLow = 140
+)
+
 // Command is a set payload and the key its echo is matched by.
 type Command struct {
 	Key     int
@@ -22,16 +35,24 @@ type Generator struct {
 func New(mode string) *Generator {
 	g := &Generator{mode: mode, next: map[string]int{}}
 	seen := map[int]bool{}
-	for i := 0; i < 72 && len(g.colors) < 36; i++ {
-		xy := hueToXY(float64(i) * 5)
+	taken := func(k int) bool {
+		for d := -KeySlack; d <= KeySlack; d++ {
+			if seen[k+d] {
+				return true
+			}
+		}
+		return false
+	}
+	for h := 0; h < 360 && len(g.colors) < maxColors; h += hueStep {
+		xy := hueToXY(float64(h))
 		k := xKey(xy.X)
-		if seen[k] || seen[k-1] || seen[k+1] {
+		if taken(k) {
 			continue
 		}
 		seen[k] = true
 		g.colors = append(g.colors, xy)
 	}
-	for b := 40; b <= 250; b += 6 {
+	for b := minLevel; b <= maxLevel; b += levelStep {
 		g.levels = append(g.levels, b)
 	}
 	return g
@@ -55,9 +76,9 @@ func (g *Generator) Next(dev string) Command {
 		return Command{Key: b, Payload: map[string]any{"brightness": b, "transition": 0}}
 	case "combo":
 		c := g.colors[i%len(g.colors)]
-		b := 140
+		b := comboLow
 		if i%2 == 0 {
-			b = 254
+			b = z2m.MaxBrightness
 		}
 		return Command{Key: xKey(c.X), Payload: map[string]any{"color": c, "brightness": b, "transition": 0}}
 	default:

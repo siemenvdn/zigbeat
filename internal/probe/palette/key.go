@@ -24,4 +24,7 @@ func KeyFunc(mode string) func(z2m.State) (int, bool) {
 	}
 }
 
-func xKey(x float64) int { return int(math.Round(x * 1000)) }
+// xKeyScale keys x in thousandths: an echo lands within KeySlack of the key sent.
+const xKeyScale = 1000
+
+func xKey(x float64) int { return int(math.Round(x * xKeyScale)) }
