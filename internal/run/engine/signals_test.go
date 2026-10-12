@@ -54,23 +54,6 @@ func TestPauseForgetsOldLatency(t *testing.T) {
 	}
 }
 
-func TestSlowNetworkNote(t *testing.T) {
-	e := New(testConfig("separate"), 0, t0)
-	for i := 0; i < 20; i++ {
-		e.fl.Add("lamp-1", at(i*1000), true, 1)
-		e.State("lamp-1", at(i*1000+200))
-	}
-	notes := e.TakeNotes()
-	if len(notes) != 1 || !strings.Contains(notes[0], "run zigbeat probe again") {
-		t.Fatalf("200 ms against a 50 ms budget latency: notes %q", notes)
-	}
-	e.fl.Add("lamp-1", at(30_000), true, 1)
-	e.State("lamp-1", at(30_200))
-	if notes := e.TakeNotes(); len(notes) != 0 {
-		t.Fatalf("the note is printed once: %q", notes)
-	}
-}
-
 func TestZigbeeErrors(t *testing.T) {
 	e := New(testConfig("separate"), 0, t0)
 	for i := 0; i < 4; i++ {

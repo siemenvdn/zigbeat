@@ -10,10 +10,6 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/run/flow"
 )
 
-// slowFactor times budget.latency_ms at the show's start means the probe's
-// figure no longer fits the network.
-const slowFactor = 3
-
 // Music handles one event from the source. A Clear drops the moments planned
 // from earlier beats; a Track goes to the planner; a Beat is planned when it is
 // a moment. Beats already past are skipped, so a reconnect does not cause a
@@ -56,11 +52,6 @@ func (e *Engine) State(light string, at time.Time) {
 	}
 	if !e.fl.Confirm(light, at) {
 		return
-	}
-	if !e.slowSeen && e.fl.Base() > slowFactor*e.latency {
-		e.slowSeen = true
-		e.note(at, fmt.Sprintf("latency %d ms per frame is far above budget.latency_ms %d ms; run zigbeat probe again",
-			e.fl.Base().Milliseconds(), e.latency.Milliseconds()))
 	}
 	if e.fl.Rising() {
 		m, _ := e.fl.Median()

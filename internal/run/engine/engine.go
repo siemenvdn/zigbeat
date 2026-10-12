@@ -31,8 +31,6 @@ type Engine struct {
 	fails    map[string]int      // failures in a row per light
 	away     map[string]time.Time
 	offset   time.Duration
-	latency  time.Duration // budget.latency_ms
-	slowSeen bool          // the slow-network note was printed
 	stopping bool
 	notes    []string
 
@@ -55,7 +53,6 @@ func New(c config.Config, canaryLim time.Duration, now time.Time) *Engine {
 		fails:      map[string]int{},
 		away:       map[string]time.Time{},
 		offset:     c.Budget.AudioOffset(),
-		latency:    millis(c.Budget.LatencyMS),
 		lastStatus: now,
 	}
 	e.enqueue(e.plan.Start(now))
