@@ -2,6 +2,7 @@ package ws
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 )
@@ -21,8 +22,8 @@ func Upgrade(w http.ResponseWriter, r *http.Request) (*Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, err = rw.WriteString("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: " +
-		acceptKey(key) + "\r\n\r\n")
+	_, err = fmt.Fprintf(rw, "HTTP/1.1 %d %s\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: %s\r\n\r\n",
+		http.StatusSwitchingProtocols, http.StatusText(http.StatusSwitchingProtocols), acceptKey(key))
 	if err == nil {
 		err = rw.Flush()
 	}

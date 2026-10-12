@@ -20,8 +20,14 @@ const (
 	opPing   = 0x9
 	opPong   = 0xA
 
-	maxMessage   = 4 << 20
+	// maxMessage caps what a bad peer can make us hold, far above MA's largest frame of about 1 KiB.
+	maxMessage = 4 << 20
+	// writeTimeout gives up on a peer that stopped reading.
 	writeTimeout = 5 * time.Second
+
+	// RFC 6455 close codes.
+	closeNormal   = 1000
+	closeNoStatus = 1005
 )
 
 // Conn is one WebSocket connection. Read must be called from one goroutine;
@@ -66,7 +72,7 @@ func (c *Conn) Read() (Message, error) {
 		case opPong:
 			continue
 		case opClose:
-			ce := &CloseError{Code: 1005}
+			ce := &CloseError{Code: closeNoStatus}
 			if len(payload) >= 2 {
 				ce.Code, ce.Reason = int(binary.BigEndian.Uint16(payload)), string(payload[2:])
 			}
@@ -112,4 +118,4 @@ func (c *Conn) CloseWith(code int, reason string) error {
 }
 
 // Close closes the connection normally.
-func (c *Conn) Close() error { return c.CloseWith(1000, "") }
+func (c *Conn) Close() error { return c.CloseWith(closeNormal, "") }
