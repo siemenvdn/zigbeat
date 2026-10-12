@@ -22,6 +22,9 @@ type State struct {
 	LightsAway *int     `json:"lights_away"`
 }
 
+// fpsDecimals rounds frames per second for Home Assistant.
+const fpsDecimals = 1
+
 // The states while the show does not play.
 var (
 	Off      = State{Show: "OFF", Status: "off"}
@@ -35,7 +38,8 @@ func Playing(st engine.Stats, total int) State {
 	if st.Paused() {
 		status = "paused"
 	}
-	fps := math.Round(st.FramesPerSec*10) / 10
+	scale := math.Pow10(fpsDecimals)
+	fps := math.Round(st.FramesPerSec*scale) / scale
 	ms := st.P50.Milliseconds()
 	away := total - st.Lights
 	return State{Show: "ON", Status: status, FramesPerS: &fps, LatencyMS: &ms, Backoff: &st.Backoff, Lights: &st.Lights, LightsAway: &away}

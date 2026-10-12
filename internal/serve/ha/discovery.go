@@ -28,7 +28,7 @@ func Discovery(version string) []byte {
 			"value_template": "{{ value_json.show }}"},
 		"status": sensor("Status", "status", map[string]any{"device_class": "enum", "options": Statuses}),
 		"frames": sensor("Frames per second", "frames_per_s", map[string]any{"unit_of_measurement": "frames/s",
-			"state_class": "measurement", "suggested_display_precision": 1}),
+			"state_class": "measurement", "suggested_display_precision": fpsDecimals}),
 		"latency": sensor("Latency", "latency_ms", map[string]any{"device_class": "duration", "unit_of_measurement": "ms",
 			"state_class": "measurement"}),
 		"backoff":     sensor("Backoff", "backoff", measure),

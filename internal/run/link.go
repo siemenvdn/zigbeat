@@ -79,7 +79,10 @@ func (l *mqttLink) Lost() <-chan struct{}         { return l.client.Done() }
 func (l *mqttLink) Err() error                    { return l.client.Err() }
 func (l *mqttLink) Close()                        { l.client.Close() }
 
-// Groups reads the retained list of Zigbee2MQTT groups; false when none came within 2 s.
+// groupsWait is far above the moment a retained message comes after its SUBACK.
+const groupsWait = 2 * time.Second
+
+// Groups reads the retained list of Zigbee2MQTT groups; false when none came within groupsWait.
 func (l *mqttLink) Groups(ctx context.Context) ([]string, bool) {
 	got := make(chan []string, 1)
 	err := l.bridge.OnGroups(func(names []string, _ time.Time) {
@@ -91,7 +94,7 @@ func (l *mqttLink) Groups(ctx context.Context) ([]string, bool) {
 	if err != nil {
 		return nil, false
 	}
-	t := time.NewTimer(2 * time.Second)
+	t := time.NewTimer(groupsWait)
 	defer t.Stop()
 	select {
 	case names := <-got:
