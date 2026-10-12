@@ -21,20 +21,11 @@ const (
 // chooseCanary returns the canary: from -canary, or asked from the routers
 // that are not in the show. code is not 0 when setup must stop.
 func (s *session) chooseCanary(ctx context.Context, devs []z2m.Device, chosen []light, current string) (canary string, code int) {
-	var cands []z2m.Device
-	for _, d := range devs {
-		if z2m.CanaryCandidate(d) && indexOf(chosen, d.Name) < 0 {
-			cands = append(cands, d)
-		}
-	}
-	names := make([]string, len(cands))
-	for i, d := range cands {
-		names[i] = d.Name
-	}
+	cands := canaryCandidates(devs, chosen)
 	switch {
 	case s.o.canary == noCanary:
 		return "", 0
-	case s.o.canary != "" && !slices.Contains(names, s.o.canary):
+	case s.o.canary != "" && !slices.ContainsFunc(cands, func(d z2m.Device) bool { return d.Name == s.o.canary }):
 		fmt.Fprintf(s.err, "-canary: %s is not a router outside the show\n", s.o.canary)
 		return "", cli.ExitUsage
 	case s.o.canary != "":
@@ -46,6 +37,23 @@ func (s *session) chooseCanary(ctx context.Context, devs []z2m.Device, chosen []
 		fmt.Fprintln(s.out, "no router outside the show can be the canary; the show runs without one")
 		return "", 0
 	}
+	return s.askCanary(ctx, cands, current)
+}
+
+// canaryCandidates are the routers that can watch the network, without the lights of the show.
+func canaryCandidates(devs []z2m.Device, chosen []light) []z2m.Device {
+	var out []z2m.Device
+	for _, d := range devs {
+		if z2m.CanaryCandidate(d) && indexOf(chosen, d.Name) < 0 {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+// askCanary lists cands and asks until a chosen one answers its reads; Enter
+// keeps current when it is one of them.
+func (s *session) askCanary(ctx context.Context, cands []z2m.Device, current string) (canary string, code int) {
 	fmt.Fprintln(s.out, "canary candidates:")
 	tw := tabwriter.NewWriter(s.out, 0, 0, columnGap, ' ', 0)
 	for i, d := range cands {
@@ -53,7 +61,7 @@ func (s *session) chooseCanary(ctx context.Context, devs []z2m.Device, chosen []
 	}
 	tw.Flush()
 	q := "canary, a mains device far from these lights (number, 0 for none):"
-	keep := slices.Contains(names, current)
+	keep := slices.ContainsFunc(cands, func(d z2m.Device) bool { return d.Name == current })
 	if keep {
 		q = fmt.Sprintf("canary, a mains device far from these lights (number, Enter keeps %s, 0 for none):", current)
 	}
@@ -65,14 +73,14 @@ func (s *session) chooseCanary(ctx context.Context, devs []z2m.Device, chosen []
 		name := current
 		if answer != "" || !keep {
 			n, err := strconv.Atoi(answer)
-			if err != nil || n < 0 || n > len(names) {
+			if err != nil || n < 0 || n > len(cands) {
 				fmt.Fprintln(s.out, "answer with a number from the list, or 0 for none")
 				continue
 			}
 			if n == 0 {
 				return "", 0
 			}
-			name = names[n-1]
+			name = cands[n-1].Name
 		}
 		if s.answers(ctx, name) {
 			return name, 0
