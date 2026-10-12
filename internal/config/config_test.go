@@ -81,6 +81,8 @@ func TestValidate(t *testing.T) {
 		"no broker":        func(c *Config) { c.MQTT.Broker = "" },
 		"no max_rate":      func(c *Config) { c.Budget.MaxRate = 0 },
 		"no latency":       func(c *Config) { c.Budget.LatencyMS = 0 },
+		"offset too early": func(c *Config) { c.Budget.AudioOffsetMS = -501 },
+		"offset too late":  func(c *Config) { c.Budget.AudioOffsetMS = 2001 },
 		"no fixtures":      func(c *Config) { c.Fixtures = nil },
 		"no name":          func(c *Config) { c.Fixtures[0].Name = "" },
 		"duplicate name":   func(c *Config) { c.Fixtures[1].Name = "pendant" },

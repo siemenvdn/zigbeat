@@ -10,7 +10,12 @@ mqtt:
 budget:
   max_rate: 4          # Zigbee frames per second: the budget zigbeat probe suggested
   latency_ms: 105      # p50 latency zigbeat probe reported at that load
-  audio_offset_ms: 0   # positive when the speakers play later
+  audio_offset_ms: 0   # positive when the speakers play later; -500 to 2000, calibrate in zigbeat run
+
+# music_assistant:              # the beat source; without it the show runs to a metronome
+#   url: ws://127.0.0.1:8095    # Music Assistant's webserver
+#   token_env: ZIGBEAT_MA_TOKEN # a long-lived token created in Music Assistant
+#   player: ""                  # optional MA player id; empty follows the player that is playing
 
 canary: far-lamp       # optional: a mains-powered device far from the lights
 

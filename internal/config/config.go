@@ -13,11 +13,12 @@ import (
 )
 
 type Config struct {
-	MQTT     MQTT      `yaml:"mqtt"`
-	Budget   Budget    `yaml:"budget"`
-	Canary   string    `yaml:"canary"`
-	Fixtures []Fixture `yaml:"fixtures"`
-	Effects  Effects   `yaml:"effects"`
+	MQTT           MQTT            `yaml:"mqtt"`
+	Budget         Budget          `yaml:"budget"`
+	Canary         string          `yaml:"canary"`
+	Fixtures       []Fixture       `yaml:"fixtures"`
+	Effects        Effects         `yaml:"effects"`
+	MusicAssistant *MusicAssistant `yaml:"music_assistant"` // nil: the show runs to a metronome
 }
 
 type MQTT struct {
@@ -28,11 +29,18 @@ type MQTT struct {
 	Password    string `yaml:"-"` // read from PasswordEnv
 }
 
+// Limits of budget.audio_offset_ms. Beats arrive 1 s ahead, so a much earlier
+// offset would ask for messages before their beat is known.
+const MinOffsetMS, MaxOffsetMS = -500, 2000
+
 type Budget struct {
 	MaxRate       float64 `yaml:"max_rate"`
 	LatencyMS     int     `yaml:"latency_ms"`
 	AudioOffsetMS int     `yaml:"audio_offset_ms"`
 }
+
+// AudioOffset is how much later than the beat the lights should change.
+func (b Budget) AudioOffset() time.Duration { return time.Duration(b.AudioOffsetMS) * time.Millisecond }
 
 type Fixture struct {
 	Name   string   `yaml:"name"`
@@ -84,6 +92,9 @@ func Parse(data []byte, getenv func(string) string) (Config, error) {
 	}
 	if c.MQTT.PasswordEnv != "" {
 		c.MQTT.Password = getenv(c.MQTT.PasswordEnv)
+	}
+	if m := c.MusicAssistant; m != nil && m.TokenEnv != "" {
+		m.Token = getenv(m.TokenEnv)
 	}
 	if err := c.validate(); err != nil {
 		return Config{}, fmt.Errorf("config: %v", err)
