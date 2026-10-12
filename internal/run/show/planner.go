@@ -35,6 +35,10 @@ type Planner struct {
 	kick      int
 	low, high int
 	up        bool
+
+	lastBeat   time.Time     // the latest beat, a moment or not
+	lastPeriod time.Duration // its beat period
+	settled    bool          // the breathe lights got their low end since lastBeat
 }
 
 func NewPlanner(c config.Config) *Planner {
@@ -73,6 +77,7 @@ func (p *Planner) Moments() int { return p.moments }
 
 // Beat returns the messages for b, or nothing when b is not a moment.
 func (p *Planner) Beat(b beat.Beat, backoff int) []Message {
+	p.lastBeat, p.lastPeriod, p.settled = b.At, b.Period(), false
 	n := interval(b.BPM, p.cadence)
 	if backoff >= 2 {
 		n *= 2

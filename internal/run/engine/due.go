@@ -25,6 +25,9 @@ func (e *Engine) Due(now time.Time) []Send {
 	if e.stopping {
 		return nil
 	}
+	if e.bo.Level() < flow.PauseLevel {
+		e.enqueue(e.plan.Settle(now))
+	}
 	e.dropLate(now)
 
 	var out []Send
