@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/siemenvdn/zigbeat/internal/config"
+	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
 func TestSetupWritesNewConfig(t *testing.T) {
@@ -159,5 +160,14 @@ func TestMQTTFlagsWithExistingConfig(t *testing.T) {
 	}
 	if _, err := parseFlags([]string{"-config", path, "-broker", "b:1883"}); err == nil || !strings.Contains(err.Error(), "-broker are for a new config") {
 		t.Errorf("got %v", err)
+	}
+}
+
+func TestCanaryWithoutDefinition(t *testing.T) {
+	// Zigbee2MQTT 1.x lists an unsupported router with "definition": null.
+	devs := append(home(), z2m.Device{Name: "repeater", Type: "Router", Interviewed: true})
+	code, out := start(t, &fakeBridge{devs: devs}, filepath.Join(t.TempDir(), "config.yaml"), "", "1\n7\n")
+	if code != 0 || !strings.Contains(out, "  7  repeater") || !strings.Contains(out, "canary: repeater)") {
+		t.Errorf("exit %d\n%s", code, out)
 	}
 }

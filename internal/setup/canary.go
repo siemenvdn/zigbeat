@@ -57,7 +57,7 @@ func (s *session) askCanary(ctx context.Context, cands []z2m.Device, current str
 	fmt.Fprintln(s.out, "canary candidates:")
 	tw := tabwriter.NewWriter(s.out, 0, 0, columnGap, ' ', 0)
 	for i, d := range cands {
-		fmt.Fprintf(tw, "  %d\t%s\t%s %s\n", i+1, d.Name, d.Definition.Vendor, d.Definition.Model)
+		fmt.Fprintf(tw, "  %d\t%s\t%s\n", i+1, d.Name, model(d))
 	}
 	tw.Flush()
 	q := "canary, a mains device far from these lights (number, 0 for none):"
