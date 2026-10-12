@@ -37,7 +37,8 @@ fixtures:
 	if c.MQTT.Broker != "127.0.0.1:1883" || c.MQTT.BaseTopic != "zigbee2mqtt" {
 		t.Errorf("mqtt defaults: %+v", c.MQTT)
 	}
-	if c.Effects.Cadence != 2*time.Second || c.Effects.Brightness != 60 || c.Effects.BreatheRange != [2]int{30, 80} || len(c.Effects.Palette) != 6 {
+	if c.Effects.Cadence != 2*time.Second || c.Effects.Brightness != 60 || c.Effects.BreatheRange != [2]int{30, 80} || len(c.Effects.Palette) != 6 ||
+		!c.Effects.AlbumPalette || c.Effects.AlbumColors != 3 || c.Effects.Variant != "rotation" {
 		t.Errorf("effects defaults: %+v", c.Effects)
 	}
 	if c.Fixtures[0].Mode != "alternate" || c.Fixtures[1].Mode != "" {
@@ -69,7 +70,8 @@ func valid() Config {
 			{Name: "pendant", Role: "color", Mode: "alternate", Lights: []string{"a", "b"}},
 			{Name: "floor", Role: "breathe", Lights: []string{"c"}},
 		},
-		Effects: Effects{Cadence: 2 * time.Second, Brightness: 60, Palette: DefaultPalette, BreatheRange: [2]int{30, 80}},
+		Effects: Effects{Cadence: 2 * time.Second, Brightness: 60, Palette: DefaultPalette, BreatheRange: [2]int{30, 80},
+			AlbumPalette: true, AlbumColors: 3, Variant: "rotation"},
 	}
 }
 
@@ -100,6 +102,9 @@ func TestValidate(t *testing.T) {
 		"range above 100":  func(c *Config) { c.Effects.BreatheRange = [2]int{30, 120} },
 		"one colour":       func(c *Config) { c.Effects.Palette = []string{"#ff0000"} },
 		"bad colour":       func(c *Config) { c.Effects.Palette = []string{"#ff0000", "red"} },
+		"1 album colour":   func(c *Config) { c.Effects.AlbumColors = 1 },
+		"7 album colours":  func(c *Config) { c.Effects.AlbumColors = 7 },
+		"no variant":       func(c *Config) { c.Effects.Variant = "" },
 	}
 	for name, mutate := range cases {
 		c := valid()

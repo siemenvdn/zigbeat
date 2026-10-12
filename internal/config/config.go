@@ -46,6 +46,9 @@ type Effects struct {
 	Brightness   int           `yaml:"brightness"`
 	Palette      []string      `yaml:"palette"`
 	BreatheRange [2]int        `yaml:"breathe_range"`
+	AlbumPalette bool          `yaml:"album_palette"` // the album art's colours when the source has them
+	AlbumColors  int           `yaml:"album_colors"`  // colours made from the album art
+	Variant      string        `yaml:"variant"`       // how the colour lights change, or rotation
 }
 
 // DefaultEffects fills what the effects block leaves out; the palette comes after decoding.
@@ -53,6 +56,9 @@ var DefaultEffects = Effects{
 	Cadence:      2 * time.Second, // a moment once a bar at 120 BPM
 	Brightness:   60,              // percent: room for the kick above it
 	BreatheRange: [2]int{30, 80},  // percent: a clear swell, never dark or full
+	AlbumPalette: true,            // the colours follow the music when they can
+	AlbumColors:  3,               // a few colours keep the mood of the cover
+	Variant:      "rotation",      // a new way of changing every 16 bars
 }
 
 // DefaultPalette is used when effects.palette is empty.

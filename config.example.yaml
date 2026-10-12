@@ -32,4 +32,7 @@ effects:
   cadence: 2s                # minimum time between moments
   brightness: 60             # percent, base level of color lights
   breathe_range: [30, 80]    # percent
+  album_palette: true        # the colours of the album art when Music Assistant has them; false keeps the palette
+  album_colors: 3            # colours made from the album art, 2 to 6
+  variant: rotation          # rotation (build, then walk, shuffle and swap per 16 bars), walk, shuffle, swap or build
   # palette: ["#ff2a6d", "#ff7b00", "#ffd400", "#00e5ff", "#2962ff", "#aa00ff"]

@@ -75,6 +75,9 @@ fixtures:
 #   cadence: 2s
 #   brightness: 60
 #   breathe_range: [30, 80]
+#   album_palette: true
+#   album_colors: 3
+#   variant: rotation
 
 # music_assistant:
 #   url: ws://music-assistant:8095
