@@ -39,13 +39,14 @@ func (p *Planner) pickFor(v string) [][]string {
 	return p.walk()
 }
 
-// colorOf is the colour unit u takes in variant v.
+// colorOf is the colour unit u takes in variant v. A swap group avoids its own
+// colour too: with as many groups as colours, the others leave it no other.
 func (p *Planner) colorOf(v string, u []string) string {
 	switch v {
 	case "build":
 		return p.target
 	case "swap":
-		return p.colorFor(u, p.outside(u))
+		return p.colorFor(u, append(p.outside(u), u...))
 	}
 	return p.colorFor(u, p.fixtureOf[u[0]])
 }

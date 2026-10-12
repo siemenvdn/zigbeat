@@ -1,6 +1,7 @@
 package show
 
 import (
+	"maps"
 	"math/rand/v2"
 	"slices"
 	"strings"
@@ -65,6 +66,34 @@ func TestSwapAlternatesTwoGroupsOfOneColour(t *testing.T) {
 	}
 	if want := "f0-1,f0-4,f0-7 f0-2,f0-5,f0-8 f0-3,f0-6"; strings.Join(got, " ") != want {
 		t.Errorf("8 lights make 3 groups: %v", got)
+	}
+}
+
+func TestSwapChangesTheColourOfEachGroup(t *testing.T) {
+	const firstRound = 3 // turns until every group has had one
+	for _, c := range []struct {
+		lights  int
+		palette []string
+	}{
+		{8, []string{"#406cff", "#ff943d", "#7340ff"}}, // 3 groups, 3 colours
+		{4, []string{"#406cff", "#ff943d"}},            // 2 groups, 2 colours
+	} {
+		cfg := fixtures("separate", c.lights)
+		cfg.Effects.Variant, cfg.Effects.Palette = "swap", c.palette
+		p := NewPlanner(cfg)
+		p.Start(t0)
+		for i := 0; i < 12; i++ {
+			before := maps.Clone(p.current)
+			ls := strings.Split(changed(p.Beat(moment(4*i), 0)), ",")
+			if i < firstRound {
+				continue // the groups take one colour each
+			}
+			for _, l := range ls {
+				if p.current[l] == before[l] {
+					t.Fatalf("%d lights, %d colours, moment %d: %s keeps %s", c.lights, len(c.palette), i, l, before[l])
+				}
+			}
+		}
 	}
 }
 

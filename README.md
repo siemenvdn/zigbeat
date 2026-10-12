@@ -14,7 +14,7 @@ Ordinary Zigbee bulbs on [Zigbee2MQTT](https://www.zigbee2mqtt.io/) have no good
 
 - It follows the beats Music Assistant finds in what it plays, from any of its music sources and on any speaker it plays to.
 - Colour bulbs change colour on the beat, a few at a time, with a short brightness kick. With Music Assistant they take the colours of the album that plays.
-- Every 16 bars the colour bulbs change in another way: at the start of a track they fill the room with one colour bulb by bulb, then the colour walks through the room, shuffles, and two colours swap places.
+- Every 16 bars the colour bulbs change in another way: at the start of a track they fill the room with one colour bulb by bulb, then the colour walks through the room, shuffles, and two groups take turns with a new colour.
 - Dimmable bulbs breathe slowly up and down.
 - It stays below the budget the probe found, backs off when the network gets busy and pauses when it keeps struggling. Network trouble never ends the show.
 - Every light goes back to how it was when you stop the show, with Ctrl-C or the switch in Home Assistant.
