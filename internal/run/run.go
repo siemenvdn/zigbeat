@@ -15,7 +15,7 @@ import (
 
 // Run executes `zigbeat run` and returns an exit code.
 func Run(args []string) int {
-	o, err := ParseOptions("run", "Runs the light show to a metronome until Ctrl-C, then restores every light. See the README.", args)
+	o, err := ParseOptions("run", "Runs the light show to the beat source in the config, or a metronome, until Ctrl-C, then restores every light. See the README.", args)
 	if code, stop := cli.Exit(err); stop {
 		return code
 	}
@@ -26,7 +26,7 @@ func Run(args []string) int {
 	}
 	ctx, stopSignals := cli.StopContext()
 	defer stopSignals()
-	return Play(ctx, cfg, o.BPM, Hooks{Stopping: cli.QuitOnInterrupt})
+	return Play(ctx, cfg, Source(cfg, o.BPM), Hooks{Stopping: cli.QuitOnInterrupt})
 }
 
 // show plays until ctx is done or the source ends. A panic starts a fresh

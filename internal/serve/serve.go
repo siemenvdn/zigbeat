@@ -13,7 +13,7 @@ import (
 
 // Run executes `zigbeat serve` and returns an exit code.
 func Run(args []string, version string) int {
-	o, err := run.ParseOptions("serve", "Waits for the switch in Home Assistant, runs the show to a metronome while it is on and restores every light when it goes off. See the README.", args)
+	o, err := run.ParseOptions("serve", "Waits for the switch in Home Assistant, runs the show while it is on and restores every light when it goes off. See the README.", args)
 	if code, stop := cli.Exit(err); stop {
 		return code
 	}
@@ -36,10 +36,11 @@ func Run(args []string, version string) int {
 	linkCtx, closeLink := context.WithCancel(context.Background())
 	linkDone := make(chan struct{})
 	go func() { l.run(linkCtx); close(linkDone) }()
-	fmt.Printf("zigbeat serve: %d lights, %g BPM, registered in Home Assistant as zigbeat\n", len(cfg.Lights()), o.BPM)
+	src := run.Source(cfg, o.BPM)
+	fmt.Printf("zigbeat serve: %d lights, %v, registered in Home Assistant as zigbeat\n", len(cfg.Lights()), src)
 
 	s := &server{
-		show:  func(ctx context.Context, h run.Hooks) int { return run.Play(ctx, cfg, o.BPM, h) },
+		show:  func(ctx context.Context, h run.Hooks) int { return run.Play(ctx, cfg, src, h) },
 		cmds:  l.cmds,
 		put:   l.put,
 		total: len(cfg.Lights()),

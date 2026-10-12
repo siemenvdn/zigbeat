@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/beat"
 	"github.com/siemenvdn/zigbeat/internal/config"
@@ -17,10 +16,10 @@ type Hooks struct {
 	Stopping func()             // once, right before the restore
 }
 
-// Play runs one show to a metronome until ctx is done, then restores every light.
-// It returns 0, or 1 when the show could not start, after the third panic, or when
-// the broker is gone at stop.
-func Play(ctx context.Context, cfg config.Config, bpm float64, h Hooks) int {
+// Play runs one show to the beats of src until ctx is done, then restores every
+// light. It returns 0, or 1 when the show could not start, after the third panic,
+// or when the broker is gone at stop.
+func Play(ctx context.Context, cfg config.Config, src beat.Source, h Hooks) int {
 	r, err := connect(cfg)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -33,8 +32,8 @@ func Play(ctx context.Context, cfg config.Config, bpm float64, h Hooks) int {
 	if !ok {
 		return code
 	}
-	fmt.Printf("show: %d lights, %g BPM, budget %g frames/s\n", len(r.cfg.Lights()), bpm, r.cfg.Budget.MaxRate)
-	reason, code := r.show(ctx, beat.Metronome{BPM: bpm, Lookahead: time.Second}, limit)
+	fmt.Printf("show: %d lights, %v, budget %g frames/s\n", len(r.cfg.Lights()), src, r.cfg.Budget.MaxRate)
+	reason, code := r.show(ctx, src, limit)
 	if h.Stopping != nil {
 		h.Stopping()
 	}
