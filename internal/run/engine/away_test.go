@@ -37,3 +37,20 @@ func TestUnreachableLightIsLeftAlone(t *testing.T) {
 		t.Fatal("an answer brings it back")
 	}
 }
+
+func TestDisconnectedRetriesLightsLeftAlone(t *testing.T) {
+	e := started(t, "separate", 100)
+	for _, ms := range []int{10_000, 30_000} { // two losses, maybe the connection's
+		e.enqueue([]show.Message{{Light: "lamp-3", Payload: map[string]any{"brightness": 10}, Land: at(ms)}})
+		e.Due(at(ms))
+		e.Due(at(ms + 5_000))
+	}
+	e.fails["lamp-1"] = 1
+	e.Disconnected()
+	if e.fails["lamp-1"] != 0 {
+		t.Error("losses on a dead connection still count")
+	}
+	if got := e.Due(at(36_000)); len(got) == 0 || got[0].Light != "lamp-3" || !got[0].Get {
+		t.Fatalf("right after the reconnect lamp-3 is read: %+v", got)
+	}
+}

@@ -97,6 +97,9 @@ func (r *runner) drain(d time.Duration) {
 		}
 	}()
 	r.eng.Halt()
+	if r.offline() { // nothing in flight can be confirmed any more
+		return
+	}
 	deadline := time.After(d)
 	tick := time.NewTicker(tickEvery)
 	defer tick.Stop()

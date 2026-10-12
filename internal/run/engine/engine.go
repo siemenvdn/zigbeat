@@ -73,11 +73,17 @@ func (e *Engine) Halt() {
 	clear(e.queue)
 }
 
-// Disconnected forgets what was in flight on a connection that is gone.
+// Disconnected forgets what was in flight on a connection that is gone. The
+// losses before a drop that the keepalive found late may be the connection's,
+// so failure counts start over and lights left alone are read again at once.
 func (e *Engine) Disconnected() {
 	e.fl.Clear()
 	clear(e.queue)
 	e.canary.Forget()
+	clear(e.fails)
+	for l := range e.away {
+		e.away[l] = time.Time{}
+	}
 }
 
 func (e *Engine) InFlight() int {
