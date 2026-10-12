@@ -65,6 +65,9 @@ func (r *runner) play(ctx context.Context, src music.Source) (reason string, pan
 			r.offset = d
 			r.eng.SetOffset(d)
 			fmt.Printf("%s  audio offset %d ms\n", cli.Stamp(), d.Milliseconds())
+		case eff := <-r.hooks.Effects:
+			r.cfg.Effects = eff // the engine after a panic keeps it
+			r.eng.SetEffects(time.Now(), eff)
 		}
 		for _, n := range r.eng.TakeNotes() {
 			fmt.Println(n)

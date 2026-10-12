@@ -13,9 +13,10 @@ import (
 
 // Hooks let a caller follow and steer one show. All are optional.
 type Hooks struct {
-	Status   func(engine.Stats)   // when play starts and every statusEvery, from the show loop; must not block
-	Stopping func() string        // once, right before the restore; returns a hint for the stop line, or ""
-	Offsets  <-chan time.Duration // new audio offsets, typed during the show
+	Status   func(engine.Stats)    // when play starts and every statusEvery, from the show loop; must not block
+	Stopping func() string         // once, right before the restore; returns a hint for the stop line, or ""
+	Offsets  <-chan time.Duration  // new audio offsets, typed during the show
+	Effects  <-chan config.Effects // a new style, chosen in Home Assistant
 }
 
 // Play runs one show to the beats of src until ctx is done, then restores every
