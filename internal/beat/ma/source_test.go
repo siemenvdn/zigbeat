@@ -151,3 +151,22 @@ func TestNoDialAfterStop(t *testing.T) {
 		}
 	}
 }
+
+func TestNumbersTheBurstAsAWhole(t *testing.T) {
+	f := startMA(t)
+	beats, notes := listen(t, f, "", "good")
+	c := <-f.conns
+	notes.waitFor(t, "connected")
+	now := f.now()
+	_ = c.WriteBinary(beatFrame(now+lead.Microseconds()*95/100, false)) // a pickup, due at once
+	time.Sleep(30 * time.Millisecond)                                   // the rest of the burst comes a little later
+	_ = c.WriteBinary(beatFrame(now+600_000, true))
+	_ = c.WriteBinary(beatFrame(now+700_000, false))
+	first, second := next(t, beats), next(t, beats)
+	if d := first.At.Sub(f.local(now + 600_000)).Abs(); first.Index != 0 || d > 5*time.Millisecond {
+		t.Errorf("the downbeat comes first, as 0; the late pickup is skipped: %+v", first)
+	}
+	if second.Index != 1 {
+		t.Errorf("the beat after the downbeat is 1, not 5: %+v", second)
+	}
+}

@@ -9,10 +9,12 @@ import (
 // too late to plan like the rest, and is numbered but not sent.
 const minLeadPct = 90
 
-// arm sets the timer for the next beat, one lead before it sounds.
+// arm sets the timer for the next beat, one lead before it sounds. Nothing is
+// delivered before the burst is complete: a beat numbered earlier could miss
+// its downbeat.
 func (s *session) arm() {
 	f, ok := s.g.peek()
-	if !s.synced || !ok {
+	if !s.synced || !s.announced || !ok {
 		s.emit.Stop()
 		return
 	}

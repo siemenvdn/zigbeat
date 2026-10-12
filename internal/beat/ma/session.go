@@ -24,7 +24,7 @@ type session struct {
 	clk  *clock
 	g    grid
 
-	synced, announced  bool
+	synced, announced  bool // announced: the track's burst of beats is complete and reported
 	pings              int
 	waveSince          time.Time // first audio since the last clear without a beat
 	beatSeen, hinted   bool
@@ -47,6 +47,7 @@ func (s *session) loop(ctx context.Context, msgs <-chan message) time.Duration {
 			beats, downs := s.g.ahead()
 			s.n.say("%d beats ahead, %.1f BPM, %d downbeats", beats, s.g.bpm(), downs)
 			s.announced = true
+			s.arm() // the burst is complete, so the first beat can be numbered from its downbeat
 		case <-s.emit.C:
 			if !s.deliver(ctx) {
 				return 0

@@ -18,7 +18,6 @@ Small known issues, found in the reviews of phases 1a to 2 and left for later. P
 
 ## Music Assistant
 
-- **Bar numbering at a track start depends on a race.** When the first beat of a track is already less than 1 s ahead, `session.arm` resets the emit timer to a negative duration, so `deliver` races the rest of the burst. If the timer wins, a pickup beat is numbered 0 and the downbeat 4; if the messages win, −1 and 0 (seen in the e2e run of `zigbeat beats`: bar 0 where the plan's run had bar 1). At 8 beats per moment the moments then fall on odd bars instead of even ones, still on a bar line. Below about 67 BPM a pickup that lands 0.9 to 1 s ahead is delivered with Index 0, so a moment falls on the upbeat. Arm only once the burst is quiet (as `report` does), or drain pending messages before `deliver`.
 - **Another player after the music stops.** Without `music_assistant.player`, the relay picks the playing player when zigbeat connects and stays with it. Music stopping on one speaker and starting on another leaves zigbeat silent until the connection drops or the show restarts. Reconnecting on `stream/end` when no player is set would follow, at the cost of up to 5 s after every resume.
 - **Beats already handed over survive a seek.** Up to 1 s of beats sits in the engine when a `stream/clear` or `stream/end` comes, so one kick and its return can still land on the old grid. Inherent to the 1 s lookahead; an engine call to drop future units would fix it.
 
