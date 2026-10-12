@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/beat"
@@ -34,6 +36,9 @@ func Run(args []string) int {
 	ctx, stopSignals := cli.StopContext()
 	defer stopSignals()
 	fmt.Println(offsetHelp)
+	// Started in the background, reading the terminal would stop the whole show;
+	// with SIGTTIN ignored the read fails and calibration is off instead.
+	signal.Ignore(syscall.SIGTTIN)
 	offsets := make(chan time.Duration)
 	go readOffsets(os.Stdin, cfg.Budget.AudioOffset(), offsets)
 	return Play(ctx, cfg, Source(cfg, o.BPM), Hooks{Stopping: cli.QuitOnInterrupt, Offsets: offsets})
