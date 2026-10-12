@@ -171,3 +171,17 @@ func TestCanaryWithoutDefinition(t *testing.T) {
 		t.Errorf("exit %d\n%s", code, out)
 	}
 }
+
+func TestCanaryReplacedWhenQuotedOrEmpty(t *testing.T) {
+	// setup itself writes an unrenamed IEEE name in quotes.
+	devs := append(home(), dev("0x0017880104e45518", "plug"))
+	for _, line := range []string{`canary: "0x0017880104e45518"   # in the hallway`, `canary:   # in the hallway`} {
+		path := filepath.Join(t.TempDir(), "config.yaml")
+		cfg := strings.Replace(existing, "canary: far-lamp   # in the hallway", line, 1)
+		code, out := start(t, &fakeBridge{devs: devs}, path, cfg, "", "-lights", "pendant-1", "-canary", "far-lamp")
+		data, _ := os.ReadFile(path)
+		if code != 0 || !strings.Contains(string(data), "\ncanary: far-lamp") {
+			t.Errorf("%s: exit %d\n%s\n%s", line, code, out, data)
+		}
+	}
+}

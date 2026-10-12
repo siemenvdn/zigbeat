@@ -46,6 +46,11 @@ func yamlName(s string) string {
 	return string(q)
 }
 
+// canaryLine is the canary of a config setup writes.
+func canaryLine(canary string) string {
+	return "canary: " + yamlName(canary) + "  # read only, never changed"
+}
+
 // newConfig is the text of a new configuration at path: the MQTT settings, a
 // budget for zigbeat probe to fill in, the canary, the fixtures, and the
 // optional blocks as comments.
@@ -63,7 +68,7 @@ func newConfig(path string, m config.MQTT, canary string, fs []config.Fixture, t
 	b.WriteString("  latency_ms: 0        # p50 per frame at that load: zigbeat probe fills it in\n")
 	b.WriteString("  audio_offset_ms: 0   # positive when the speakers play later; type save while calibrating in zigbeat run\n")
 	if canary != "" {
-		fmt.Fprintf(&b, "\ncanary: %s  # read only, never changed\n", yamlName(canary))
+		b.WriteString("\n" + canaryLine(canary) + "\n")
 	}
 	b.WriteString("\n" + renderFixtures(fs))
 	e := config.DefaultEffects

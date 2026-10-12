@@ -32,16 +32,24 @@ func (s *session) write(fixtures []config.Fixture, canary string) error {
 		err = f.SetBlock("fixtures", renderFixtures(fixtures))
 	}
 	if err == nil && canary != s.o.existing.Canary {
-		if canary == "" {
-			err = f.SetBlock("canary", "")
-		} else {
-			err = f.Set("canary", yamlName(canary), "")
-		}
+		err = setCanary(f, canary)
 	}
 	if err != nil {
 		return err
 	}
 	return f.Save(check)
+}
+
+// setCanary replaces the canary of f, or removes it for none. Set refuses a
+// quoted or empty old value, so then the whole line is replaced.
+func setCanary(f *config.File, canary string) error {
+	if canary == "" {
+		return f.SetBlock("canary", "")
+	}
+	if f.Set("canary", yamlName(canary), "") == nil {
+		return nil
+	}
+	return f.SetBlock("canary", canaryLine(canary))
 }
 
 // done says what was written and what comes next.
