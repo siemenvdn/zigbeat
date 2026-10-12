@@ -5,6 +5,7 @@ package setup
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/siemenvdn/zigbeat/internal/config"
@@ -22,8 +23,14 @@ func indexOf(ls []light, name string) int {
 	return slices.IndexFunc(ls, func(l light) bool { return l.name == name })
 }
 
-// stem is a name without its trailing number: pendant-1 gives pendant.
+// stem is a name without its trailing number: pendant-1 gives pendant. A
+// device that was not renamed, called after its address, is its own stem.
 func stem(name string) string {
+	if hex, ok := strings.CutPrefix(name, "0x"); ok {
+		if _, err := strconv.ParseUint(hex, 16, 64); err == nil {
+			return name
+		}
+	}
 	s := strings.TrimRight(strings.TrimRight(name, "0123456789"), "-_. ")
 	if s == "" {
 		return name

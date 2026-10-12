@@ -11,6 +11,7 @@ import (
 func TestStem(t *testing.T) {
 	for name, want := range map[string]string{
 		"pendant-1": "pendant", "pendant_12": "pendant", "Living Room 2": "Living Room", "desk-lamp": "desk-lamp", "42": "42", "a.3": "a",
+		"0x0017880104e45518": "0x0017880104e45518",
 	} {
 		if got := stem(name); got != want {
 			t.Errorf("stem(%q) = %q, want %q", name, got, want)
