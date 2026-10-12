@@ -73,8 +73,9 @@ func (c *Client) handlePublish(h byte, body []byte, now time.Time) {
 	c.smu.RLock()
 	subs := c.subs
 	c.smu.RUnlock()
+	retained := h&flagRetain != 0 // a broker sets it only for a new subscription
 	for _, s := range subs {
-		if Match(s.filter, topic) {
+		if Match(s.filter, topic) && !(s.live && retained) {
 			s.fn(topic, rest, now)
 		}
 	}

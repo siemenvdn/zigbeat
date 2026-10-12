@@ -286,7 +286,7 @@ cmd/
   fake-ma/        simulated Music Assistant relay: tracks, analysis delay, seeks, gaps, its own clock
 internal/
   cli/            what the subcommands share: stop signals, flag errors, the time stamp, the 5 s redial
-  mqtt/           minimal MQTT 3.1.1 client (QoS 0, retained publish and will, keepalive, wildcards)
+  mqtt/           minimal MQTT 3.1.1 client (QoS 0, retained publish and will, live-only subscribe, keepalive, wildcards)
   ws/             minimal WebSocket client, and the server side for tests and fake-ma
   z2m/            Zigbee2MQTT topics, groups, the device list and which lights may be driven, frame count, the canary limit
   lights/         snapshot and restore of lights, shared by probe and run

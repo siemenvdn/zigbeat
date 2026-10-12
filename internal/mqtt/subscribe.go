@@ -11,7 +11,17 @@ import (
 // Subscribe registers fn for messages matching filter (QoS 0) and waits for
 // SUBACK. When that fails, nothing of the subscription is left behind.
 func (c *Client) Subscribe(filter string, fn Handler) error {
-	sub := &subscription{filter: filter, fn: fn}
+	return c.register(&subscription{filter: filter, fn: fn})
+}
+
+// SubscribeLive is Subscribe without the retained messages the broker sends
+// for a new subscription: fn only gets what is published from now on.
+func (c *Client) SubscribeLive(filter string, fn Handler) error {
+	return c.register(&subscription{filter: filter, fn: fn, live: true})
+}
+
+func (c *Client) register(sub *subscription) error {
+	filter := sub.filter
 	c.smu.Lock()
 	id := c.packetID()
 	ack := make(chan []byte, 1)

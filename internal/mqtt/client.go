@@ -67,6 +67,7 @@ type Options struct {
 type subscription struct {
 	filter string
 	fn     Handler
+	live   bool // skips retained messages
 }
 
 type Client struct {

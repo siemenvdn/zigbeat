@@ -12,7 +12,6 @@ Small known issues, found in the reviews of phases 1a to 2 and left for later. P
 - **The first redial at stop waits 5 s**, also when the broker is already back (`mqttLink.Reconnect`).
 - **Timeouts shorter than the loss rule.** The 2 s drain and the 3 s tries in `lights.Snapshot` and `lights.Restore` are shorter than the 5 s after which a message counts as lost, so a slow bulb can get a second command before the first one was confirmed.
 - **Snapshot pacing undercounts.** A snapshot read asks for 4 attributes, about 3 ZCL reads, but is paced as 1 frame.
-- **Retained states after a re-subscribe** briefly bring lights that were left alone back into the show. They are left alone again after two misses.
 - **The show's connect ignores ctx.** `Dial` and the subscriptions in `connect` (up to 5 s per step) do not watch ctx, so an `OFF` or Ctrl-C during a slow connect waits for it.
 
 ## zigbeat serve
@@ -25,4 +24,3 @@ Small known issues, found in the reviews of phases 1a to 2 and left for later. P
 ## zigbeat setup and probe
 
 - **The fixture column is a guess.** Setup's table shows the fixture each light would get if every offered light were chosen (`arrange` over all of them in `internal/setup/setup.go`). With only some chosen, a light alone in its stem gets a fixture named after itself instead.
-- **A retained state counts as a canary answer.** When Zigbee2MQTT retains device states, the first read of a canary in `mqttBridge.Read` (`internal/setup/bridge.go`) can be answered by the retained message, with a latency near 0 ms.

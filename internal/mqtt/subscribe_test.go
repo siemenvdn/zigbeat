@@ -84,3 +84,30 @@ func TestUnsubscribe(t *testing.T) {
 		t.Errorf("UNSUBSCRIBE %x", pkt)
 	}
 }
+
+func TestSubscribeLiveSkipsRetained(t *testing.T) {
+	c, broker := pipeClient(t)
+	got := make(chan string, 2)
+	go func() {
+		peer := &Client{r: bufio.NewReader(broker)}
+		_, body, err := peer.readPacket()
+		if err != nil {
+			return
+		}
+		_, _ = broker.Write([]byte{typeSuback << 4, 3, body[0], body[1], 0})
+		for _, m := range []struct {
+			flags   byte
+			payload string
+		}{{flagRetain, "retained"}, {0, "live"}} {
+			pub := append(appendString(nil, "a/b"), m.payload...)
+			_, _ = broker.Write(append([]byte{typePublish<<4 | m.flags, byte(len(pub))}, pub...))
+		}
+	}()
+	err := c.SubscribeLive("a/b", func(_ string, p []byte, _ time.Time) { got <- string(p) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p := <-got; p != "live" {
+		t.Errorf("got the %s message first", p)
+	}
+}

@@ -51,9 +51,10 @@ func (b *Bridge) Get(device string, payload any) error {
 	return b.publish(b.base+"/"+device+"/get", payload)
 }
 
-// OnState delivers every state message Zigbee2MQTT publishes for device.
+// OnState delivers every state message Zigbee2MQTT publishes for device from
+// now on. A retained one is old and would pass for an answer, so it is skipped.
 func (b *Bridge) OnState(device string, fn func(State, time.Time)) error {
-	return b.c.Subscribe(b.base+"/"+device, func(_ string, p []byte, at time.Time) {
+	return b.c.SubscribeLive(b.base+"/"+device, func(_ string, p []byte, at time.Time) {
 		var s State
 		if json.Unmarshal(p, &s) == nil {
 			fn(s, at)
