@@ -1,4 +1,4 @@
-// Package mqtt is a minimal MQTT 3.1.1 client: QoS 0 publish, QoS 0 subscribe, keepalive, retained will.
+// Package mqtt is a minimal MQTT 3.1.1 client: QoS 0 publish, QoS 0 subscribe and unsubscribe, keepalive, retained will.
 package mqtt
 
 import (
@@ -15,6 +15,7 @@ const (
 	typePuback      = 4
 	typeSubscribe   = 8
 	typeSuback      = 9
+	typeUnsubscribe = 10
 	typePingreq     = 12
 	typePingresp    = 13
 	typeDisconnect  = 14
@@ -31,7 +32,7 @@ const (
 	flagUsername     = 0x80
 
 	flagRetain    = 0x01 // PUBLISH
-	subscribeBits = 0x02 // reserved bits of SUBSCRIBE
+	subscribeBits = 0x02 // reserved bits of SUBSCRIBE and UNSUBSCRIBE
 	subackFailure = 0x80
 )
 
@@ -76,7 +77,7 @@ type Client struct {
 	wmu sync.Mutex
 
 	smu    sync.RWMutex
-	subs   []subscription
+	subs   []*subscription
 	nextID uint16
 	acks   map[uint16]chan []byte
 

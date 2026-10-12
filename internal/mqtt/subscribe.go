@@ -3,23 +3,33 @@ package mqtt
 import (
 	"encoding/binary"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 )
 
-// Subscribe registers fn for messages matching filter (QoS 0) and waits for SUBACK.
+// Subscribe registers fn for messages matching filter (QoS 0) and waits for
+// SUBACK. When that fails, nothing of the subscription is left behind.
 func (c *Client) Subscribe(filter string, fn Handler) error {
+	sub := &subscription{filter: filter, fn: fn}
 	c.smu.Lock()
-	c.nextID++
-	if c.nextID == 0 {
-		c.nextID = 1
-	}
-	id := c.nextID
+	id := c.packetID()
 	ack := make(chan []byte, 1)
 	c.acks[id] = ack
-	c.subs = append(c.subs, subscription{filter: filter, fn: fn})
+	c.subs = append(c.subs, sub)
 	c.smu.Unlock()
 
+	err := c.subscribe(id, ack, filter)
+	if err != nil {
+		c.smu.Lock()
+		delete(c.acks, id)
+		c.subs = without(c.subs, func(s *subscription) bool { return s == sub })
+		c.smu.Unlock()
+	}
+	return err
+}
+
+func (c *Client) subscribe(id uint16, ack <-chan []byte, filter string) error {
 	var vh []byte
 	vh = binary.BigEndian.AppendUint16(vh, id)
 	vh = appendString(vh, filter)
@@ -38,6 +48,36 @@ func (c *Client) Subscribe(filter string, fn Handler) error {
 	case <-c.done:
 		return c.Err()
 	}
+}
+
+// Unsubscribe drops every handler for filter and tells the broker. It does not
+// wait for the UNSUBACK: no message reaches a handler from here on anyway.
+func (c *Client) Unsubscribe(filter string) error {
+	c.smu.Lock()
+	id := c.packetID()
+	c.subs = without(c.subs, func(s *subscription) bool { return s.filter == filter })
+	c.smu.Unlock()
+
+	var vh []byte
+	vh = binary.BigEndian.AppendUint16(vh, id)
+	vh = appendString(vh, filter)
+	return c.write(typeUnsubscribe<<4|subscribeBits, vh)
+}
+
+// packetID returns the next packet identifier, skipping 0, which MQTT does not
+// allow. The caller holds smu.
+func (c *Client) packetID() uint16 {
+	c.nextID++
+	if c.nextID == 0 {
+		c.nextID = 1
+	}
+	return c.nextID
+}
+
+// without returns subs without the ones drop picks, in a new array:
+// handlePublish ranges over the old one outside the lock.
+func without(subs []*subscription, drop func(*subscription) bool) []*subscription {
+	return slices.DeleteFunc(slices.Clone(subs), drop)
 }
 
 // Match reports whether topic matches an MQTT filter with + and # wildcards.

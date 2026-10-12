@@ -39,7 +39,3 @@ Small known issues, found in the reviews of phases 1a to 2 and left for later. P
 ## Docs and code style
 
 - A `ponytail:` prefix in a comment in `internal/run/show/kick.go`.
-
-## Separate task
-
-- **Clean up a failed mqtt subscribe.** In `internal/mqtt/subscribe.go`, a write error, a SUBACK timeout or a refused subscription leaves `c.acks[id]` and the handler in `c.subs` behind. Remove both on every failure path. Test it first with a minimal broker on `net.Pipe` or a local listener that never answers the SUBSCRIBE, or answers it with 0x80.
