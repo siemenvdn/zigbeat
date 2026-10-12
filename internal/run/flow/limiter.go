@@ -10,9 +10,9 @@ import (
 const (
 	// MaxPerMoment is the most messages one moment sends.
 	MaxPerMoment = 3
-	// Burst fits one moment: MaxPerMoment messages of 2 frames, a kick's
-	// brightness and colour.
-	Burst = MaxPerMoment * 2
+	kickFrames   = 2 // a kick sets brightness and colour
+	// Burst fits one moment: MaxPerMoment messages of kickFrames.
+	Burst = MaxPerMoment * kickFrames
 )
 
 // Limiter is a token bucket in Zigbee frames; the rate is a ceiling, never raised.
