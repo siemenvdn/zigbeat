@@ -1,6 +1,6 @@
 # Backlog
 
-Small known issues, found in the review of phase 1a and left for later. Plans and decisions live in [DESIGN.md](DESIGN.md).
+Small known issues, found in the reviews of phases 1a to 2 and left for later. Plans and decisions live in [DESIGN.md](DESIGN.md).
 
 ## zigbeat run
 
@@ -13,8 +13,14 @@ Small known issues, found in the review of phase 1a and left for later. Plans an
 - **Timeouts shorter than the loss rule.** The 2 s drain and the 3 s tries in `lights.Snapshot` and `lights.Restore` are shorter than the 5 s after which a message counts as lost, so a slow bulb can get a second command before the first one was confirmed.
 - **Snapshot pacing undercounts.** A snapshot read asks for 4 attributes, about 3 ZCL reads, but is paced as 1 frame.
 - **Retained states after a re-subscribe** briefly bring lights that were left alone back into the show. They are left alone again after two misses.
-
 - **The show's connect ignores ctx.** `Dial` and the subscriptions in `connect` (up to 5 s per step) do not watch ctx, so an `OFF` or Ctrl-C during a slow connect waits for it.
+
+## Music Assistant
+
+- **Bar numbering at a track start depends on a race.** When the first beat of a track is already less than 1 s ahead, `session.arm` resets the emit timer to a negative duration, so `deliver` races the rest of the burst. If the timer wins, a pickup beat is numbered 0 and the downbeat 4; if the messages win, −1 and 0 (seen in the e2e run of `zigbeat beats`: bar 0 where the plan's run had bar 1). At 8 beats per moment the moments then fall on odd bars instead of even ones, still on a bar line. Below about 67 BPM a pickup that lands 0.9 to 1 s ahead is delivered with Index 0, so a moment falls on the upbeat. Arm only once the burst is quiet (as `report` does), or drain pending messages before `deliver`.
+- **Another player after the music stops.** Without `music_assistant.player`, the relay picks the playing player when zigbeat connects and stays with it. Music stopping on one speaker and starting on another leaves zigbeat silent until the connection drops or the show restarts. Reconnecting on `stream/end` when no player is set would follow, at the cost of up to 5 s after every resume.
+- **Beats already handed over survive a seek.** Up to 1 s of beats sits in the engine when a `stream/clear` or `stream/end` comes, so one kick and its return can still land on the old grid. Inherent to the 1 s lookahead; an engine call to drop future units would fix it.
+- **The read deadline is renewed per message, not per frame.** MA's pings do not renew it (`ma/wire.go`); an idle connection stays up only because MA answers the time bursts every 10 s. If the relay ever stops answering `client/time` while nothing plays, the source reconnects every 60 s.
 
 ## zigbeat serve
 
@@ -26,6 +32,12 @@ Small known issues, found in the review of phase 1a and left for later. Plans an
 ## Docs and code style
 
 - A `ponytail:` prefix in a comment in `internal/run/show/kick.go`.
+- DESIGN.md's open questions lack "Do downbeats arrive on the user's Music Assistant?", one of the questions the phase 2 check on real hardware answers.
+
+## Test tools
+
+- **fake-ma can block with many beats.** `timeline.join` sends the pending beats into the viewer's buffer (4096) while it holds `tl.mu`, before the writer goroutine starts, so a track with more pending beats (for example `-tracks 200:30m`) blocks the fake. Start the writer first, or send outside the lock.
+- `fake-ma` prints `stopped` twice after a `-gap` at the end of the list. `.gitignore` has `/fake-z2m` but not `/fake-ma`.
 
 ## Separate task
 
