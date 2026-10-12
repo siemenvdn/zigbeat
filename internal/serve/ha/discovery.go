@@ -35,6 +35,13 @@ func Discovery(version string) []byte {
 		"lights":      sensor("Lights playing", "lights", measure),
 		"lights_away": sensor("Lights left alone", "lights_away", measure),
 	}
+	for _, s := range settings {
+		c := maps.Clone(s.component)
+		c["command_topic"] = StyleTopic(s.key)
+		c["retain"] = true // the broker keeps the choice
+		c["value_template"] = "{{ value_json." + s.key + " }}"
+		components[s.key] = c
+	}
 	for id, c := range components {
 		c["unique_id"] = "zigbeat_" + id
 	}

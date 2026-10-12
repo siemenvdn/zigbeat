@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"math"
 
+	"github.com/siemenvdn/zigbeat/internal/config"
 	"github.com/siemenvdn/zigbeat/internal/run/engine"
 )
 
@@ -20,6 +21,26 @@ type State struct {
 	Backoff    *int     `json:"backoff"`
 	Lights     *int     `json:"lights"`
 	LightsAway *int     `json:"lights_away"`
+	Style               // the style in force, also while the show is off
+}
+
+// Style is the part of the state that Home Assistant sets, under the keys of
+// the config.
+type Style struct {
+	AlbumPalette string  `json:"album_palette"` // ON or OFF, as the switch says
+	AlbumColors  int     `json:"album_colors"`
+	Variant      string  `json:"variant"`
+	Brightness   int     `json:"brightness"`
+	Cadence      float64 `json:"cadence"` // seconds
+}
+
+// StyleOf is the style of e for the state.
+func StyleOf(e config.Effects) Style {
+	on := "OFF"
+	if e.AlbumPalette {
+		on = "ON"
+	}
+	return Style{AlbumPalette: on, AlbumColors: e.AlbumColors, Variant: e.Variant, Brightness: e.Brightness, Cadence: e.Cadence.Seconds()}
 }
 
 // fpsDecimals rounds frames per second for Home Assistant.
