@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"go.yaml.in/yaml/v3"
+
 	"github.com/siemenvdn/zigbeat/internal/config"
 )
 
@@ -15,6 +17,20 @@ func TestYAMLName(t *testing.T) {
 	} {
 		if got := yamlName(in); got != want {
 			t.Errorf("yamlName(%q) = %s, want %s", in, got, want)
+		}
+	}
+}
+
+func TestYAMLNameReadsBack(t *testing.T) {
+	names := []string{"lamp?1", "?lamp", "lamp?", ":lamp", "lamp:", "lamp:1", "a: b", "-lamp", "lamp, big", "yes", "#1", "[x]", "{x}", "&a", "*a", "!a", "|a", ">a", "'a", "%a", "@a", "`a", "Living Room 2"}
+	for _, n := range names {
+		var got struct {
+			Lights []string
+			Canary string
+		}
+		text := "lights: [" + yamlName(n) + ", lamp-2]\ncanary: " + yamlName(n) + "  # far away\n"
+		if err := yaml.Unmarshal([]byte(text), &got); err != nil || len(got.Lights) != 2 || got.Lights[0] != n || got.Canary != n {
+			t.Errorf("%q written as %s reads back as %q, %q (%v)", n, yamlName(n), got.Lights, got.Canary, err)
 		}
 	}
 }

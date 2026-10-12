@@ -37,9 +37,11 @@ func renderFixtures(fs []config.Fixture) string {
 const flowUnsafe = ",[]{}#&*!|>'\"%@`"
 
 // yamlName writes a Zigbee2MQTT name plain when YAML reads it back unchanged,
-// else in double quotes; JSON strings are valid YAML.
+// as a value and in a flow sequence, else in double quotes; JSON strings are valid YAML.
 func yamlName(s string) string {
-	if out, err := yaml.Marshal(s); err == nil && string(out) == s+"\n" && !strings.ContainsAny(s, flowUnsafe) {
+	var flow []string
+	if out, err := yaml.Marshal(s); err == nil && string(out) == s+"\n" && !strings.ContainsAny(s, flowUnsafe) &&
+		yaml.Unmarshal([]byte("["+s+"]"), &flow) == nil && len(flow) == 1 && flow[0] == s {
 		return s
 	}
 	q, _ := json.Marshal(s)
