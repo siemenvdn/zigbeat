@@ -79,6 +79,7 @@ func (s Source) session(ctx context.Context, out chan<- beat.Beat, n *notes) tim
 	return ss.loop(ctx, msgs)
 }
 
+// stopped is a timer that waits for its first Reset; any duration works here.
 func stopped() *time.Timer {
 	t := time.NewTimer(time.Hour)
 	t.Stop()
