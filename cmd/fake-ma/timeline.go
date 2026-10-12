@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/binary"
 	"fmt"
 	"sync"
 	"time"
@@ -10,21 +9,7 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/cli"
 )
 
-// The relay's frames, [tag][ts:8] and a payload, as MA's tap.py writes them:
-// copied on purpose, so the fake does not share zigbeat's decoder.
 const (
-	beatTag      = 17
-	waveTag      = 22
-	headerLen    = 1 + 8
-	downBit      = 1    // the flags byte of a downbeat
-	waveSamples  = 1024 // samples per waveform frame
-	silentSample = 0x80 // the midpoint of unsigned 8-bit PCM
-	sampleRate   = 44100
-	waveRate     = sampleRate / waveSamples // about 43 waveform frames a second
-)
-
-const (
-	waveLead   = 5 * time.Second        // how far ahead MA stamps waveform frames
 	firstAt    = 250 * time.Millisecond // media time of a track's first beat
 	startDelay = 2 * time.Second        // a client can connect before the first track
 	seekJump   = 10 * time.Second       // far enough to show in the beat numbering
@@ -99,12 +84,7 @@ func (tl *timeline) publish(tr track, anchor int64, pickup int) {
 			continue
 		}
 		down := k >= pickup && (k-pickup)%beat.PerBar == 0
-		frame := binary.BigEndian.AppendUint64([]byte{beatTag}, uint64(ts))
-		if down {
-			frame = append(frame, downBit)
-		} else {
-			frame = append(frame, 0)
-		}
+		frame := beatFrame(ts, down)
 		if tl.log {
 			mark := ""
 			if down {
@@ -136,30 +116,13 @@ func (tl *timeline) end() {
 	tl.fan([]byte(`{"type": "stream/end"}`), true)
 }
 
-// waveform sends silent waveform frames waveRate times a second while a track plays.
-func (tl *timeline) waveform() {
-	silent := make([]byte, waveSamples)
-	for i := range silent {
-		silent[i] = silentSample
-	}
-	for range time.Tick(time.Second / waveRate) {
-		tl.mu.Lock()
-		playing := tl.playing
-		tl.mu.Unlock()
-		if playing {
-			ts := tl.now() + waveLead.Microseconds()
-			tl.fan(append(binary.BigEndian.AppendUint64([]byte{waveTag}, uint64(ts)), silent...), false)
-		}
-	}
-}
-
 // join adds a viewer and gives it the beats still ahead, under one lock so none is missed.
 func (tl *timeline) join(v *viewer) {
 	tl.mu.Lock()
 	defer tl.mu.Unlock()
 	now := tl.now()
 	for _, f := range tl.beats {
-		if int64(binary.BigEndian.Uint64(f[1:headerLen])) > now {
+		if frameTime(f) > now {
 			v.out <- outMsg{false, f}
 		}
 	}
