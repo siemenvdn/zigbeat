@@ -22,8 +22,12 @@ type Hooks struct {
 // light. It returns 0, or 1 when the show could not start, after maxPanics panics,
 // or when the broker is gone at stop.
 func Play(ctx context.Context, cfg config.Config, src beat.Source, h Hooks) int {
-	r, err := connect(cfg)
+	r, err := connect(ctx, cfg)
 	if err != nil {
+		if ctx.Err() != nil {
+			fmt.Println(cancelled)
+			return 0
+		}
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}

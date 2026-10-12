@@ -13,6 +13,8 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
+const cancelled = "cancelled before the show started, nothing was changed"
+
 // start checks the config against Zigbee2MQTT, takes the snapshot and measures
 // the canary. Nothing is changed yet, so a stop here needs no restore.
 func (r *runner) start(ctx context.Context) (limit time.Duration, code int, ok bool) {
@@ -26,7 +28,7 @@ func (r *runner) start(ctx context.Context) (limit time.Duration, code int, ok b
 		limit = r.canaryBaseline(ctx)
 	}
 	if ctx.Err() != nil {
-		fmt.Println("cancelled before the show started, nothing was changed")
+		fmt.Println(cancelled)
 		return 0, 0, false
 	}
 	if !snapped {

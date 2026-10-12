@@ -1,6 +1,7 @@
 package run
 
 import (
+	"context"
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/config"
@@ -31,14 +32,34 @@ type runner struct {
 // eventBuffer holds seconds of state messages at any budget; push drops beyond it.
 const eventBuffer = 1024
 
-func connect(cfg config.Config) (*runner, error) {
+// connect dials the show's link. When ctx is done first it returns at once and
+// closes the link once the dial ends.
+func connect(ctx context.Context, cfg config.Config) (*runner, error) {
 	r := &runner{cfg: cfg, events: make(chan event, eventBuffer)}
-	l, err := dialLink(cfg.MQTT, r.watched, r.push)
-	if err != nil {
-		return nil, err
+	type dialed struct {
+		l   *mqttLink
+		err error
 	}
-	r.link = l
-	return r, nil
+	done := make(chan dialed, 1)
+	go func() {
+		l, err := dialLink(cfg.MQTT, r.watched, r.push)
+		done <- dialed{l, err}
+	}()
+	select {
+	case d := <-done:
+		if d.err != nil {
+			return nil, d.err
+		}
+		r.link = d.l
+		return r, nil
+	case <-ctx.Done():
+		go func() { // a dial and its subscriptions take up to seconds each
+			if d := <-done; d.err == nil {
+				d.l.Close()
+			}
+		}()
+		return nil, ctx.Err()
+	}
 }
 
 // watched lists the devices to subscribe to: the lights still in the show and the canary.
