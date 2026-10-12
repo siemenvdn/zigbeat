@@ -1,6 +1,9 @@
 package show
 
-import "testing"
+import (
+	"maps"
+	"testing"
+)
 
 func TestKickAndReturn(t *testing.T) {
 	p := NewPlanner(testConfig("separate"))
@@ -26,5 +29,16 @@ func TestMissedKeepsANewerColour(t *testing.T) {
 	p.Missed(kick)
 	if p.current[kick.Light] != "#000000" {
 		t.Errorf("a dropped older kick took back the newer colour: %q", p.current[kick.Light])
+	}
+}
+
+func TestMissedGivesBackThePreviousColour(t *testing.T) {
+	p := NewPlanner(testConfig("separate"))
+	p.Start(t0)
+	was := maps.Clone(p.current)
+	kick := p.Beat(moment(0), 0)[0]
+	p.Missed(kick)
+	if got := p.current[kick.Light]; got != was[kick.Light] {
+		t.Errorf("%s counts as showing %q after a dropped kick, want its previous %q", kick.Light, got, was[kick.Light])
 	}
 }

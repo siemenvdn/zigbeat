@@ -18,7 +18,8 @@ type Message struct {
 	Light   string
 	Payload map[string]any
 	Land    time.Time
-	Drop    bool // may be dropped when it cannot leave on time
+	Drop    bool   // may be dropped when it cannot leave on time
+	before  string // a colour change: the light's colour until it lands
 }
 
 // Planner decides per moment which lights change and how.

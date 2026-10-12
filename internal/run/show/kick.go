@@ -23,15 +23,16 @@ func (p *Planner) change(u []string, c string, b music.Beat, calm bool) []Messag
 func (p *Planner) paint(lights []string, c string, b music.Beat, calm bool) []Message {
 	var out []Message
 	for _, l := range lights {
+		before := p.current[l]
 		p.current[l] = c
 		hex := map[string]string{"hex": c}
 		if calm {
-			out = append(out, Message{Light: l, Land: b.At, Drop: true,
+			out = append(out, Message{Light: l, Land: b.At, Drop: true, before: before,
 				Payload: map[string]any{"color": hex, "transition": colorBlend}})
 			continue
 		}
 		out = append(out,
-			Message{Light: l, Land: b.At, Drop: true,
+			Message{Light: l, Land: b.At, Drop: true, before: before,
 				Payload: map[string]any{"color": hex, "brightness": p.kick, "transition": colorBlend}},
 			Message{Light: l, Land: b.At.Add(p.period()),
 				Payload: map[string]any{"brightness": p.base, "transition": kickFall}})
@@ -40,9 +41,9 @@ func (p *Planner) paint(lights []string, c string, b music.Beat, calm bool) []Me
 }
 
 // Missed takes back the colour of a message the engine dropped, while it is
-// still the light's latest, so the light no longer counts as showing it.
+// still the light's latest: the light counts as showing its colour from before.
 func (p *Planner) Missed(m Message) {
 	if c, ok := m.Payload["color"].(map[string]string); ok && p.current[m.Light] == c["hex"] {
-		delete(p.current, m.Light)
+		p.current[m.Light] = m.before
 	}
 }
