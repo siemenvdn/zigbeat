@@ -85,6 +85,10 @@ func joinExisting(fixtures []config.Fixture, l light) bool {
 	return false
 }
 
+// firstCopy is the suffix of the first fixture that would take a name already
+// taken: the original counts as the first.
+const firstCopy = 2
+
 // group makes new fixtures of lights with the same stem and role, in order:
 // named after the stem, or after the light when it is alone; a name that is
 // taken gets -2, -3 and so on.
@@ -110,7 +114,7 @@ func group(ls []light, taken []config.Fixture) []config.Fixture {
 			name = stem(name)
 		}
 		unique := name
-		for n := 2; names[unique]; n++ {
+		for n := firstCopy; names[unique]; n++ {
 			unique = fmt.Sprintf("%s-%d", name, n)
 		}
 		names[unique] = true
