@@ -26,7 +26,3 @@ Small known issues, found in the reviews of phases 1a to 2 and left for later. P
 
 - **The fixture column is a guess.** Setup's table shows the fixture each light would get if every offered light were chosen (`arrange` over all of them in `internal/setup/setup.go`). With only some chosen, a light alone in its stem gets a fixture named after itself instead.
 - **A retained state counts as a canary answer.** When Zigbee2MQTT retains device states, the first read of a canary in `mqttBridge.Read` (`internal/setup/bridge.go`) can be answered by the retained message, with a latency near 0 ms.
-
-## Docs and code style
-
-- A `ponytail:` prefix in a comment in `internal/run/show/kick.go`.

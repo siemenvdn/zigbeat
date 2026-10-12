@@ -86,6 +86,6 @@ func (f *File) Save(check func([]byte) error) error {
 	if err := os.Chmod(tmp.Name(), f.mode); err != nil {
 		return err
 	}
-	// ponytail: a config behind a symlink becomes a plain file; follow the link if anyone keeps theirs in one.
+	// A config behind a symlink becomes a plain file; follow the link if anyone keeps theirs in one.
 	return os.Rename(tmp.Name(), f.path)
 }

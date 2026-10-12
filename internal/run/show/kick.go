@@ -15,7 +15,7 @@ func (p *Planner) change(u []string, b beat.Beat, calm bool) []Message {
 	c := p.colorFor(u)
 	var out []Message
 	for _, l := range u {
-		// ponytail: a dropped unit still counts as given; the next colour may then repeat once.
+		// A dropped unit still counts as given; the next colour may then repeat once.
 		p.current[l] = c
 		hex := map[string]string{"hex": c}
 		if calm {
