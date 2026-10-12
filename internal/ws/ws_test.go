@@ -137,8 +137,10 @@ func TestIdleTimeoutRenewsPerMessage(t *testing.T) {
 			t.Fatalf("messages 60 ms apart keep a 100 ms idle timeout alive: message %d: %q, %v", i, m.Data, err)
 		}
 	}
-	if _, err := c.Read(); err == nil {
-		t.Error("silence must end the read")
+	_ = c.SetReadDeadline(time.Now().Add(testTimeout)) // only a bound: the idle timeout wins
+	start := time.Now()
+	if _, err := c.Read(); err == nil || time.Since(start) > testTimeout/2 {
+		t.Errorf("silence must end the read within the idle timeout: %v after %s", err, time.Since(start))
 	}
 }
 
