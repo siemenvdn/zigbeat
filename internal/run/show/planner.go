@@ -29,6 +29,7 @@ type Planner struct {
 	palette   []string
 	pi        int
 	current   map[string]string // colour each light was last given
+	parts     []part            // the rest of a unit too large for one moment
 	cursor    int
 	moments   int
 	units     int
@@ -95,9 +96,14 @@ func (p *Planner) Beat(b music.Beat, backoff int) []Message {
 	if b.Index%n != 0 {
 		return nil
 	}
+	calm := backoff >= flow.CalmLevel
 	var out []Message
-	for _, u := range p.pick() {
-		out = append(out, p.change(u, b, backoff >= flow.CalmLevel)...)
+	if pt, ok := p.nextPart(); ok {
+		out = p.paint(pt.lights, pt.color, b, calm) // the chase waits for the rest of a unit
+	} else {
+		for _, u := range p.pick() {
+			out = append(out, p.change(u, b, calm)...)
+		}
 	}
 	out = append(out, p.breath(b, n)...)
 	p.moments++
