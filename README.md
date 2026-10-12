@@ -6,9 +6,9 @@ Ordinary Zigbee bulbs on [Zigbee2MQTT](https://www.zigbee2mqtt.io/) have no good
 
 ## Status
 
-- **Works today:** `zigbeat setup` finds your lights in Zigbee2MQTT and writes the configuration. `zigbeat probe` measures how many light commands per second your network handles and writes that budget into it. `zigbeat run` drives your lights within that budget to the beats of the music that [Music Assistant](https://www.music-assistant.io/) plays, or to a fixed-BPM metronome. `zigbeat serve` does the same as a service that Home Assistant switches on and off.
+- **Works today:** `zigbeat setup` finds your lights in Zigbee2MQTT and writes the configuration. `zigbeat probe` measures how many light commands per second your network handles and writes that budget into it. `zigbeat run` drives your lights within that budget to the beats of the music that [Music Assistant](https://www.music-assistant.io/) plays, or to a fixed-BPM metronome. `zigbeat serve` does the same as a service that Home Assistant switches on and off, and whose style it sets: the album colours, the way the bulbs change, the brightness and the pace.
 - **In progress:** checking on real speakers that the lights land on the beat by ear.
-- **Later:** effects that follow the energy of the music, the style of the show from Home Assistant, a container image.
+- **Later:** effects that follow the energy of the music, a container image.
 
 ## What it does
 
@@ -18,7 +18,7 @@ Ordinary Zigbee bulbs on [Zigbee2MQTT](https://www.zigbee2mqtt.io/) have no good
 - Dimmable bulbs breathe slowly up and down.
 - It stays below the budget the probe found, backs off when the network gets busy and pauses when it keeps struggling. Network trouble never ends the show.
 - Every light goes back to how it was when you stop the show, with Ctrl-C or the switch in Home Assistant.
-- Home Assistant gets a switch and sensors through MQTT discovery, without any YAML.
+- Home Assistant gets a switch, controls for the style of the show and sensors through MQTT discovery, without any YAML.
 
 It does not flash on every beat, use Zigbee groups, or switch relays and plugs. [DESIGN.md](DESIGN.md) explains why.
 
@@ -30,7 +30,7 @@ flowchart LR
   zigbeat -->|commands, sent early| z2m[Zigbee2MQTT]
   z2m -->|Zigbee| bulbs
   z2m -.->|confirmations| zigbeat
-  ha[Home Assistant] -->|on / off| zigbeat
+  ha[Home Assistant] -->|on / off, style| zigbeat
   zigbeat -.->|status| ha
 ```
 
@@ -39,7 +39,7 @@ flowchart LR
 3. On each moment zigbeat picks a few bulbs and sends their commands early by the latency it measures, so the light lands on the beat. A bulb gets its next command only after Zigbee2MQTT confirmed the previous one.
 4. When the show stops, every light goes back to the state from step 1.
 
-Home Assistant only switches the show on and off and reads its status. It stays out of the timing path.
+Home Assistant switches the show on and off, sets its style and reads its status. It stays out of the timing path.
 
 zigbeat is a single static Go binary, meant to run next to Zigbee2MQTT. Architecture, effects, roadmap and decisions: [DESIGN.md](DESIGN.md).
 
@@ -234,12 +234,29 @@ It uses the same config as `zigbeat run`, with the same beat source. The show is
 
 The numbers follow every 10 seconds and are unknown while the show is off. When zigbeat stops or loses its connection, the entities become unavailable.
 
-Next to the Zigbee2MQTT topics, the MQTT user for zigbeat needs write access to `homeassistant/device/zigbeat/config` and `zigbeat/#`, and read access to `zigbeat/show/set`. Run one `zigbeat serve` per broker, and no `zigbeat run` while its show is on.
+Next to the switch you set the style of the show, before it starts or while it plays; a change applies from the next moment:
 
-To remove the device from Home Assistant, stop zigbeat and clear its discovery message:
+| Entity | Sets | In the config |
+|---|---|---|
+| `switch.zigbeat_album_colours` | Whether the album art's colours play | `effects.album_palette` |
+| `number.zigbeat_album_colour_count` | How many colours, 2 to 6 | `effects.album_colors` |
+| `select.zigbeat_variant` | How the colour bulbs change: `rotation`, `walk`, `shuffle`, `swap` or `build` | `effects.variant` |
+| `number.zigbeat_brightness` | The base brightness of the colour bulbs, 1 to 100 % | `effects.brightness` |
+| `number.zigbeat_pace` | The least time between moments, 1 to 16 s. A moment still falls on 1, 2, 4, 8 or 16 beats, so the pace moves in steps | `effects.cadence` |
+
+A choice stays until you change it in Home Assistant, also when zigbeat or Home Assistant restarts: the broker keeps it, and over its own restart too when it has persistence, as Home Assistant's Mosquitto add-on does. What you never chose comes from `config.yaml`; `zigbeat run` uses only `config.yaml`. To give one setting back to the config, wipe its choice, for example the brightness:
+
+```bash
+mosquitto_pub -r -n -t zigbeat/style/brightness/set
+```
+
+Next to the Zigbee2MQTT topics, the MQTT user for zigbeat needs write access to `homeassistant/device/zigbeat/config` and `zigbeat/#`, and read access to `zigbeat/show/set` and `zigbeat/style/+/set`. Run one `zigbeat serve` per broker, and no `zigbeat run` while its show is on.
+
+To remove the device from Home Assistant, stop zigbeat and clear its discovery message and the choices:
 
 ```bash
 mosquitto_pub -r -n -t homeassistant/device/zigbeat/config
+for k in album_palette album_colors variant brightness cadence; do mosquitto_pub -r -n -t zigbeat/style/$k/set; done
 ```
 
 ## Build from source
@@ -283,7 +300,7 @@ mosquitto_sub -p 18830 -v -t 'zigbeat/#' &
 mosquitto_pub -p 18830 -t zigbeat/show/set -m ON
 ```
 
-`zigbeat/state` goes from `off` to `starting` and `running`. Publish `OFF` the same way to stop the show and restore the lamps.
+`zigbeat/state` goes from `off` to `starting` and `running`. Publish `OFF` the same way to stop the show and restore the lamps. Set the style as Home Assistant does, retained: `mosquitto_pub -p 18830 -r -t zigbeat/style/variant/set -m swap` changes the variant from the next moment, and serve takes it again after a restart.
 
 `fake-ma` simulates Music Assistant: the beats, the album colours and the music itself, here three tracks of 30 seconds:
 

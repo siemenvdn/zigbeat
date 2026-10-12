@@ -31,7 +31,9 @@ How zigbeat works and why. To use it, start with the [README](README.md).
 | Unicast only, no Zigbee groups | Group commands are broadcasts: every router in the house repeats them and they are the first thing to saturate |
 | Closed loop with a ceiling and backoff | The rest of the house always has priority |
 | Network trouble pauses the show, never ends it | A party should not stop because one bulb or the broker hiccups. A pause is the deepest backoff, so the network still always wins |
-| Home Assistant only switches the show on and off | Automations add too much latency and jitter for timing. The tempo comes from the beat source, not from a slider |
+| Home Assistant switches the show and its style, never its timing | Automations add too much latency and jitter for timing. The tempo comes from the beat source, not from a slider. A style change only changes what later moments pick; it sends nothing itself |
+| A choice in Home Assistant stays until it is changed there; `config.yaml` is the default for what was never chosen | Every party is different, and a restart in the middle of one must not lose its style. `zigbeat run` uses only the config |
+| Home Assistant keeps the choices as retained commands, one topic per setting | The broker hands them to serve on every connect. serve never publishes on them, so there is no loop and no memory of its own |
 | `zigbeat serve` is a separate command; `zigbeat run` stays the one-shot CLI | The service that Home Assistant switches has a different life: it waits, plays, restores and waits again |
 | serve has its own MQTT connection; each show opens its own | A stuck Home Assistant link never slows the show, and an idle serve subscribes to no light |
 | serve always starts with the show off | A restart must never start a show on its own |
@@ -41,7 +43,7 @@ How zigbeat works and why. To use it, start with the [README](README.md).
 | Energy is the low band of the coming bar within its track, measured and printed but not yet steering the lights | The waveform is the raw decoded audio, before volume normalisation, so levels only compare within a track. Limited masters differ between sections below 150 Hz, hardly in the full band. It needs to be seen on real music first |
 | The colour bulbs rotate through variants per 16 bars, with `build` at a track's start | At one change every 2 to 5 s no motion is seen; variants differ in how many bulbs change and how many colours the room shows |
 | Own WebSocket client, no dependency | The relay needs no extensions, compression or TLS; about 200 lines, like the MQTT client |
-| The audio offset is calibrated by ear while `zigbeat run` plays | One number per speaker setup; Home Assistant stays on and off only |
+| The audio offset is calibrated by ear while `zigbeat run` plays | One number per speaker setup; Home Assistant stays out of it |
 | Roles and fixtures instead of device names in code | Works in any home |
 | Measure first, then build | The budget shapes the effect design |
 | Go, standard library plus `go.yaml.in/yaml/v3` and `go-colorful` | A single static binary; YAML is friendlier than JSON to edit by hand; colour conversion is not worth own code |
@@ -75,7 +77,7 @@ Anything without a role is never touched. That is also how relays and plugs stay
 | Backoff | Level 0 normal, 1 no kick and one message in flight, 2 half as many moments, 3 pause: nothing is sent but canary reads. Signals: latency per frame above twice the show's own starting median, a lost message, a slow canary, a Zigbee2MQTT error. One step per 10 s at most; one step back after a quiet minute. Three errors about our bulbs within a minute pause at once. Errors about other devices raise it to 1 at most. |
 | Robustness | A bulb that misses twice in a row is left alone and read once a minute until it answers. A lost broker connection is dialled again every 5 s. Bulbs that do not answer at the start are left out, and a Zigbee2MQTT group name in the config is refused. A panic restarts the engine; the third one stops the show. |
 | Snapshot | Reads the state of every configured bulb at start and restores it at stop, one bulb at a time within the budget. A bulb that was off first gets its level and colour back, then goes off, so it does not come on in the show's colour next time. A broker that drops during the restore is dialled again for 30 s. |
-| Home Assistant | `zigbeat serve`: MQTT device discovery with a switch and sensors, availability through a will. See [Home Assistant](#home-assistant). |
+| Home Assistant | `zigbeat serve`: MQTT device discovery with a switch, the style of the show and sensors, availability through a will. See [Home Assistant](#home-assistant). |
 
 The latency signal is relative to the show itself, not to the probe: a moment sends up to three messages at once, they queue at the coordinator, and the show settles at about twice the probe's evenly spaced latency.
 
@@ -83,14 +85,16 @@ The latency signal is relative to the show itself, not to the probe: a moment se
 
 | Topic | Retained | Payload |
 |---|---|---|
-| `homeassistant/device/zigbeat/config` | yes | Device discovery: one switch and six sensors in one message |
+| `homeassistant/device/zigbeat/config` | yes | Device discovery: the switch, five style entities and six sensors in one message |
 | `zigbeat/availability` | yes | `online` after connecting; `offline` on a clean stop and as the MQTT will |
-| `zigbeat/state` | yes | One JSON object for every entity; the numbers are `null` (unknown) while the show does not play |
+| `zigbeat/state` | yes | One JSON object for every entity; the numbers are `null` (unknown) while the show does not play, the style is always there |
 | `zigbeat/show/set` | no | `ON` or `OFF` from the switch |
+| `zigbeat/style/<key>/set` | yes, by Home Assistant | A choice for `effects.<key>`: `album_palette` (`ON`, `OFF`), `album_colors`, `variant`, `brightness` or `cadence` (seconds); empty is no choice |
 
-- On every connect serve clears a retained command first, subscribes, then publishes `online`, the discovery message and the last state. A broker restart drops the connection, so this also covers a broker that lost its retained messages; Home Assistant's birth message is not needed.
+- On every connect serve clears a retained switch command first, subscribes to the switch and to the style topics, whose retained choices arrive as commands, then publishes `online`, the discovery message and the last state. A broker restart drops the connection, so this also covers a broker that lost its retained messages; Home Assistant's birth message is not needed.
 - Each show calls back every 10 s with its numbers. The callback only stores the newest state; a separate goroutine publishes it, so Home Assistant stays out of the timing path.
 - `OFF` cancels the show, which restores every light exactly as on Ctrl-C. An `ON` that arrives during the restore starts the next show right after it.
+- A style command is checked like the config (`config.Effects.Validate`): a refused one gets a line and changes nothing, an empty one gives the key back to the config. The style in force goes into the next show's config and, through `run.Hooks.Effects`, into a running one, from its next moment. A kept choice that arrives again after a reconnect changes nothing.
 
 ## Effects
 
@@ -106,7 +110,7 @@ A moment falls every 1, 2, 4, 8 or 16 beats: the shortest that lasts at least `e
 | 121 to 240 BPM | Every 2 bars |
 | 241 to 300 BPM | Every 4 bars |
 
-Backoff level 2 doubles the interval.
+Backoff level 2 doubles the interval. `effects.cadence` is 1 to 16 s; 16 beats last 16 s at 60 BPM. A new interval, from the pace, the tempo or the backoff, starts on a moment of both the old and the new one, so a breathe fade always ends on a moment.
 
 ### `color` bulbs
 
@@ -202,7 +206,7 @@ fixtures:
     lights: [floor-lamp]
 
 effects:
-  cadence: 2s                 # minimum time between moments, default 2s
+  cadence: 2s                 # minimum time between moments, 1s to 16s, default 2s
   brightness: 60              # percent, base of color bulbs, default 60
   palette: ["#ff2a6d", "#ff7b00", "#ffd400", "#00e5ff", "#2962ff", "#aa00ff"]  # the default
   breathe_range: [30, 80]     # percent, default [30, 80]
@@ -256,7 +260,7 @@ Small known issues that are not planned yet: [BACKLOG.md](BACKLOG.md). Ideas for
 
 - **3a (built):** `zigbeat setup` with an allowlist of what may be driven, `zigbeat probe -config` writing the budget, `save` for the audio offset, and the check of every light at the start. Tested against `cmd/fake-z2m`. To do: classify the device list of a real home.
 - **3b (built):** variants of the chase that rotate per 16 bars, a palette per track from the album art, and energy from the music, measured and printed. Tested against `cmd/fake-ma` and `cmd/fake-z2m`. To do: judge the colours and variants on real lights.
-- **3c:** the style of the show from Home Assistant: album colours on or off and how many, the variant, the brightness and the pace, with the config as the fallback. Tempo, beats and the audio offset stay out of Home Assistant.
+- **3c (built):** the style of the show from Home Assistant: album colours on or off and how many, the variant, the brightness and the pace, with the config as the fallback. Tempo, beats and the audio offset stay out of Home Assistant. Tested against `cmd/fake-ma`, `cmd/fake-z2m` and a throwaway Home Assistant container. To do: use it at a party.
 
 ### Phase 4: release
 
@@ -285,6 +289,9 @@ Small known issues that are not planned yet: [BACKLOG.md](BACKLOG.md). Ideas for
 | Does the energy follow intro, drop and breakdown on real music? | Letting energy steer the lights |
 | Which variants look good on real lights, and is 16 bars the right phrase? | The rotation |
 | Does a fixture of more than three bulbs look good when it changes three at a time? | Large fixtures |
+| Does the user's broker keep retained messages over its restart? | Choices surviving a broker and zigbeat restart together |
+| Is a new brightness, which each bulb takes at its next change, seen fast enough, also in `build`? | The brightness from Home Assistant |
+| Is a pace slider that moves in steps clear enough at a party? | A sensor with the real time between moments |
 
 ## Why Zigbee needs care
 
@@ -330,7 +337,7 @@ What each package imports from zigbeat, from `go list`:
 | `run/engine` | `cli`, `config`, `music`, `run/flow`, `run/show`, `z2m` |
 | `run/show` | `config`, `music`, `run/flow`, `z2m` |
 | `run/flow` | nothing |
-| `serve/ha` | `run/engine` |
+| `serve/ha` | `config`, `run/engine` |
 | `music/ma` | `cli`, `music`, `ws` |
 | `music` | nothing |
 | `lights` | `run/flow`, `z2m` |
@@ -345,8 +352,8 @@ What each package imports from zigbeat, from `go list`:
 flowchart LR
   src["music.Source<br/>ma.Source or music.Metronome"] -->|"Clear, Track, Beat"| loop["run: the loop"]
   serve["serve"] -->|"run.Play with Hooks"| loop
-  loop -->|"Music, State, ZigbeeError, Due"| eng["engine.Engine"]
-  eng -->|"Track, Beat, Start, Settle"| plan["show.Planner"]
+  loop -->|"Music, State, ZigbeeError, Due, SetEffects"| eng["engine.Engine"]
+  eng -->|"Track, Beat, SetEffects, Start, Settle"| plan["show.Planner"]
   eng -->|"Take, Add, Confirm, Signal"| flow["run/flow: Limiter, InFlight,<br/>Backoff, Canary"]
   loop -->|"Set, Get"| link["run.link: z2m.Bridge<br/>over mqtt.Client"]
   link -.->|"states, log lines"| loop
@@ -360,6 +367,7 @@ flowchart LR
    - a tick every 10 ms: `Engine.Due`, whose `engine.Send`s go out through `link.Set` and `link.Get`;
    - the status every 10 s: `Engine.Stats`, printed and handed to `Hooks.Status`;
    - an audio offset typed in `zigbeat run`: `Engine.SetOffset`;
+   - a style chosen in Home Assistant: `Engine.SetEffects`;
    - a dropped link: `Engine.Disconnected` and `link.Reconnect`.
 
    After each, it prints `Engine.TakeNotes`.
@@ -440,9 +448,10 @@ What each package offers the others. Unexported helpers are left out; `go doc ./
 | `run` | `Run(args []string) int` |
 | | `Play(ctx, cfg, src, hooks) int`: one show, from the checks at the start to the restore. Returns 0, or 1 when the show could not start, after three panics, or when the broker is gone at the stop |
 | | `Source(cfg, bpm) music.Source`: Music Assistant from the config, or a metronome at bpm |
-| | `Hooks`: `Status(engine.Stats)` every 10 s, `Stopping() string` right before the restore, `Offsets <-chan time.Duration` with new audio offsets |
+| | `Hooks`: `Status(engine.Stats)` every 10 s, `Stopping() string` right before the restore, `Offsets <-chan time.Duration` with new audio offsets, `Effects <-chan config.Effects` with a new style |
 | | `ParseOptions(name, about, args) (Options, error)`: `-config` and `-bpm` for run, serve and beats |
-| `serve/ha` | `Discovery(version) []byte`: the discovery message. `State`, `Playing(stats, lights)` and `Off`: the state payload. `DiscoveryTopic`, `AvailTopic`, `StateTopic`, `CommandTopic` |
+| `serve/ha` | `Discovery(version) []byte`: the discovery message. `State`, `Playing(stats, lights)` and `Off`: the state payload; `Style` and `StyleOf(effects)`: the style in it. `DiscoveryTopic`, `AvailTopic`, `StateTopic`, `CommandTopic` |
+| | `Choose(effects, config, key, payload) (config.Effects, error)`: a choice from Home Assistant, checked like the config. `Value(effects, key)`: a setting as the config writes it. `StyleTopic(key)`, `StyleKey(topic)`, `StyleFilter` |
 
 #### The show
 
@@ -456,6 +465,7 @@ What each package offers the others. Unexported helpers are left out; `go doc ./
 | `Stats(now) Stats` | The numbers of the status line (`Stats.Line`) and of Home Assistant |
 | `TakeNotes() []string` | Stamped lines for the operator: backoff, lights left alone, album colours, variants |
 | `SetOffset(d)` | The audio offset |
+| `SetEffects(now, effects)` | The style, from the next moment; the planner's notes come out stamped |
 | `Halt()`, `Disconnected()` | Stop planning and sending; forget what was in flight on a dropped connection |
 | `Away(light) bool`, `InFlight() int` | For the restore order and the drain |
 
@@ -464,6 +474,7 @@ What each package offers the others. Unexported helpers are left out; `go doc ./
 | `NewPlanner(cfg) *Planner` | The planner of one show |
 | `Start(now) []Message` | Every light on: colour lights at the base brightness with a first colour, breathe lights at their low end |
 | `Track(music.Track)` | Takes the tempo, and the album colours when `effects.album_palette` is on |
+| `SetEffects(config.Effects)` | Takes the style from the next moment: album colours from the last track, the variant, the brightness, the pace |
 | `Beat(b, backoff) []Message` | The messages of a moment, or nil when b is no moment: the variant, colours, kick and return, breathe |
 | `Settle(now) []Message` | Breathe lights to their low end when the beats stop |
 | `TakeNotes() []string`, `Moments() int` | Notes since the last call; moments planned so far |
@@ -498,6 +509,7 @@ What each package offers the others. Unexported helpers are left out; `go doc ./
 | | `State`, `Device`, `LogEntry`, `MaxBrightness`, `ErrNoRetained` |
 | `config` | `Load`, `LoadDraft` (no budget yet), `LoadWithoutMQTT` (no password needed), `Parse`, `ParseDraft` |
 | | `Config.Lights`, `Config.Keep`, `Config.RejectGroups`, `Budget.AudioOffset`; `DefaultEffects`, `DefaultPalette` |
+| | `Effects.Validate`: the effects block's rules, which Home Assistant's choices meet too. Their bounds: `MinCadence`, `MaxCadence`, `MinPercent`, `MaxPercent`, `MinAlbumColors`, `MaxAlbumColors`, `Variants` |
 | | `File`, which edits the config in place: `OpenFile`, `NewFile`, `Set(key, value, comment)`, `SetBlock(key, text)`, `Bytes`, `Save(check)` |
 
 #### Transport and shared
@@ -533,8 +545,8 @@ internal/
     flow/         frame budget, one message in flight per light, backoff, canary
     engine/       the show as a state machine without I/O
     runtest/      test fixtures shared by run's packages
-  serve/          zigbeat serve: the Home Assistant link, the switch and the show lifecycle
-    ha/           Home Assistant topics, the discovery message and the state payload
+  serve/          zigbeat serve: the Home Assistant link, the switch, the style and the show lifecycle
+    ha/           Home Assistant topics, the discovery message, the style entities and the state payload
   probe/          zigbeat probe: session, rate steps, climb
     measure/      samples, statistics, verdicts, command tracking, the canary
     palette/      commands whose echoes can be told apart

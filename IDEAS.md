@@ -24,3 +24,12 @@ Ideas for later, grouped by topic. Nothing here is planned yet; plans live in th
 - **Colour swatches in `zigbeat beats`** (ANSI 24-bit background colours), to compare the colours with the cover at a glance.
 - **Now playing in Home Assistant:** title and artist as fields of `Track`, from Music Assistant's main API.
 - **Loudness from a Sendspin visualizer** (`visualizer@v1` types `loudness`, `peak` and `spectrum`), or from Music Assistant's `audio_analysis` API (1800 bins of `rms_energy` and `band_rms` per track), if the relay's waveform frames are not enough for energy.
+
+## Home Assistant
+
+- **A button "back to the config"** that wipes every kept choice: an empty retained message on each style topic.
+- **A sensor with the real time between moments,** because the pace moves in steps of 1, 2, 4, 8 or 16 beats: the interval in force times the beat period.
+- **The phase 1b sensors as diagnostic entities** (`entity_category: diagnostic`), so the switch and the style stand alone at the top of the device page.
+- **The palette, the breathe range or the fixture mode from Home Assistant.**
+- **A sensor with the variant that plays now,** from the planner's variant note.
+- **Presets per kind of party,** such as "dinner" and "dance": a select that sets several choices at once.
