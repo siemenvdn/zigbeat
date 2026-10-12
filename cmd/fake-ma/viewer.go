@@ -8,6 +8,15 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/ws"
 )
 
+// As MA's relay does it.
+const (
+	authWait     = 10 * time.Second // for the auth message
+	tokenRefused = 4001             // close code for a bad token
+	pingEvery    = 25 * time.Second // aiohttp's heartbeat
+	// viewerBuffer is about 95 s of waveform frames before a slow viewer loses frames.
+	viewerBuffer = 4096
+)
+
 // viewer is one connected client; a writer goroutine drains out.
 type viewer struct {
 	c   *ws.Conn
@@ -37,11 +46,11 @@ func (tl *timeline) serve(w http.ResponseWriter, r *http.Request, token, player 
 	if err != nil {
 		return
 	}
-	_ = c.SetReadDeadline(time.Now().Add(10 * time.Second))
+	_ = c.SetReadDeadline(time.Now().Add(authWait))
 	m, err := c.Read()
 	var auth struct{ Type, Token string }
 	if err != nil || json.Unmarshal(m.Data, &auth) != nil || auth.Type != "auth" || auth.Token != token {
-		c.CloseWith(4001, "Invalid or expired token")
+		c.CloseWith(tokenRefused, "Invalid or expired token")
 		return
 	}
 	_ = c.WriteText([]byte(`{"type": "auth_ok"}`))
@@ -55,7 +64,7 @@ func (tl *timeline) serve(w http.ResponseWriter, r *http.Request, token, player 
 		return
 	}
 	_ = c.WriteText([]byte(`{"type":"stream/start","payload":{"visualizer":{"types":["waveform","beat"]}}}`))
-	v := &viewer{c: c, out: make(chan outMsg, 4096)}
+	v := &viewer{c: c, out: make(chan outMsg, viewerBuffer)}
 	tl.join(v)
 	go v.write()
 	defer func() {
@@ -91,9 +100,9 @@ func (tl *timeline) answer(c *ws.Conn) {
 	}
 }
 
-// write sends the viewer's frames and a ping every 25 s, like aiohttp's heartbeat.
+// write sends the viewer's frames and a ping every pingEvery.
 func (v *viewer) write() {
-	ping := time.NewTicker(25 * time.Second)
+	ping := time.NewTicker(pingEvery)
 	defer ping.Stop()
 	for {
 		select {

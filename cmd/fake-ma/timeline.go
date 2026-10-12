@@ -5,13 +5,29 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/siemenvdn/zigbeat/internal/beat"
+	"github.com/siemenvdn/zigbeat/internal/cli"
+)
+
+// The relay's frames, [tag][ts:8] and a payload, as MA's tap.py writes them:
+// copied on purpose, so the fake does not share zigbeat's decoder.
+const (
+	beatTag      = 17
+	waveTag      = 22
+	headerLen    = 1 + 8
+	downBit      = 1    // the flags byte of a downbeat
+	waveSamples  = 1024 // samples per waveform frame
+	silentSample = 0x80 // the midpoint of unsigned 8-bit PCM
+	sampleRate   = 44100
+	waveRate     = sampleRate / waveSamples // about 43 waveform frames a second
 )
 
 const (
-	beatTag  = 17
-	waveTag  = 22
-	waveLead = 5 * time.Second
-	firstAt  = 250 * time.Millisecond // media time of a track's first beat
+	waveLead   = 5 * time.Second        // how far ahead MA stamps waveform frames
+	firstAt    = 250 * time.Millisecond // media time of a track's first beat
+	startDelay = 2 * time.Second        // a client can connect before the first track
+	seekJump   = 10 * time.Second       // far enough to show in the beat numbering
 )
 
 // timeline plays the tracks on the fake's clock and fans every frame out to the viewers.
@@ -41,7 +57,7 @@ func (tl *timeline) sleepUntil(ts int64) { time.Sleep(time.Until(tl.wall(ts))) }
 
 func (tl *timeline) play(tracks []track, loop bool, analysis time.Duration, pickup int, seek, gap time.Duration) {
 	go tl.waveform()
-	time.Sleep(2 * time.Second)
+	time.Sleep(startDelay)
 	for round := 0; round == 0 || loop; round++ {
 		for i, tr := range tracks {
 			first := round == 0
@@ -52,11 +68,11 @@ func (tl *timeline) play(tracks []track, loop bool, analysis time.Duration, pick
 				tl.sleepUntil(anchor + analysis.Microseconds())
 			}
 			tl.publish(tr, anchor, pickup)
-			if first && seek > 0 && seek < tr.length-10*time.Second {
+			if first && seek > 0 && seek < tr.length-seekJump {
 				tl.sleepUntil(anchor + seek.Microseconds())
-				anchor -= 10_000_000
-				end -= 10_000_000
-				tl.clear(true, "seek 10 s ahead")
+				anchor -= seekJump.Microseconds()
+				end -= seekJump.Microseconds()
+				tl.clear(true, "seek "+cli.Seconds(seekJump)+" ahead")
 				tl.publish(tr, anchor, pickup)
 			}
 			tl.sleepUntil(end)
@@ -82,10 +98,10 @@ func (tl *timeline) publish(tr track, anchor int64, pickup int) {
 		if ts <= now {
 			continue
 		}
-		down := k >= pickup && (k-pickup)%4 == 0
+		down := k >= pickup && (k-pickup)%beat.PerBar == 0
 		frame := binary.BigEndian.AppendUint64([]byte{beatTag}, uint64(ts))
 		if down {
-			frame = append(frame, 1)
+			frame = append(frame, downBit)
 		} else {
 			frame = append(frame, 0)
 		}
@@ -94,7 +110,7 @@ func (tl *timeline) publish(tr track, anchor int64, pickup int) {
 			if down {
 				mark = " down"
 			}
-			fmt.Printf("beat %s %g%s\n", tl.wall(ts).Format("15:04:05.000"), tr.bpm, mark)
+			fmt.Printf("beat %s %g%s\n", tl.wall(ts).Format(cli.ClockMS), tr.bpm, mark)
 		}
 		tl.mu.Lock()
 		tl.beats = append(tl.beats, frame)
@@ -105,7 +121,7 @@ func (tl *timeline) publish(tr track, anchor int64, pickup int) {
 
 // clear starts a new timeline, like MA re-anchoring: the old beats no longer apply.
 func (tl *timeline) clear(playing bool, why string) {
-	fmt.Printf("%s  %s\n", time.Now().Format("15:04:05.000"), why)
+	fmt.Printf("%s  %s\n", time.Now().Format(cli.ClockMS), why)
 	tl.mu.Lock()
 	tl.playing, tl.beats = playing, nil
 	tl.mu.Unlock()
@@ -113,20 +129,20 @@ func (tl *timeline) clear(playing bool, why string) {
 }
 
 func (tl *timeline) end() {
-	fmt.Printf("%s  stopped\n", time.Now().Format("15:04:05.000"))
+	fmt.Printf("%s  stopped\n", time.Now().Format(cli.ClockMS))
 	tl.mu.Lock()
 	tl.playing, tl.beats = false, nil
 	tl.mu.Unlock()
 	tl.fan([]byte(`{"type": "stream/end"}`), true)
 }
 
-// waveform sends silent waveform frames about 43 times a second while a track plays.
+// waveform sends silent waveform frames waveRate times a second while a track plays.
 func (tl *timeline) waveform() {
-	silent := make([]byte, 1024)
+	silent := make([]byte, waveSamples)
 	for i := range silent {
-		silent[i] = 0x80
+		silent[i] = silentSample
 	}
-	for range time.Tick(time.Second / 43) {
+	for range time.Tick(time.Second / waveRate) {
 		tl.mu.Lock()
 		playing := tl.playing
 		tl.mu.Unlock()
@@ -143,7 +159,7 @@ func (tl *timeline) join(v *viewer) {
 	defer tl.mu.Unlock()
 	now := tl.now()
 	for _, f := range tl.beats {
-		if int64(binary.BigEndian.Uint64(f[1:9])) > now {
+		if int64(binary.BigEndian.Uint64(f[1:headerLen])) > now {
 			v.out <- outMsg{false, f}
 		}
 	}

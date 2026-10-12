@@ -30,7 +30,9 @@ func Config(mode string) config.Config {
 	}
 }
 
-// Beat is beat i at 120 BPM, where every 4th beat is a moment.
+// Beat is beat i at beat.DefaultBPM; with the default cadence every bar starts a moment.
 func Beat(i int) beat.Beat {
-	return beat.Beat{At: T0.Add(time.Duration(i) * 500 * time.Millisecond), BPM: 120, Index: i, InBar: i % 4, Energy: 1}
+	b := beat.Beat{BPM: beat.DefaultBPM, Index: i, InBar: i % beat.PerBar, Energy: 1}
+	b.At = T0.Add(time.Duration(i) * b.Period())
+	return b
 }

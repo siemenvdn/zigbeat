@@ -13,9 +13,26 @@ import (
 	"sync"
 	"time"
 
+	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/mqtt"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
+
+// Flag defaults: a network a bit busier than a real one, so zigbeat's limits
+// and backoff get exercised.
+const (
+	defaultService = 90 * time.Millisecond // about 10 frames/s
+	defaultJitter  = 20 * time.Millisecond // spreads the latencies, like a mesh
+	defaultQueue   = 64                    // deep enough that only an overload fills it
+)
+
+const topicParts = 3 // base/device/set or base/device/get
+
+// initialState is each device before the show: on in a warm white at about
+// 70 %, like a light that was on.
+func initialState() map[string]any {
+	return map[string]any{"state": "ON", "brightness": 180, "color_mode": "xy", "color": map[string]any{"x": 0.47, "y": 0.39}, "linkquality": 120}
+}
 
 type job struct {
 	device string
@@ -24,12 +41,12 @@ type job struct {
 }
 
 func main() {
-	broker := flag.String("broker", "127.0.0.1:1883", "MQTT broker")
-	base := flag.String("base", "zigbee2mqtt", "base topic")
+	broker := flag.String("broker", mqtt.DefaultBroker, "MQTT broker")
+	base := flag.String("base", z2m.DefaultBaseTopic, "base topic")
 	devices := flag.String("devices", "lamp-1,lamp-2,lamp-3,lamp-4,far-lamp", "simulated devices")
-	service := flag.Duration("service", 90*time.Millisecond, "air time per Zigbee frame")
-	jitter := flag.Duration("jitter", 20*time.Millisecond, "random extra delay per command")
-	queue := flag.Int("queue", 64, "coordinator queue depth before commands fail")
+	service := flag.Duration("service", defaultService, "air time per Zigbee frame")
+	jitter := flag.Duration("jitter", defaultJitter, "random extra delay per command")
+	queue := flag.Int("queue", defaultQueue, "coordinator queue depth before commands fail")
 	loss := flag.Float64("loss", 0, "share of commands that never get an answer, 0 to 1")
 	groups := flag.String("groups", "", "simulated Zigbee2MQTT groups, published retained on bridge/groups")
 	logLand := flag.Bool("log", false, "print every set command when the simulated light applies it")
@@ -45,7 +62,7 @@ func main() {
 	known := map[string]bool{}
 	for _, d := range strings.Split(*devices, ",") {
 		known[d] = true
-		state[d] = map[string]any{"state": "ON", "brightness": 180, "color_mode": "xy", "color": map[string]any{"x": 0.47, "y": 0.39}, "linkquality": 120}
+		state[d] = initialState()
 	}
 	gs := []map[string]any{}
 	for i, g := range strings.Split(*groups, ",") {
@@ -94,7 +111,7 @@ func main() {
 			mu.Unlock()
 			if *logLand && j.kind == "set" {
 				body, _ := json.Marshal(j.body)
-				fmt.Printf("land %s %s %s\n", time.Now().Format("15:04:05.000"), j.device, body)
+				fmt.Printf("land %s %s %s\n", time.Now().Format(cli.ClockMS), j.device, body)
 			}
 			if echo {
 				_ = c.Publish(*base+"/"+j.device, b)
@@ -105,7 +122,7 @@ func main() {
 	handle := func(kind string) mqtt.Handler {
 		return func(topic string, payload []byte, _ time.Time) {
 			parts := strings.Split(topic, "/")
-			if len(parts) != 3 || !known[parts[1]] {
+			if len(parts) != topicParts || !known[parts[1]] {
 				return
 			}
 			var body map[string]any
