@@ -39,9 +39,14 @@ func Run(args []string) int {
 	// Started in the background, reading the terminal would stop the whole show;
 	// with SIGTTIN ignored the read fails and calibration is off instead.
 	signal.Ignore(syscall.SIGTTIN)
+	cal := newCalibration(o.Config, cfg.Budget.AudioOffset())
 	offsets := make(chan time.Duration)
-	go readOffsets(os.Stdin, cfg.Budget.AudioOffset(), offsets)
-	return Play(ctx, cfg, Source(cfg, o.BPM), Hooks{Stopping: cli.QuitOnInterrupt, Offsets: offsets})
+	go cal.read(os.Stdin, offsets)
+	code := Play(ctx, cfg, Source(cfg, o.BPM), Hooks{Stopping: cli.QuitOnInterrupt, Offsets: offsets})
+	if hint := cal.unsaved(); hint != "" {
+		fmt.Println(hint)
+	}
+	return code
 }
 
 // show plays until ctx is done or the source ends. A panic starts a fresh

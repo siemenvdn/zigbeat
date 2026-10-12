@@ -1,6 +1,8 @@
 package run
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -28,9 +30,9 @@ func TestNextOffset(t *testing.T) {
 	}
 }
 
-func TestReadOffsets(t *testing.T) {
+func TestCalibrationReads(t *testing.T) {
 	out := make(chan time.Duration)
-	go readOffsets(strings.NewReader("+\n\nnonsense\n180\n"), 0, out)
+	go newCalibration("", 0).read(strings.NewReader("+\n\nnonsense\n180\n"), out)
 	for _, want := range []time.Duration{10 * time.Millisecond, 180 * time.Millisecond} {
 		select {
 		case got := <-out:
@@ -40,5 +42,37 @@ func TestReadOffsets(t *testing.T) {
 		case <-time.After(time.Second):
 			t.Fatalf("no offset, want %s", want)
 		}
+	}
+}
+
+func TestCalibrationSaves(t *testing.T) {
+	data, err := os.ReadFile("../../config.example.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("ZIGBEAT_MQTT_PASSWORD", "secret")
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c := newCalibration(path, 0)
+	out := make(chan time.Duration, 4)
+	c.read(strings.NewReader("+++\nsave\n+\n"), out)
+	got, _ := os.ReadFile(path)
+	want := strings.Replace(string(data), "  audio_offset_ms: 0   #", "  audio_offset_ms: 30  #", 1)
+	if string(got) != want {
+		t.Errorf("saved\n%s", got)
+	}
+	if hint := c.unsaved(); hint != "audio offset is 40 ms, not saved; type save during the show to keep it" {
+		t.Errorf("hint %q", hint)
+	}
+	c.read(strings.NewReader("SAVE\n"), out)
+	if hint := c.unsaved(); hint != "" {
+		t.Errorf("hint after the last save: %q", hint)
+	}
+	c = newCalibration(filepath.Join(t.TempDir(), "missing.yaml"), 0)
+	c.read(strings.NewReader("+\nsave\n"), out)
+	if c.unsaved() == "" {
+		t.Error("a failed save must leave the offset unsaved")
 	}
 }

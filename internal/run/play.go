@@ -41,9 +41,5 @@ func Play(ctx context.Context, cfg config.Config, src beat.Source, h Hooks) int 
 		h.Stopping()
 	}
 	fmt.Printf("\nstopping: %s (Ctrl-C again to quit without restoring)\n", reason)
-	if r.offset != cfg.Budget.AudioOffset() {
-		ms := r.offset.Milliseconds()
-		fmt.Printf("audio offset is %d ms; put audio_offset_ms: %d in the config to keep it\n", ms, ms)
-	}
 	return r.stop(code)
 }
