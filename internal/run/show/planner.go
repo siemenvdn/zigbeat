@@ -22,23 +22,27 @@ type Message struct {
 
 // Planner decides per moment which lights change and how.
 type Planner struct {
-	fixtures  []config.Fixture // color fixtures in config order
-	fixtureOf map[string][]string
-	nColor    int
-	breathe   []string
-	palette   []string
-	pi        int
-	current   map[string]string // colour each light was last given
-	parts     []part            // the rest of a unit too large for one moment
-	cursor    int
-	moments   int
-	units     int
-	cadence   time.Duration
-	bpm       float64 // the tempo of the current track
-	base      int     // Zigbee2MQTT brightness 0..z2m.MaxBrightness
-	kick      int
-	low, high int
-	up        bool
+	fixtures    []config.Fixture // color fixtures in config order
+	fixtureOf   map[string][]string
+	nColor      int
+	breathe     []string
+	palette     []string // the colours that play
+	fallback    []string // effects.palette, without album colours
+	album       bool     // effects.album_palette
+	albumColors int      // effects.album_colors
+	notes       []string
+	pi          int
+	current     map[string]string // colour each light was last given
+	parts       []part            // the rest of a unit too large for one moment
+	cursor      int
+	moments     int
+	units       int
+	cadence     time.Duration
+	bpm         float64 // the tempo of the current track
+	base        int     // Zigbee2MQTT brightness 0..z2m.MaxBrightness
+	kick        int
+	low, high   int
+	up          bool
 
 	lastBeat   time.Time     // the latest beat, a moment or not
 	lastPeriod time.Duration // its beat period
@@ -47,16 +51,19 @@ type Planner struct {
 
 func NewPlanner(c config.Config) *Planner {
 	p := &Planner{
-		fixtureOf: map[string][]string{},
-		palette:   c.Effects.Palette,
-		current:   map[string]string{},
-		cadence:   c.Effects.Cadence,
-		bpm:       music.DefaultBPM,
-		base:      level(c.Effects.Brightness),
-		kick:      level(min(c.Effects.Brightness+kickPoints, config.MaxPercent)),
-		low:       level(c.Effects.BreatheRange[0]),
-		high:      level(c.Effects.BreatheRange[1]),
-		up:        true,
+		fixtureOf:   map[string][]string{},
+		palette:     c.Effects.Palette,
+		fallback:    c.Effects.Palette,
+		album:       c.Effects.AlbumPalette,
+		albumColors: c.Effects.AlbumColors,
+		current:     map[string]string{},
+		cadence:     c.Effects.Cadence,
+		bpm:         music.DefaultBPM,
+		base:        level(c.Effects.Brightness),
+		kick:        level(min(c.Effects.Brightness+kickPoints, config.MaxPercent)),
+		low:         level(c.Effects.BreatheRange[0]),
+		high:        level(c.Effects.BreatheRange[1]),
+		up:          true,
 	}
 	for _, f := range c.Fixtures {
 		if f.Role == "breathe" {
@@ -76,12 +83,6 @@ func NewPlanner(c config.Config) *Planner {
 func level(percent int) int {
 	return int(math.Round(float64(percent) * z2m.MaxBrightness / 100))
 }
-
-// Track takes the properties of the track that plays now.
-func (p *Planner) Track(t music.Track) { p.bpm = t.BPM }
-
-// period is the time between two beats of the current track.
-func (p *Planner) period() time.Duration { return music.Track{BPM: p.bpm}.Period() }
 
 // Moments counts the moments planned so far.
 func (p *Planner) Moments() int { return p.moments }

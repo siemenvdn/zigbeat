@@ -30,6 +30,9 @@ func (e *Engine) Music(now time.Time, ev music.Event) {
 		}
 		e.enqueue(e.plan.Beat(ev, e.bo.Level()))
 	}
+	for _, n := range e.plan.TakeNotes() {
+		e.note(now, n)
+	}
 }
 
 // State handles a state message from a light or the canary.
