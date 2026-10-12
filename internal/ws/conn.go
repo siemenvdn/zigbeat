@@ -35,7 +35,8 @@ const (
 type Conn struct {
 	nc     net.Conn
 	r      *bufio.Reader
-	client bool // a client masks its frames
+	client bool          // a client masks its frames
+	idle   time.Duration // 0, or the read deadline every frame renews
 	wmu    sync.Mutex
 }
 
@@ -110,6 +111,10 @@ func (c *Conn) Ping() error { return c.write(opPing, nil) }
 
 // SetReadDeadline makes Read fail after t.
 func (c *Conn) SetReadDeadline(t time.Time) error { return c.nc.SetReadDeadline(t) }
+
+// SetIdleTimeout makes Read fail when no frame, a ping included, arrives for d.
+// Call it from the reading goroutine.
+func (c *Conn) SetIdleTimeout(d time.Duration) { c.idle = d }
 
 // CloseWith sends a close frame with code and reason and closes the connection.
 func (c *Conn) CloseWith(code int, reason string) error {

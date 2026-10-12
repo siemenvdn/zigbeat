@@ -21,6 +21,9 @@ const (
 )
 
 func (c *Conn) readFrame() (fin bool, op byte, payload []byte, err error) {
+	if c.idle > 0 {
+		_ = c.nc.SetReadDeadline(time.Now().Add(c.idle))
+	}
 	var h [2]byte
 	if _, err = io.ReadFull(c.r, h[:]); err != nil {
 		return

@@ -141,3 +141,28 @@ func TestDialAndUpgrade(t *testing.T) {
 		t.Error("wss is not supported")
 	}
 }
+
+func TestIdleTimeoutRenewsPerFrame(t *testing.T) {
+	c, s := pipe()
+	c.SetIdleTimeout(100 * time.Millisecond)
+	go func() { // reads the pongs, so the client's answers do not block
+		for {
+			if _, _, _, err := s.readFrame(); err != nil {
+				return
+			}
+		}
+	}()
+	go func() {
+		for range 4 {
+			time.Sleep(60 * time.Millisecond)
+			_ = s.Ping()
+		}
+		_ = s.WriteText([]byte("late"))
+	}()
+	if m, err := c.Read(); err != nil || string(m.Data) != "late" {
+		t.Fatalf("pings 60 ms apart keep a 100 ms idle timeout alive: %q, %v", m.Data, err)
+	}
+	if _, err := c.Read(); err == nil {
+		t.Error("silence must end the read")
+	}
+}

@@ -48,8 +48,8 @@ func (s Source) dial() (*ws.Conn, error) {
 // read passes every message to msgs, stamped with zigbeat's clock, until the
 // connection fails or done closes.
 func read(c *ws.Conn, clk *clock, msgs chan<- message, done <-chan struct{}) {
+	c.SetIdleTimeout(silence)
 	for {
-		_ = c.SetReadDeadline(time.Now().Add(silence))
 		m, err := c.Read()
 		msg := message{kind: kindFailed, err: err}
 		if err == nil {
