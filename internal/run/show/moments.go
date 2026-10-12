@@ -18,9 +18,10 @@ func (p *Planner) interval() int {
 	n := p.pace
 	colour := float64(min(flow.MaxPerMoment, p.nColor) * p.changeFrames(false))
 	for _, longer := range config.Paces {
-		if longer > n && colour > p.room(n) {
-			n = longer
+		if colour <= p.room(n) {
+			break
 		}
+		n = max(n, longer)
 	}
 	return n
 }
