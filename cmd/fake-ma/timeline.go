@@ -108,11 +108,16 @@ func (tl *timeline) clear(playing bool, why string) {
 	tl.fan([]byte(`{"type": "stream/clear"}`), true)
 }
 
+// end stops the music, like MA's stream/end; a second end is a no-op.
 func (tl *timeline) end() {
-	fmt.Printf("%s  stopped\n", time.Now().Format(cli.ClockMS))
 	tl.mu.Lock()
+	was := tl.playing
 	tl.playing, tl.beats = false, nil
 	tl.mu.Unlock()
+	if !was {
+		return
+	}
+	fmt.Printf("%s  stopped\n", time.Now().Format(cli.ClockMS))
 	tl.fan([]byte(`{"type": "stream/end"}`), true)
 }
 

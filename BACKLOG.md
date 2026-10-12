@@ -35,11 +35,6 @@ Small known issues, found in the reviews of phases 1a to 2 and left for later. P
 - A `ponytail:` prefix in a comment in `internal/run/show/kick.go`.
 - DESIGN.md's open questions lack "Do downbeats arrive on the user's Music Assistant?", one of the questions the phase 2 check on real hardware answers.
 
-## Test tools
-
-- **fake-ma can block with many beats.** `timeline.join` sends the pending beats into the viewer's buffer (4096) while it holds `tl.mu`, before the writer goroutine starts, so a track with more pending beats (for example `-tracks 200:30m`) blocks the fake. Start the writer first, or send outside the lock.
-- `fake-ma` prints `stopped` twice after a `-gap` at the end of the list. `.gitignore` has `/fake-z2m` but not `/fake-ma`.
-
 ## Separate task
 
 - **Clean up a failed mqtt subscribe.** In `internal/mqtt/subscribe.go`, a write error, a SUBACK timeout or a refused subscription leaves `c.acks[id]` and the handler in `c.subs` behind. Remove both on every failure path. Test it first with a minimal broker on `net.Pipe` or a local listener that never answers the SUBSCRIBE, or answers it with 0x80.

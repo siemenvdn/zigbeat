@@ -65,8 +65,8 @@ func (tl *timeline) serve(w http.ResponseWriter, r *http.Request, token, player 
 	}
 	_ = c.WriteText([]byte(`{"type":"stream/start","payload":{"visualizer":{"types":["waveform","beat"]}}}`))
 	v := &viewer{c: c, out: make(chan outMsg, viewerBuffer)}
+	go v.write() // first, so join never blocks on a full buffer while it holds the lock
 	tl.join(v)
-	go v.write()
 	defer func() {
 		tl.mu.Lock()
 		delete(tl.viewers, v)
