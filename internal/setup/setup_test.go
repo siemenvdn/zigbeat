@@ -46,6 +46,9 @@ func TestFlagsAskNothing(t *testing.T) {
 	if code != 0 || !strings.Contains(out, "(lights: 2, fixtures: 2, canary: none)") {
 		t.Fatalf("exit %d\n%s", code, out)
 	}
+	if !strings.Contains(out, "pendant-1: fixture pendant-1 (the table assumed every light was chosen)") || strings.Contains(out, "floor-lamp: fixture") {
+		t.Errorf("only pendant-1 is in another fixture than the table showed:\n%s", out)
+	}
 	code, out = start(t, &fakeBridge{devs: home()}, filepath.Join(t.TempDir(), "c.yaml"), "", "", "-lights", "pendant-1,plug-1", "-canary", "none")
 	if code != 2 || !strings.Contains(out, "-lights: plug-1 is not offered (switch, never driven)") {
 		t.Errorf("exit %d\n%s", code, out)

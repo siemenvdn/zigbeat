@@ -36,3 +36,15 @@ func printTable(w io.Writer, devices int, offered []light, fixture map[string]st
 	}
 	fmt.Fprintln(w)
 }
+
+// moved notes the chosen lights that are not in the fixture the table showed:
+// the table assumes every offered light is chosen.
+func moved(chosen []light, shown, got map[string]string) []string {
+	var out []string
+	for _, l := range chosen {
+		if f := got[l.name]; f != shown[l.name] {
+			out = append(out, fmt.Sprintf("%s: fixture %s (the table assumed every light was chosen)", l.name, f))
+		}
+	}
+	return out
+}

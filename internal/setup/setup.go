@@ -83,7 +83,7 @@ func (s *session) run(ctx context.Context) int {
 		return code
 	}
 	fixtures, notes := arrange(existing, chosen)
-	for _, n := range notes {
+	for _, n := range append(notes, moved(chosen, fixtureOf(proposal), fixtureOf(fixtures))...) {
 		fmt.Fprintln(s.out, n)
 	}
 	canary, code := s.chooseCanary(ctx, devs, chosen, current)

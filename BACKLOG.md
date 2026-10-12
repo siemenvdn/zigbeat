@@ -11,6 +11,3 @@ Small known issues, found in the reviews of phases 1a to 2 and left for later. P
 
 - **PID 1 in a container.** The kernel ignores default-action signals for PID 1, so a second signal does not quit there. The phase 4 image needs an init (`docker run --init`, `init: true`).
 
-## zigbeat setup and probe
-
-- **The fixture column is a guess.** Setup's table shows the fixture each light would get if every offered light were chosen (`arrange` over all of them in `internal/setup/setup.go`). With only some chosen, a light alone in its stem gets a fixture named after itself instead.
