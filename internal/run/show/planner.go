@@ -2,7 +2,6 @@
 package show
 
 import (
-	"fmt"
 	"math"
 	"math/rand/v2"
 	"time"
@@ -42,14 +41,13 @@ type Planner struct {
 	playing      string // the variant of the last moment
 	rng          *rand.Rand
 	variantState // deck, turn and target of the variant that plays
+	whiteState   // the breathe variant, levels and turn of the breathe lights
 	moments      int
 	pace         int     // effects.pace: beats between moments
-	every        int     // beats between moments in force; 0 before the first beat
 	bpm          float64 // the tempo of the current track
 	base         int     // Zigbee2MQTT brightness 0..z2m.MaxBrightness
 	kick         int
 	low, high    int
-	up           bool
 
 	lastBeat   time.Time     // the latest beat, a moment or not
 	lastPeriod time.Duration // its beat period
@@ -63,9 +61,6 @@ func NewPlanner(c config.Config) *Planner {
 		current:   map[string]string{},
 		rng:       rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64())),
 		bpm:       music.DefaultBPM,
-		low:       level(c.Effects.BreatheRange[0]),
-		high:      level(c.Effects.BreatheRange[1]),
-		up:        true,
 	}
 	p.SetEffects(c.Effects)
 	for _, f := range c.Fixtures {
@@ -79,6 +74,7 @@ func NewPlanner(c config.Config) *Planner {
 			p.fixtureOf[l] = f.Lights
 		}
 	}
+	p.lit = make([]bool, len(p.breathe))
 	return p
 }
 
@@ -93,24 +89,14 @@ func (p *Planner) Moments() int { return p.moments }
 // Beat returns the messages for b, or nothing when b is not a moment.
 func (p *Planner) Beat(b music.Beat, backoff int) []Message {
 	p.lastBeat, p.lastPeriod, p.settled = b.At, p.period(), false
-	n := p.spacing(b.Index)
-	if n == 0 {
+	if b.Index%p.interval() != 0 {
 		return nil
 	}
-	if v := p.variantAt(b.Index); v != p.playing {
-		p.notes = append(p.notes, fmt.Sprintf("variant %s from bar %d", v, (b.Index-b.InBar)/music.PerBar))
-		p.playing, p.variantState = v, variantState{}
-	}
+	p.noteVariants(b)
 	calm := backoff >= flow.CalmLevel
-	var out []Message
-	if pt, ok := p.nextPart(); ok {
-		out = p.paint(pt.lights, pt.color, b, calm) // the chase waits for the rest of a unit
-	} else {
-		for _, u := range p.pickFor(p.playing) {
-			out = append(out, p.change(u, p.colorOf(p.playing, u), b, calm)...)
-		}
-	}
-	out = append(out, p.breath(b, n)...)
+	st := stroke{at: b.At, fall: p.period(), kick: !calm}
+	out := p.colour(st)
+	out = append(out, p.white(st, calm)...)
 	p.moments++
 	return out
 }

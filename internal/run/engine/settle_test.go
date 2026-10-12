@@ -8,16 +8,13 @@ func gap(e *Engine) {
 	e.Music(at(1500), moment(5))
 }
 
-// isSettle is the low end for a breathe light that a gap sends: a brightness without a move.
-func isSettle(p map[string]any) bool { return p["brightness"] != nil && p["brightness_move"] == nil }
-
 func TestGapSettlesBreathe(t *testing.T) {
 	e := started(t, "separate", 100)
 	gap(e)
 	settledAt := 0
 	for ms := 1000; ms < 6000; ms += 10 {
 		for _, s := range e.Due(at(ms)) {
-			if s.Light == "lamp-4" && isSettle(s.Payload) {
+			if s.Light == "lamp-4" && s.Payload["brightness"] != nil {
 				settledAt = ms
 			}
 			e.State(s.Light, at(ms+20))
@@ -38,7 +35,7 @@ func TestNoSettleWhilePausedOrStopping(t *testing.T) {
 		stop(e)
 		e.Due(at(5000))
 		for _, q := range e.queue["lamp-4"] {
-			if isSettle(q.Payload) {
+			if q.Land.After(moment(5).At) { // the pulse's fall lands on beat 5; a settle later
 				t.Errorf("%s: settle queued: %+v", name, q)
 			}
 		}

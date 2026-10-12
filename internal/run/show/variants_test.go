@@ -134,11 +134,21 @@ func TestVariantNotes(t *testing.T) {
 	p.TakeNotes()
 	p.Beat(moment(60), 0)
 	p.Beat(moment(64), 0)
-	if n := p.TakeNotes(); len(n) != 2 || n[0] != "variant build from bar 15" || n[1] != "variant walk from bar 16" {
+	if n := p.TakeNotes(); len(n) != 2 || n[0] != "variant build, breathe pulse from bar 15" || n[1] != "variant walk, breathe flip from bar 16" {
 		t.Errorf("notes %q", n)
 	}
 	p.Beat(moment(68), 0)
 	if n := p.TakeNotes(); n != nil {
 		t.Errorf("no note while the variant plays on: %q", n)
+	}
+	colourOnly := fixtures("separate", 3)
+	colourOnly.Fixtures = colourOnly.Fixtures[:1]
+	colourOnly.Effects.Variant = "swap"
+	q := NewPlanner(colourOnly)
+	q.Beat(moment(60), 0)
+	q.TakeNotes()
+	q.Beat(moment(64), 0)
+	if n := q.TakeNotes(); n != nil {
+		t.Errorf("without breathe lights a new phrase of the same variant says nothing: %q", n)
 	}
 }

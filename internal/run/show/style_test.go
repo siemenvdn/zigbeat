@@ -43,7 +43,7 @@ func TestRotationChosenMidTrack(t *testing.T) {
 	p.TakeNotes()
 	p.SetEffects(style(func(e *config.Effects) { e.Variant = "rotation" }))
 	p.Beat(moment(160), 0)
-	if n := p.TakeNotes(); len(n) != 1 || n[0] != "variant shuffle from bar 40" {
+	if n := p.TakeNotes(); len(n) != 1 || n[0] != "variant shuffle, breathe pulse from bar 40" {
 		t.Errorf("rotation chosen in bar 40 plays that phrase's variant: %q", n)
 	}
 }
@@ -73,7 +73,9 @@ func TestBrightnessFromTheNextMoment(t *testing.T) {
 	}
 }
 
-func TestSlowerPaceStartsOnASharedMoment(t *testing.T) {
+// TestSlowerPaceKeepsTheGrid: a slower pace from Home Assistant takes the next
+// beat on its own grid, never two moments closer than the new interval.
+func TestSlowerPaceKeepsTheGrid(t *testing.T) {
 	p := NewPlanner(testConfig("separate"))
 	p.Start(t0)
 	p.Beat(moment(4), 0)
@@ -84,8 +86,7 @@ func TestSlowerPaceStartsOnASharedMoment(t *testing.T) {
 			got = append(got, i)
 		}
 	}
-	// 16 beats; the grid of 4 holds until beat 16, on both.
-	if want := []int{8, 12, 16, 32}; !slices.Equal(got, want) {
+	if want := []int{16, 32}; !slices.Equal(got, want) {
 		t.Errorf("moments at %v, want %v", got, want)
 	}
 }

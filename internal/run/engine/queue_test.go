@@ -10,17 +10,17 @@ import (
 
 func TestLateKickIsDroppedItsReturnStays(t *testing.T) {
 	e := started(t, "separate", 100)
-	e.Music(t0, moment(8)) // At t0+4s: kicks for lamp-1 and lamp-2, breathe for lamp-4
+	e.Music(t0, moment(8)) // At t0+4s: kicks for lamp-1 and lamp-2, a pulse for lamp-4
 	sendAt := e.queue["lamp-1"][0].sendAt
 	got := lightsOf(e.Due(sendAt.Add(200 * time.Millisecond)))
-	if got != "lamp-4" {
-		t.Fatalf("200 ms late: sent %q, want only the breathe light", got)
+	if got != "" {
+		t.Fatalf("200 ms late: sent %q, want nothing: the pulse up is late too", got)
 	}
 	if len(e.queue["lamp-1"]) != 1 || len(e.queue["lamp-2"]) != 1 {
 		t.Fatalf("each return stays: %v %v", e.queue["lamp-1"], e.queue["lamp-2"])
 	}
-	if e.dropped != 2 {
-		t.Errorf("two late kicks, counted %d", e.dropped)
+	if e.dropped != 3 {
+		t.Errorf("two late kicks and the pulse up, counted %d", e.dropped)
 	}
 }
 
@@ -63,10 +63,10 @@ func TestSetOffsetMovesTheSendTime(t *testing.T) {
 
 func TestClearDropsPlannedMoments(t *testing.T) {
 	e := started(t, "separate", 100)
-	e.Music(t0, moment(8)) // kicks for lamp-1 and lamp-2, breathe for lamp-4
+	e.Music(t0, moment(8)) // kicks for lamp-1 and lamp-2, a pulse for lamp-4
 	e.Music(t0, music.Clear{})
 	if len(e.queue["lamp-1"]) != 1 || len(e.queue["lamp-2"]) != 1 || len(e.queue["lamp-4"]) == 0 {
-		t.Errorf("a seek drops the planned kicks and keeps their returns and breathe: %v %v %v",
+		t.Errorf("a seek drops the planned kicks and keeps their returns and the pulse's fall: %v %v %v",
 			e.queue["lamp-1"], e.queue["lamp-2"], e.queue["lamp-4"])
 	}
 	if e.dropped != 0 {
@@ -89,24 +89,26 @@ func TestBuildPaintsADroppedKickAgain(t *testing.T) {
 	eff := testConfig("separate").Effects
 	eff.Variant = "build"
 	e.SetEffects(t0, eff)
-	kicked := func() string {
-		for l, q := range e.queue {
-			for _, m := range q {
-				if m.Drop {
-					return l
-				}
-			}
-		}
-		return ""
-	}
 	e.Music(t0, moment(8))
-	first := kicked()
+	first := kicked(e)
 	e.Due(e.queue[first][0].sendAt.Add(200 * time.Millisecond))
-	if kicked() != "" {
+	if kicked(e) != "" {
 		t.Fatal("the late kick was not dropped")
 	}
 	e.Music(at(4_300), moment(12))
-	if got := kicked(); got != first {
+	if got := kicked(e); got != first {
 		t.Errorf("build painted %q, want %q again", got, first)
 	}
+}
+
+// kicked is a light with a colour change in the queue, or "".
+func kicked(e *Engine) string {
+	for l, q := range e.queue {
+		for _, m := range q {
+			if m.Drop && m.Payload["color"] != nil {
+				return l
+			}
+		}
+	}
+	return ""
 }

@@ -57,8 +57,8 @@ func TestSingleRoleConfigs(t *testing.T) {
 	breatheOnly.Fixtures = breatheOnly.Fixtures[1:]
 	p := NewPlanner(breatheOnly)
 	p.Start(t0)
-	if ps := p.Beat(moment(0), 0); len(ps) != 1 || ps[0].Light != "lamp-4" {
-		t.Errorf("breathe only: %v", ps)
+	if ps := p.Beat(moment(0), 0); len(ps) != 2 || ps[0].Light != "lamp-4" || ps[1].Light != "lamp-4" {
+		t.Errorf("breathe only: a pulse up and its fall: %v", ps)
 	}
 	colorOnly := testConfig("together")
 	colorOnly.Fixtures = colorOnly.Fixtures[:1]

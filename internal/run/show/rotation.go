@@ -1,6 +1,10 @@
 package show
 
-import "github.com/siemenvdn/zigbeat/internal/music"
+import (
+	"fmt"
+
+	"github.com/siemenvdn/zigbeat/internal/music"
+)
 
 const (
 	// phraseBars: dance music is built in sections of 8 and 16 bars.
@@ -24,6 +28,24 @@ func (p *Planner) variantAt(index int) string {
 		return "build"
 	}
 	return rotation[(index/phraseBeats-1)%len(rotation)]
+}
+
+// noteVariants starts the variants of the moment at b and notes a change of
+// either: one line for the colour and the breathe variant.
+func (p *Planner) noteVariants(b music.Beat) {
+	v, w := p.variantAt(b.Index), p.breatheAt(b.Index)
+	if v != p.playing {
+		p.variantState = variantState{}
+	}
+	if v == p.playing && w == p.breathing {
+		return
+	}
+	p.playing, p.breathing = v, w
+	note := "variant " + v
+	if w != "" {
+		note += ", breathe " + w
+	}
+	p.notes = append(p.notes, fmt.Sprintf("%s from bar %d", note, (b.Index-b.InBar)/music.PerBar))
 }
 
 // pickFor lists the units variant v changes at this moment.

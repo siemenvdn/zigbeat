@@ -1,12 +1,8 @@
 package show
 
 import (
-	"math"
-	"math/rand/v2"
 	"testing"
-	"time"
 
-	"github.com/siemenvdn/zigbeat/internal/config"
 	"github.com/siemenvdn/zigbeat/internal/run/flow"
 )
 
@@ -42,51 +38,13 @@ func TestPickupBeatsFollowTheNewGrid(t *testing.T) {
 	}
 }
 
-// TestFadesEndOnAMoment: however the pace and the tempo change, a moment's
-// breathe fade lasts exactly until the next moment, so no fade runs on to the
-// bulb's own limit.
-func TestFadesEndOnAMoment(t *testing.T) {
-	rng := rand.New(rand.NewPCG(3, 1))
+// TestFasterPaceStartsAtOnce: a faster pace from Home Assistant takes the next
+// beat on its grid.
+func TestFasterPaceStartsAtOnce(t *testing.T) {
 	p := NewPlanner(testConfig("separate"))
-	p.Start(t0)
-	paces := config.Paces
-	tempos := []float64{60, 90, 120, 128, 170}
-	last, planned := -1, 0 // the last moment, the beats its fade lasts
-	for i := 0; i < 4000; i++ {
-		if rng.IntN(8) == 0 {
-			p.pace = paces[rng.IntN(len(paces))]
-		}
-		if rng.IntN(32) == 0 {
-			p.bpm = tempos[rng.IntN(len(tempos))]
-		}
-		move, ok := fade(p.Beat(moment(i), 0))
-		if !ok {
-			continue
-		}
-		if last >= 0 && i-last != planned {
-			t.Fatalf("the fade at beat %d was planned for %d beats; the next moment came at beat %d", last, planned, i)
-		}
-		last, planned = i, fadeBeats(p, move)
+	p.Beat(moment(4), 0)
+	p.pace = 2
+	if p.Beat(moment(6), 0) == nil {
+		t.Error("beat 6 is on the grid of 2")
 	}
-}
-
-// fade returns the brightness_move of the breathe light lamp-4.
-func fade(ms []Message) (int, bool) {
-	for _, m := range ms {
-		if move, ok := m.Payload["brightness_move"].(int); ok && m.Light == "lamp-4" {
-			return move, true
-		}
-	}
-	return 0, false
-}
-
-// fadeBeats is how many beats a fade at move takes across the breathe range.
-func fadeBeats(p *Planner, move int) int {
-	for n := 1; n <= 2*config.Paces[len(config.Paces)-1]; n *= 2 {
-		until := time.Duration(n) * p.period()
-		if max(1, int(math.Round(float64(p.high-p.low)/until.Seconds()))) == max(move, -move) {
-			return n
-		}
-	}
-	return 0
 }

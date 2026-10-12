@@ -20,8 +20,8 @@ func TestSettle(t *testing.T) {
 		t.Errorf("once per gap: %v", again)
 	}
 	for _, m := range p.Beat(moment(8), 0) {
-		if m.Light == "lamp-4" && m.Payload["brightness_move"].(int) <= 0 {
-			t.Errorf("the moment after a gap goes up from low: %v", m.Payload)
+		if m.Light == "lamp-4" && m.Land.Equal(moment(8).At) && m.Payload["brightness"] != level(100) {
+			t.Errorf("the moment after a gap pulses up from low: %v", m.Payload)
 		}
 	}
 	if ps := p.Settle(at(4400)); ps != nil {
