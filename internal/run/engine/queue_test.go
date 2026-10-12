@@ -100,3 +100,17 @@ func TestClearDropsPlannedMoments(t *testing.T) {
 		t.Errorf("a kick that left keeps its return: %v %v", e.queue["lamp-1"], e.queue["lamp-2"])
 	}
 }
+
+func TestStartedUnitsAreForgotten(t *testing.T) {
+	e := started(t, "separate", 100)
+	e.Beat(t0, moment(8))
+	q := e.queue["lamp-1"]
+	for now := q[0].sendAt; !now.After(q[len(q)-1].sendAt.Add(time.Second)); now = now.Add(50 * time.Millisecond) {
+		for _, s := range e.Due(now) {
+			e.State(s.Light, now.Add(40*time.Millisecond))
+		}
+	}
+	if len(e.started) != 0 {
+		t.Errorf("units that left whole are still kept: %v", e.started)
+	}
+}

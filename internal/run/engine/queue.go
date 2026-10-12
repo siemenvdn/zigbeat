@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"maps"
 	"slices"
 	"time"
 
@@ -75,4 +76,16 @@ func (e *Engine) dropUnits(drop func(queued) bool) int {
 		e.queue[l] = slices.DeleteFunc(q, func(m queued) bool { return units[m.Unit] })
 	}
 	return len(units)
+}
+
+// forgetStarted drops the units with nothing left in the queue: started only
+// matters for messages that could still be dropped.
+func (e *Engine) forgetStarted() {
+	left := map[int]bool{}
+	for _, q := range e.queue {
+		for _, m := range q {
+			left[m.Unit] = true
+		}
+	}
+	maps.DeleteFunc(e.started, func(u int, _ bool) bool { return !left[u] })
 }

@@ -67,5 +67,6 @@ func (e *Engine) Due(now time.Time) []Send {
 		e.frames += frames
 		out = append(out, Send{Light: l, Payload: payload})
 	}
+	e.forgetStarted()
 	return out
 }
