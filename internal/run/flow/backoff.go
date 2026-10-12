@@ -10,11 +10,6 @@ const (
 	CalmLevel   = 1 // no kick, one message in flight
 	SparseLevel = 2 // half as many moments
 	PauseLevel  = 3 // nothing but canary reads
-
-	// NamedLimit errors about our lights within NamedWindow pause the show: one
-	// light fails now and then, several at once point at the network.
-	NamedLimit  = 3
-	NamedWindow = time.Minute
 )
 
 // Backoff is the ladder from 0 to PauseLevel. It never stops the show.
@@ -23,7 +18,6 @@ type Backoff struct {
 	lastDown time.Time
 	lastUp   time.Time
 	quiet    time.Time // last signal
-	named    []time.Time
 }
 
 // Signal raises the level by one, at most once per stepEvery and never above max.
@@ -45,19 +39,6 @@ func (b *Backoff) Signal(now time.Time, max int) bool {
 // Pause jumps straight to the pause level.
 func (b *Backoff) Pause(now time.Time) {
 	b.level, b.lastDown, b.quiet = PauseLevel, now, now
-}
-
-// NamedError records an error about one of our lights and reports whether
-// NamedLimit of them fell within NamedWindow.
-func (b *Backoff) NamedError(now time.Time) bool {
-	keep := b.named[:0]
-	for _, t := range b.named {
-		if now.Sub(t) < NamedWindow {
-			keep = append(keep, t)
-		}
-	}
-	b.named = append(keep, now)
-	return len(b.named) >= NamedLimit
 }
 
 // Tick lowers the level by one after RecoverAfter without signals. It returns true when it did.

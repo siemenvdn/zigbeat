@@ -74,7 +74,7 @@ Anything without a role is never touched. That is also how relays and plugs stay
 | Scheduler | Sends each message early by its number of Zigbee frames times the measured latency per frame, plus a configurable audio offset for TV and amplifier delay, which `zigbeat run` can change while it plays. The estimate starts at `budget.latency_ms` and follows the median of the last 20 confirmations. A moment that cannot leave within 150 ms of its send time is dropped as a whole; returns and breathe are never dropped. Due messages for one bulb are merged. |
 | Rate limiter | Token bucket in Zigbee frames at `budget.max_rate`, holding one moment (6 frames). A hard ceiling, never a target. Colour plus brightness in one message is two frames. |
 | Closed loop | At most one message in flight per bulb and three in total. A message is confirmed by the bulb's next state; a `brightness_move` publishes none, so it frees its slot after 1 s. Unanswered after 5 s counts as lost. |
-| Backoff | Level 0 normal, 1 no kick and one message in flight, 2 half as many moments, 3 pause: nothing is sent but canary reads. Signals: latency per frame above twice the show's own starting median, a lost message, a slow canary, a Zigbee2MQTT error. One step per 10 s at most; one step back after a quiet minute. Three errors about our bulbs within a minute pause at once. Errors about other devices raise it to 1 at most. |
+| Backoff | Level 0 normal, 1 no kick and one message in flight, 2 half as many moments, 3 pause: nothing is sent but canary reads. Signals: latency per frame above twice the show's own starting median, a lost message, a slow canary, a Zigbee2MQTT error. One step per 10 s at most; one step back after a quiet minute. Errors about other devices raise it to 1 at most. |
 | Robustness | A bulb that misses twice in a row is left alone and read once a minute until it answers. A lost broker connection is dialled again every 5 s. Bulbs that do not answer at the start are left out, and a Zigbee2MQTT group name in the config is refused. A panic restarts the engine; the third one stops the show. |
 | Snapshot | Reads the state of every configured bulb at start and restores it at stop, one bulb at a time within the budget. A bulb that was off first gets its level and colour back, then goes off, so it does not come on in the show's colour next time. A broker that drops during the restore is dialled again for 30 s. |
 | Home Assistant | `zigbeat serve`: MQTT device discovery with a switch, the style of the show and sensors, availability through a will. See [Home Assistant](#home-assistant). |
@@ -485,9 +485,9 @@ What each package offers the others. Unexported helpers are left out; `go doc ./
 |---|---|
 | `Limiter`: `NewLimiter(rate, now)`, `Take(now, frames) bool` | The token bucket in Zigbee frames; the rate is a ceiling |
 | `InFlight`: `Add`, `Confirm`, `Busy`, `Expire`, `Count`, `Estimate`, `Median`, `Rising`, `Base`, `Clear`, `Forget` | One message in flight per light, and the latency per frame |
-| `Backoff`: `Level`, `Signal`, `NamedError`, `Pause`, `Tick` | The ladder from 0 to `PauseLevel` |
+| `Backoff`: `Level`, `Signal`, `Pause`, `Tick` | The ladder from 0 to `PauseLevel` |
 | `Canary`: `NewCanary`, `Due`, `Sent`, `Answer`, `Expire`, `Waiting`, `Last`, `Name`, `Forget` | Reads of the far-away device |
-| Constants | `MaxPerMoment`, `Burst`, `LostAfter`, `RecoverAfter`, `CalmLevel`, `SparseLevel`, `PauseLevel`, `NamedLimit`, `NamedWindow` |
+| Constants | `MaxPerMoment`, `Burst`, `LostAfter`, `RecoverAfter`, `CalmLevel`, `SparseLevel`, `PauseLevel` |
 
 `run/runtest` holds the test fixtures that the show's packages share: `Config`, `Beat`, `At`, `T0`.
 

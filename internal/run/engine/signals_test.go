@@ -1,11 +1,9 @@
 package engine
 
 import (
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/siemenvdn/zigbeat/internal/run/flow"
 	"github.com/siemenvdn/zigbeat/internal/run/show"
 )
 
@@ -64,19 +62,15 @@ func TestZigbeeErrors(t *testing.T) {
 	}
 
 	e = New(testConfig("separate"), 0, t0)
-	e.ZigbeeError(at(0), "Publish 'set' to 'lamp-1' failed: 'Timeout'")
-	e.ZigbeeError(at(1_000), "Publish 'set' to 'lamp-10' failed: 'Timeout'")
-	e.ZigbeeError(at(2_000), "Publish 'set' to 'lamp-2' failed: 'Timeout'")
+	for i, l := range []string{"lamp-1", "lamp-10", "lamp-2", "lamp-3"} {
+		e.ZigbeeError(at(i*1_000), "Publish 'set' to '"+l+"' failed: 'Timeout'")
+	}
 	if e.bo.Level() != 1 {
-		t.Fatalf("lamp-10 is not ours, so only two named errors: level %d", e.bo.Level())
+		t.Fatalf("errors about our lights raise one step per 10 s and never pause at once: level %d", e.bo.Level())
 	}
-	e.TakeNotes()
-	e.ZigbeeError(at(3_000), "Publish 'set' to 'lamp-3' failed: 'Timeout'")
-	if e.bo.Level() != flow.PauseLevel {
-		t.Fatalf("three named errors within a minute pause the show: level %d", e.bo.Level())
-	}
-	if notes := e.TakeNotes(); len(notes) != 1 || !strings.Contains(notes[0], "paused") {
-		t.Errorf("notes %q", notes)
+	e.ZigbeeError(at(10_000), "Publish 'set' to 'lamp-1' failed: 'Timeout'")
+	if e.bo.Level() != 2 {
+		t.Fatalf("10 s later the next step: level %d", e.bo.Level())
 	}
 }
 

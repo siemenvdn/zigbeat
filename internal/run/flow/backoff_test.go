@@ -68,16 +68,3 @@ func TestOtherErrorsDoNotHoldAPause(t *testing.T) {
 		t.Fatalf("errors about other devices kept the pause for 5 minutes: level %d", b.level)
 	}
 }
-
-func TestNamedErrors(t *testing.T) {
-	var b Backoff
-	if b.NamedError(t0) || b.NamedError(at(20_000)) {
-		t.Fatal("two errors must not pause")
-	}
-	if b.NamedError(at(70_000)) {
-		t.Fatal("the first error is older than a minute, so this is only two")
-	}
-	if !b.NamedError(at(75_000)) {
-		t.Fatal("three errors within a minute pause the show")
-	}
-}

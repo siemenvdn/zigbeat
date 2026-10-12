@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/music"
 	"github.com/siemenvdn/zigbeat/internal/run/flow"
 )
@@ -70,11 +69,6 @@ func (e *Engine) ZigbeeError(at time.Time, msg string) {
 	// Only a signal: the error may be about an older message, so the slot and
 	// the failure count are left to the echo or the flow.LostAfter expiry.
 	if _, gone := e.away[light]; gone {
-		return
-	}
-	if e.bo.NamedError(at) {
-		e.bo.Pause(at)
-		e.paused(at, fmt.Sprintf("%d Zigbee2MQTT errors about our lights within %s", flow.NamedLimit, cli.Seconds(flow.NamedWindow)))
 		return
 	}
 	e.raise(at, flow.PauseLevel, "Zigbee2MQTT error: "+msg)
