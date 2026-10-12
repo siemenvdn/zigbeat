@@ -9,6 +9,7 @@ Ideas for later, grouped by topic. Nothing here is planned yet; plans live in th
 ## Setup
 
 - **Fixtures from Zigbee2MQTT groups.** A group whose members are all offered lights is a fixture candidate. zigbeat would still never send to the group.
+- **Fixtures from a shared name.** setup groups by a trailing number only, so `hall-pendant_top`, `hall-pendant_center` and `hall-pendant_bottom` become three one-bulb fixtures. Lights whose names differ in one word could be proposed as one fixture.
 - **Bulbs with only `color_hs` as `color`,** by sending `{"color":{"hue":...,"saturation":...}}` instead of hex.
 - **Lights with several channels,** such as a Gledopto controller with an RGB and a white channel, as two lights with suffixed properties (`state_rgb`, `state_white`).
 - **An override for a bulb the allowlist refuses wrongly,** such as a per-light `allow: true` with a loud warning. Only when a real case shows up.

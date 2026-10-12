@@ -1,6 +1,6 @@
 # Backlog
 
-Small known issues, found in the reviews of phases 1a to 3c and of the cleanup, and left for later. Plans and decisions live in [DESIGN.md](DESIGN.md).
+Small known issues, found in the reviews of phases 1a to 3c and of the cleanup and in the first session on real hardware, and left for later. Plans and decisions live in [DESIGN.md](DESIGN.md).
 
 ## zigbeat run
 
@@ -20,7 +20,9 @@ Small known issues, found in the reviews of phases 1a to 3c and of the cleanup, 
 - **PID 1 in a container.** The kernel ignores default-action signals for PID 1, so a second signal does not quit there. The phase 4 image needs an init (`docker run --init`, `init: true`).
 - **`ha.Value` panics on an unknown key.** `find` (`internal/serve/ha/style.go`) returns an empty setting and `Value` calls its nil `value`. serve calls it only after `Choose` accepted the key; return nil when the key is unknown.
 - **serve prints on the MQTT reader.** `choose` (`internal/serve/style.go`) prints its lines on the reader goroutine, whose handlers must not block, so a stalled stdout pipe would stall the Home Assistant link. Idea: hand the line to `link.run`.
+- **The same state twice.** At some switches serve publishes the same `zigbeat/state` twice in a row: `off` before `starting`, `stopping` twice, `off` twice. Harmless; skip a publish equal to the last one.
+- **Kept choices print before the banner.** At a start with retained style choices, the `..., set in Home Assistant` lines come before `zigbeat serve: ...`.
 
-## zigbeat setup
+## README and setup
 
-- **The commented `effects` block misses the 3b keys.** `internal/setup/write.go` writes `cadence`, `brightness` and `breathe_range` as comments, not `album_palette`, `album_colors` and `variant`.
+- **`read -rs` shows no prompt.** It looks like a hang, Enter then sets an empty password, and `mosquitto_sub` answers `not authorised`. Use `read -rsp '<what>: ' VAR && echo` in README.md and in the hint of `internal/setup/flags.go`.
