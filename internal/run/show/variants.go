@@ -7,6 +7,15 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/run/flow"
 )
 
+// variantState is what the variant that plays keeps between moments; it starts
+// over when another variant plays.
+type variantState struct {
+	deck   [][]string // shuffle: the units still to come
+	dealt  string     // shuffle: the unit list the deck was dealt from
+	turn   int        // swap: the group whose turn it is
+	target string     // build: the colour the room fills with
+}
+
 // shuffled takes as many units as walk would from a shuffled deck: every unit
 // once before any comes back. Another unit list, after the flip of alternate,
 // gets a new deck.

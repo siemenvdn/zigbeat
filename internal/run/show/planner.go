@@ -24,34 +24,31 @@ type Message struct {
 
 // Planner decides per moment which lights change and how.
 type Planner struct {
-	fixtures    []config.Fixture // color fixtures in config order
-	fixtureOf   map[string][]string
-	nColor      int
-	breathe     []string
-	palette     []string // the colours that play
-	fallback    []string // effects.palette, without album colours
-	album       bool     // effects.album_palette
-	albumColors int      // effects.album_colors
-	notes       []string
-	pi          int
-	current     map[string]string // colour each light was last given
-	parts       []part            // the rest of a unit too large for one moment
-	cursor      int
-	setting     string // effects.variant
-	playing     string // the variant of the last moment
-	rng         *rand.Rand
-	deck        [][]string // shuffle: the units still to come
-	dealt       string     // shuffle: the unit list the deck was dealt from
-	turn        int        // swap: the group whose turn it is
-	target      string     // build: the colour the room fills with
-	moments     int
-	units       int
-	cadence     time.Duration
-	bpm         float64 // the tempo of the current track
-	base        int     // Zigbee2MQTT brightness 0..z2m.MaxBrightness
-	kick        int
-	low, high   int
-	up          bool
+	fixtures     []config.Fixture // color fixtures in config order
+	fixtureOf    map[string][]string
+	nColor       int
+	breathe      []string
+	palette      []string // the colours that play
+	fallback     []string // effects.palette, without album colours
+	album        bool     // effects.album_palette
+	albumColors  int      // effects.album_colors
+	notes        []string
+	pi           int
+	current      map[string]string // colour each light was last given
+	parts        []part            // the rest of a unit too large for one moment
+	cursor       int
+	setting      string // effects.variant
+	playing      string // the variant of the last moment
+	rng          *rand.Rand
+	variantState // deck, turn and target of the variant that plays
+	moments      int
+	units        int
+	cadence      time.Duration
+	bpm          float64 // the tempo of the current track
+	base         int     // Zigbee2MQTT brightness 0..z2m.MaxBrightness
+	kick         int
+	low, high    int
+	up           bool
 
 	lastBeat   time.Time     // the latest beat, a moment or not
 	lastPeriod time.Duration // its beat period
@@ -110,7 +107,7 @@ func (p *Planner) Beat(b music.Beat, backoff int) []Message {
 	}
 	if v := p.variantAt(b.Index); v != p.playing {
 		p.notes = append(p.notes, fmt.Sprintf("variant %s from bar %d", v, (b.Index-b.InBar)/music.PerBar))
-		p.playing, p.deck, p.turn, p.target = v, nil, 0, ""
+		p.playing, p.variantState = v, variantState{}
 	}
 	calm := backoff >= flow.CalmLevel
 	var out []Message
