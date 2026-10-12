@@ -51,6 +51,6 @@ func (s *session) Await(ctx context.Context, light string, since time.Time, d ti
 		if time.Now().After(deadline) || ctx.Err() != nil || s.client.Closed() {
 			return z2m.State{}, false
 		}
-		time.Sleep(20 * time.Millisecond)
+		time.Sleep(pollEvery)
 	}
 }

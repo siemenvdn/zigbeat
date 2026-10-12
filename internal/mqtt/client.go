@@ -35,6 +35,9 @@ const (
 	subackFailure = 0x80
 )
 
+// DefaultBroker is a broker on this host, on MQTT's port.
+const DefaultBroker = "127.0.0.1:1883"
+
 const (
 	// defaultKeepAlive notices a dead broker within half a minute (keepAliveGrace).
 	defaultKeepAlive = 20 * time.Second

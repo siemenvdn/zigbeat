@@ -8,6 +8,9 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/mqtt"
 )
 
+// DefaultBaseTopic is Zigbee2MQTT's own default base topic.
+const DefaultBaseTopic = "zigbee2mqtt"
+
 // MaxBrightness is Zigbee2MQTT's top brightness; it runs 0..254.
 const MaxBrightness = 254
 

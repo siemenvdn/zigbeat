@@ -6,14 +6,22 @@ import (
 	"time"
 )
 
+const (
+	// The canary is read every canaryMin to canaryMin+canarySpread: about once a
+	// second, and irregular so the reads never lock in phase with the command rate.
+	canaryMin    = 700 * time.Millisecond
+	canarySpread = 600 * time.Millisecond
+	// expireEvery checks unanswered commands against -timeout, which is seconds.
+	expireEvery = 200 * time.Millisecond
+)
+
 // startBackground starts the canary probes and the expiry of unanswered commands.
 func (s *session) startBackground() {
 	bg, stop := context.WithCancel(context.Background())
 	s.stopBg = stop
-	// Irregular probe interval so probes never lock in phase with the command rate.
 	go func() {
 		for {
-			d := 700*time.Millisecond + time.Duration(rand.Int63n(int64(600*time.Millisecond)))
+			d := canaryMin + time.Duration(rand.Int63n(int64(canarySpread)))
 			select {
 			case <-bg.Done():
 				return
@@ -22,5 +30,5 @@ func (s *session) startBackground() {
 			}
 		}
 	}()
-	go every(bg, 200*time.Millisecond, s.tracker.Expire)
+	go every(bg, expireEvery, s.tracker.Expire)
 }

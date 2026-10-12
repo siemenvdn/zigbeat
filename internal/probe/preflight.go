@@ -9,13 +9,21 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/probe/measure"
 )
 
+const (
+	// checkLevel turns the targets on, clearly visible, before the self-check.
+	checkLevel = 200
+	// warmUp lets the echoes of turning on arrive, so the self-check does not
+	// take them for its own answers.
+	warmUp = 2 * time.Second
+)
+
 // canaryAnswers checks that the canary replies to a state request.
 func (s *session) canaryAnswers() bool {
 	_ = s.bridge.Get(s.cfg.canary, map[string]string{"state": ""})
 	select {
 	case <-s.canaryAnswered:
 		return true
-	case <-time.After(5 * time.Second):
+	case <-time.After(s.cfg.timeout):
 		fmt.Fprintf(os.Stderr, "canary %s does not answer; pick another device with -canary\n", s.cfg.canary)
 		return false
 	}
@@ -43,9 +51,9 @@ func (s *session) baseline() (measure.Stats, bool) {
 func (s *session) selfCheck() bool {
 	s.ph.Set("prep", 0)
 	for _, t := range s.cfg.targets {
-		_ = s.bridge.Set(t, map[string]any{"state": "ON", "brightness": 200, "transition": 0})
+		_ = s.bridge.Set(t, map[string]any{"state": "ON", "brightness": checkLevel, "transition": 0})
 	}
-	s.sleep(2 * time.Second)
+	s.sleep(warmUp)
 
 	s.ph.Set("selfcheck", 0)
 	for _, t := range s.cfg.targets {

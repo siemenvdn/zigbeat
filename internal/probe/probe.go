@@ -10,6 +10,13 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/probe/measure"
 	"github.com/siemenvdn/zigbeat/internal/probe/report"
+	"github.com/siemenvdn/zigbeat/internal/z2m"
+)
+
+const (
+	countdown = 5 * time.Second // time to read the plan above and press Ctrl-C
+	// stepOverhead is the drain after each step, for the time estimate.
+	stepOverhead = 2 * time.Second
 )
 
 // Run executes `zigbeat probe` with the given arguments and returns an exit code.
@@ -29,7 +36,7 @@ func Run(args []string) int {
 	defer s.client.Close()
 	if !s.saveState() {
 		if ctx.Err() != nil {
-			return 130
+			return cli.ExitInterrupted
 		}
 		return 1
 	}
@@ -37,16 +44,16 @@ func Run(args []string) int {
 		return 1
 	}
 
-	est := cfg.baseline + time.Duration(len(cfg.rates))*(cfg.step+cfg.cooldown+2*time.Second)
+	est := cfg.baseline + time.Duration(len(cfg.rates))*(cfg.step+cfg.cooldown+stepOverhead)
 	fmt.Printf("zigbeat probe: %d targets, canary %s, mode %s, palette %d\n", len(cfg.targets), cfg.canary, cfg.mode, s.gen.Size())
-	fmt.Printf("rates %v cmd/s, then +25%% per step until the first sign of trouble (at most %d)\n", cfg.rates, maxRate)
+	fmt.Printf("rates %v cmd/s, then +%g%% per step until the first sign of trouble (at most %d)\n", cfg.rates, climbPercent(), maxRate)
 	fmt.Printf("%s per step, %s cooldown, at least %s in total\n", cfg.step, cfg.cooldown, est.Round(10*time.Second))
 	fmt.Printf("current state (for manual restore): %s\n", s.snapJSON)
 	if !cfg.yes {
-		fmt.Println("The lights will flash. Starting in 5 s, Ctrl-C to cancel.")
-		if !s.sleep(5 * time.Second) {
+		fmt.Printf("The lights will flash. Starting in %s, Ctrl-C to cancel.\n", cli.Seconds(countdown))
+		if !s.sleep(countdown) {
 			fmt.Println("cancelled, nothing was changed")
-			return 130
+			return cli.ExitInterrupted
 		}
 	}
 
@@ -60,9 +67,9 @@ func Run(args []string) int {
 		}
 		s.interrupted()
 		s.finish(nil, measure.Stats{})
-		return 130
+		return cli.ExitInterrupted
 	}
-	if base.N < 3 {
+	if base.N < z2m.MinCanaryReads {
 		fmt.Fprintln(os.Stderr, "canary answered too rarely during the baseline, aborting")
 		s.finish(nil, base)
 		return 1
@@ -85,7 +92,7 @@ func Run(args []string) int {
 	s.restore()
 	s.finish(results, base)
 	if wasInterrupted {
-		return 130
+		return cli.ExitInterrupted
 	}
 	return 0
 }
