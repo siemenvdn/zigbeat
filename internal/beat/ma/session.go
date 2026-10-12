@@ -13,9 +13,6 @@ const (
 	reportAfter = 200 * time.Millisecond // a burst of beats is reported once it is quiet this long
 	// noBeatsHint is well past MA's analysis of a first play: beats are not coming.
 	noBeatsHint = 30 * time.Second
-	// minLeadPct of the lead must be left when a beat is sent; a later one came
-	// too late to plan like the rest, and is numbered but not sent.
-	minLeadPct = 90
 )
 
 // session is one connection to the relay. Only its loop goroutine touches it.
@@ -109,42 +106,4 @@ func (s *session) forget(note string) {
 	s.report.Stop()
 	s.announced, s.beatSeen, s.hinted, s.waveSince = false, false, false, time.Time{}
 	s.n.say("%s", note)
-}
-
-// arm sets the timer for the next beat, one lead before it sounds.
-func (s *session) arm() {
-	f, ok := s.g.peek()
-	if !s.synced || !ok {
-		s.emit.Stop()
-		return
-	}
-	at, _ := s.clk.at(f.ts)
-	s.emit.Reset(time.Until(at) - s.src.lead())
-}
-
-// deliver sends every beat that is due. A beat that became known too late is
-// numbered but not sent. It returns false when ctx ended the wait.
-func (s *session) deliver(ctx context.Context) bool {
-	for {
-		f, ok := s.g.peek()
-		if !ok {
-			break
-		}
-		at, _ := s.clk.at(f.ts)
-		lead := time.Until(at)
-		if lead > s.src.lead() {
-			break
-		}
-		b := s.g.deliver(at)
-		if lead < s.src.lead()*minLeadPct/100 {
-			continue
-		}
-		select {
-		case s.out <- b:
-		case <-ctx.Done():
-			return false
-		}
-	}
-	s.arm()
-	return true
 }
