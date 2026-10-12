@@ -4,7 +4,6 @@ Small known issues, found in the review of phase 1a and left for later. Plans an
 
 ## zigbeat run
 
-- **Stale time after a reconnect.** While `mqttLink.Reconnect` blocks, both tickers in `play` (`internal/run/loop.go`) buffer one old tick. The next status line then shows a time from before the outage, and `Engine.Due` runs with that old `now`, which can raise a false "canary answered after 5xxx ms" signal. Use `time.Now()` instead of the channel values.
 - **A silent broker drop leaves every light alone.** `Engine.Disconnected` keeps `fails` and `away`. A drop that is only detected by the keepalive (up to 30 s) gives every light two losses, so after the reconnect the lights only come back through the retry read a minute later. When ctx wins the select race in `play`, `Disconnected` is not called at all and the stop waits 2 s for echoes that cannot come. Under `zigbeat serve` Home Assistant shows it: `lights` 0 and `lights_away` all lights for up to a minute.
 - **`started` grows all night.** `Engine.started` (`internal/run/engine/`) gets one entry per unit and is never cleared. Delete the entry when the last message of a unit leaves or the unit is dropped.
 - **A pause freezes lights mid-effect.** A pause, a light left alone or an outage leaves breathe lights moving until 100% or their minimum, and colour lights can stay at the kick level because the queued return is cleared. Spec decision: may a pause send one stop or anchor per breathe light?

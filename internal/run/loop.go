@@ -47,12 +47,13 @@ func (r *runner) play(ctx context.Context, src beat.Source) (reason string, pani
 			r.eng.Beat(time.Now(), b)
 		case ev := <-r.events:
 			r.handle(ev)
-		case now := <-tick.C:
-			for _, s := range r.eng.Due(now) {
+		case <-tick.C:
+			// time.Now, not the tick: after a reconnect a ticker holds a stale one.
+			for _, s := range r.eng.Due(time.Now()) {
 				r.publish(s)
 			}
-		case now := <-status.C:
-			st := r.eng.Stats(now)
+		case <-status.C:
+			st := r.eng.Stats(time.Now())
 			fmt.Println(st.Line())
 			r.report(st)
 		case d := <-r.hooks.Offsets:
