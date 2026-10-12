@@ -22,6 +22,9 @@ const (
 	analysisDelay = 6 * time.Second  // MA analyses a first play for seconds before beats come
 	// clockOffset is far from zero, so a client that skips the clock sync is visibly off.
 	clockOffset = 37 * time.Second
+	// paletteDelay: MA finds a cached palette in milliseconds; a little longer
+	// shows the all-null message before it.
+	paletteDelay = 300 * time.Millisecond
 )
 
 type track struct {
@@ -40,7 +43,9 @@ func main() {
 	seek := flag.Duration("seek", 0, "when set, this far into each first play the track jumps "+cli.Seconds(seekJump)+" ahead")
 	gap := flag.Duration("gap", 0, "silence between tracks")
 	offset := flag.Duration("clock-offset", clockOffset, "added to the fake's monotonic clock")
-	logBeats := flag.Bool("log", false, "print every beat with the wall time it sounds")
+	logBeats := flag.Bool("log", false, "print every beat with the wall time it sounds, and every colour message")
+	colors := flag.Bool("palettes", true, "send a palette per track, as MA does with its color_tint option on")
+	art := flag.Duration("palette-delay", paletteDelay, "the palette comes this long after a track starts")
 	flag.Parse()
 
 	list, err := parseTracks(*tracks)
@@ -48,7 +53,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(cli.ExitUsage)
 	}
-	tl := newTimeline(*offset, *logBeats)
+	tl := newTimeline(*offset, *logBeats, *colors, *art)
 	go tl.play(list, *loop, *analysis, *pickup, *seek, *gap)
 	http.HandleFunc("/milkdrop_visualizer", func(w http.ResponseWriter, r *http.Request) { tl.serve(w, r, *token, *player) })
 	fmt.Printf("fake-ma ready on ws://%s, tracks %s\n", *listen, *tracks)

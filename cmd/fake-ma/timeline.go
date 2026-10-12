@@ -20,14 +20,18 @@ type timeline struct {
 	t0      time.Time
 	offset  int64 // µs added to the monotonic clock
 	log     bool
+	colors  bool          // a palette per track, as MA with its color_tint option on
+	art     time.Duration // the palette comes this long after a track starts
 	mu      sync.Mutex
 	playing bool
 	beats   [][]byte // the published beat frames of the current track
 	viewers map[*viewer]bool
+	// lastColor is the last colour message, sent again to a viewer that joins.
+	lastColor []byte
 }
 
-func newTimeline(offset time.Duration, log bool) *timeline {
-	return &timeline{t0: time.Now(), offset: offset.Microseconds(), log: log, viewers: map[*viewer]bool{}}
+func newTimeline(offset time.Duration, log, colors bool, art time.Duration) *timeline {
+	return &timeline{t0: time.Now(), offset: offset.Microseconds(), log: log, colors: colors, art: art, viewers: map[*viewer]bool{}}
 }
 
 // now is the fake's clock in µs, like MA's time.monotonic().
@@ -48,6 +52,9 @@ func (tl *timeline) play(tracks []track, loop bool, analysis time.Duration, pick
 			first := round == 0
 			anchor := tl.now()
 			end := anchor + tr.length.Microseconds()
+			if tl.colors {
+				tl.cover(palettes[(round*len(tracks)+i)%len(palettes)], tl.art)
+			}
 			tl.clear(true, fmt.Sprintf("track %d, %g BPM", i+1, tr.bpm))
 			if first {
 				tl.sleepUntil(anchor + analysis.Microseconds())
@@ -121,7 +128,8 @@ func (tl *timeline) end() {
 	tl.fan([]byte(`{"type": "stream/end"}`), true)
 }
 
-// join adds a viewer and gives it the beats still ahead, under one lock so none is missed.
+// join adds a viewer and gives it the beats still ahead and the last colour, as MA's relay does,
+// under one lock so none is missed.
 func (tl *timeline) join(v *viewer) {
 	tl.mu.Lock()
 	defer tl.mu.Unlock()
@@ -130,6 +138,9 @@ func (tl *timeline) join(v *viewer) {
 		if frameTime(f) > now {
 			v.out <- outMsg{false, f}
 		}
+	}
+	if tl.lastColor != nil {
+		v.out <- outMsg{true, tl.lastColor}
 	}
 	tl.viewers[v] = true
 }

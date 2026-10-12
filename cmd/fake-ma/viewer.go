@@ -63,7 +63,11 @@ func (tl *timeline) serve(w http.ResponseWriter, r *http.Request, token, player 
 		c.Close()
 		return
 	}
-	_ = c.WriteText([]byte(`{"type":"stream/start","payload":{"visualizer":{"types":["waveform","beat"]}}}`))
+	types := `"waveform","beat"`
+	if tl.colors {
+		types += `,"color"` // MA lists it only when its color_tint option is on
+	}
+	_ = c.WriteText([]byte(`{"type":"stream/start","payload":{"visualizer":{"types":[` + types + `]}}}`))
 	v := &viewer{c: c, out: make(chan outMsg, viewerBuffer)}
 	go v.write() // first, so join never blocks on a full buffer while it holds the lock
 	tl.join(v)
