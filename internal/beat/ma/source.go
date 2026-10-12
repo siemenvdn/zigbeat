@@ -23,7 +23,7 @@ const (
 type Source struct {
 	URL       string        // ws://host:port of MA's webserver
 	Token     string        // a long-lived MA token
-	Player    string        // MA player id; empty follows the player that is playing
+	Player    string        // MA player id; empty: the one playing when zigbeat connects
 	Lookahead time.Duration // how long before At each beat is delivered; 0 means beat.Lookahead
 	Notes     io.Writer     // where changes are reported; nil means stdout
 }

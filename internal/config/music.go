@@ -10,7 +10,7 @@ import (
 type MusicAssistant struct {
 	URL      string `yaml:"url"`
 	TokenEnv string `yaml:"token_env"`
-	Player   string `yaml:"player"` // MA player id; empty follows the player that is playing
+	Player   string `yaml:"player"` // MA player id; empty: the one playing when zigbeat connects
 	Token    string `yaml:"-"`      // read from TokenEnv
 }
 

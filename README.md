@@ -161,7 +161,7 @@ zigbeat follows the beats that Music Assistant's own analysis finds. It works fo
    music_assistant:
      url: ws://music-assistant:8095   # Music Assistant's webserver
      token_env: ZIGBEAT_MA_TOKEN
-     player: ""                       # optional: one player's id; empty follows the player that is playing
+     player: ""                       # optional: one player's id; empty: the one playing when zigbeat connects
    ```
 
 5. Check that beats arrive, without touching a light:

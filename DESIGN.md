@@ -133,7 +133,7 @@ The source is Music Assistant (MA) 2.10 or later. Its Smart Fades analysis runs 
 
 | Step | How |
 |---|---|
-| Connect | `ws://<ma>:8095/milkdrop_visualizer`, optionally `?player=<id>`; a long-lived MA token as the first message. Without a player, MA picks the one that is playing |
+| Connect | `ws://<ma>:8095/milkdrop_visualizer`, optionally `?player=<id>`; a long-lived MA token as the first message. Without a player, MA picks the one that is playing when zigbeat connects; zigbeat stays with it until the connection drops |
 | Clock | Bursts of 8 `client/time` requests every 10 s; the answer with the shortest round trip in the last 30 s maps MA's monotonic clock onto zigbeat's |
 | Beats | Binary frames `[17][timestamp µs][downbeat]`, every remaining beat of a track at once when the analysis is there: on a first play about 5 to 10 s into the track, at once when it is cached. `stream/clear` (new track, seek, resume) and `stream/end` drop them |
 | Numbering | `Index` counts per track and jumps to the next multiple of 4 at every downbeat, so moments stay on the first beat of a bar. The tempo is the median interval of the track |
@@ -167,7 +167,7 @@ budget:
 music_assistant:        # optional; without it the show runs to a metronome
   url: ws://music-assistant:8095
   token_env: ZIGBEAT_MA_TOKEN
-  player: ""            # optional MA player id; empty follows the player that is playing
+  player: ""            # optional MA player id; empty: the one playing when zigbeat connects
 
 canary: hallway-ceiling # optional
 
