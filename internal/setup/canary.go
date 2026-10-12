@@ -30,6 +30,9 @@ func (s *session) chooseCanary(ctx context.Context, devs []z2m.Device, chosen []
 		return "", cli.ExitUsage
 	case s.o.canary != "":
 		if !s.answers(ctx, s.o.canary) {
+			if ctx.Err() != nil {
+				return "", s.nothing()
+			}
 			return "", 1
 		}
 		return s.o.canary, 0
@@ -92,7 +95,7 @@ func (s *session) askCanary(ctx context.Context, cands []z2m.Device, current str
 }
 
 // answers reads name canaryReads times, s.gap apart, and says whether it
-// answered at least minAnswers times.
+// answered at least minAnswers times; false when ctx is done.
 func (s *session) answers(ctx context.Context, name string) bool {
 	var got []time.Duration
 	for i := range canaryReads {
@@ -106,6 +109,9 @@ func (s *session) answers(ctx context.Context, name string) bool {
 		if d, ok := s.br.Read(ctx, name); ok {
 			got = append(got, d)
 		}
+	}
+	if ctx.Err() != nil {
+		return false
 	}
 	if len(got) < minAnswers {
 		fmt.Fprintf(s.out, "%s answered %d of %d; choose another canary\n", name, len(got), canaryReads)

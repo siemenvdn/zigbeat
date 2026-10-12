@@ -15,12 +15,18 @@ type fakeBridge struct {
 	devs   []z2m.Device // nil: bridge/devices never comes
 	silent map[string]bool
 	reads  []string
+	stopAt int    // the read during which Ctrl-C comes; 0 never
+	stop   func() // cancels the context of setup
 }
 
 func (f *fakeBridge) Devices(context.Context) ([]z2m.Device, bool) { return f.devs, f.devs != nil }
 
 func (f *fakeBridge) Read(_ context.Context, name string) (time.Duration, bool) {
 	f.reads = append(f.reads, name)
+	if len(f.reads) == f.stopAt {
+		f.stop()
+		return 0, false
+	}
 	return 40 * time.Millisecond, !f.silent[name]
 }
 
@@ -72,6 +78,9 @@ func start(t *testing.T, br *fakeBridge, path, existing, stdin string, flags ...
 		t.Fatal(err)
 	}
 	var out bytes.Buffer
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	br.stop = cancel
 	s := &session{o: o, br: br, in: newInput(strings.NewReader(stdin)), out: &out, err: &out, today: today}
-	return s.run(context.Background()), out.String()
+	return s.run(ctx), out.String()
 }

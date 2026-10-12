@@ -43,3 +43,21 @@ func TestCanaryReplacedWhenQuotedOrEmpty(t *testing.T) {
 		}
 	}
 }
+
+func TestCtrlCDuringCanaryReads(t *testing.T) {
+	cases := []struct {
+		stdin  string
+		flags  []string
+		stopAt int
+	}{
+		{"1\n6\n", nil, 3}, // far-lamp answered twice already
+		{"", []string{"-lights", "pendant-1", "-canary", "far-lamp"}, 1},
+	}
+	for _, c := range cases {
+		path := filepath.Join(t.TempDir(), "config.yaml")
+		code, out := start(t, &fakeBridge{devs: home(), stopAt: c.stopAt}, path, "", c.stdin, c.flags...)
+		if _, err := os.Stat(path); code != 130 || !strings.Contains(out, "nothing was written") || err == nil {
+			t.Errorf("%q %v: exit %d, written %v\n%s", c.stdin, c.flags, code, err == nil, out)
+		}
+	}
+}

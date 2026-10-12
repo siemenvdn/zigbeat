@@ -86,6 +86,9 @@ func (s *session) run(ctx context.Context) int {
 	if code != 0 {
 		return code
 	}
+	if ctx.Err() != nil {
+		return s.nothing()
+	}
 	if err := s.write(fixtures, canary); err != nil {
 		fmt.Fprintln(s.err, err)
 		return 1
