@@ -44,6 +44,8 @@ type Planner struct {
 	whiteState   // the breathe variant, levels and turn of the breathe lights
 	moments      int
 	pace         int     // effects.pace: beats between moments
+	rate         float64 // frames per second the moments may use
+	stretched    int     // the interval the budget stretched the pace to; 0 when it did not
 	bpm          float64 // the tempo of the current track
 	base         int     // Zigbee2MQTT brightness 0..z2m.MaxBrightness
 	kick         int
@@ -61,6 +63,7 @@ func NewPlanner(c config.Config) *Planner {
 		current:   map[string]string{},
 		rng:       rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64())),
 		bpm:       music.DefaultBPM,
+		rate:      budgetRate(c),
 	}
 	p.SetEffects(c.Effects)
 	for _, f := range c.Fixtures {
@@ -86,17 +89,21 @@ func level(percent int) int {
 // Moments counts the moments planned so far.
 func (p *Planner) Moments() int { return p.moments }
 
-// Beat returns the messages for b, or nothing when b is not a moment.
+// Beat returns the messages for b, or nothing when b is not a moment: the
+// colour changes, their kicks when they fit the room, then the white.
 func (p *Planner) Beat(b music.Beat, backoff int) []Message {
 	p.lastBeat, p.lastPeriod, p.settled = b.At, p.period(), false
-	if b.Index%p.interval() != 0 {
+	n := p.interval()
+	if b.Index%n != 0 {
 		return nil
 	}
+	p.noteStretch(n)
 	p.noteVariants(b)
 	calm := backoff >= flow.CalmLevel
-	st := stroke{at: b.At, fall: p.period(), kick: !calm}
-	out := p.colour(st)
-	out = append(out, p.white(st, calm)...)
+	room := p.room(n)
+	st := stroke{at: b.At, fall: p.fall(n)}
+	out := p.colour(st, calm, room)
+	out = append(out, p.white(st, calm, room-float64(framesOf(out)))...)
 	p.moments++
 	return out
 }

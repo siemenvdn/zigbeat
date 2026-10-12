@@ -42,3 +42,28 @@ func TestMissedGivesBackThePreviousColour(t *testing.T) {
 		t.Errorf("%s counts as showing %q after a dropped kick, want its previous %q", kick.Light, got, was[kick.Light])
 	}
 }
+
+// TestKicksAllOrNone: 5 frames/s at a moment per second hold two colour
+// changes (2 frames) but not their kicks (6): no kick at all, and the white
+// gets the 3 frames left, one pulse.
+func TestKicksAllOrNone(t *testing.T) {
+	c := testConfig("separate")
+	c.Budget.MaxRate = 5
+	c.Effects.Pace = 2
+	c.Effects.BreatheVariant = "pulse"
+	p := NewPlanner(c)
+	p.Start(t0)
+	ps := p.Beat(moment(0), 0)
+	pulses := 0
+	for _, m := range ps {
+		if m.Payload["color"] != nil && m.Payload["brightness"] != nil {
+			t.Errorf("%s kicks", m.Light)
+		}
+		if m.Light == "lamp-4" && m.Drop {
+			pulses++
+		}
+	}
+	if changed(ps) == "" || pulses != 1 {
+		t.Errorf("colour %q, pulses %d", changed(ps), pulses)
+	}
+}

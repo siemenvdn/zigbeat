@@ -1,6 +1,10 @@
 package show
 
-import "time"
+import (
+	"time"
+
+	"github.com/siemenvdn/zigbeat/internal/z2m"
+)
 
 const (
 	kickPoints = 30  // percentage points above the base brightness
@@ -16,16 +20,53 @@ type stroke struct {
 }
 
 // colour plans the colour lights' part of a moment: the rest of a unit that was
-// too large, or the units the variant picks.
-func (p *Planner) colour(st stroke) []Message {
+// too large, or the units the variant picks; with kicks when they all fit room.
+func (p *Planner) colour(st stroke, calm bool, room float64) []Message {
 	if pt, ok := p.nextPart(); ok {
+		st.kick = !calm && p.fits(len(pt.lights), room)
 		return p.paint(pt.lights, pt.color, st) // the chase waits for the rest of a unit
 	}
+	units := p.pickFor(p.playing)
+	st.kick = !calm && p.fits(lightsIn(units), room)
 	var out []Message
-	for _, u := range p.pickFor(p.playing) {
+	for _, u := range units {
 		out = append(out, p.change(u, p.colorOf(p.playing, u), st)...)
 	}
 	return out
+}
+
+// fits reports whether lights colour changes with their kicks fit room.
+func (p *Planner) fits(lights int, room float64) bool {
+	return float64(lights*p.changeFrames(true)) <= room
+}
+
+// changeFrames is what one light's colour change costs, counted as the rate
+// limiter counts it: with its kick, also the return.
+func (p *Planner) changeFrames(kick bool) int {
+	n := z2m.Frames(p.changePayload("", kick))
+	if kick {
+		n += z2m.Frames(p.returnPayload())
+	}
+	return n
+}
+
+// lightsIn counts the lights units change at this moment: a unit too large
+// changes its first part now.
+func lightsIn(units [][]string) int {
+	n := 0
+	for _, u := range units {
+		n += len(split(u)[0])
+	}
+	return n
+}
+
+// framesOf is what messages cost, counted as the rate limiter counts them.
+func framesOf(ms []Message) int {
+	n := 0
+	for _, m := range ms {
+		n += z2m.Frames(m.Payload)
+	}
+	return n
 }
 
 // change gives unit u colour c. A unit of more than flow.MaxPerMoment lights

@@ -2,8 +2,8 @@ package flow
 
 import "time"
 
-// canaryEvery sees a busy network within seconds, for one frame of the budget.
-const canaryEvery = 5 * time.Second
+// CanaryEvery sees a busy network within seconds, for one frame of the budget.
+const CanaryEvery = 5 * time.Second
 
 // Canary reads a far-away device now and then to see how the rest of the network is doing.
 // NewCanary watches the device name, with no canary when name is empty.
@@ -25,7 +25,7 @@ func (c *Canary) Due(now time.Time) bool {
 }
 
 func (c *Canary) Sent(now time.Time) {
-	c.wait, c.sent, c.next = true, now, now.Add(canaryEvery)
+	c.wait, c.sent, c.next = true, now, now.Add(CanaryEvery)
 }
 
 // Answer records a state from the canary and reports whether it was too slow.
