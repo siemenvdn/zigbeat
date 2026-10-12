@@ -4,6 +4,7 @@ package setup
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/siemenvdn/zigbeat/internal/config"
@@ -14,6 +15,11 @@ type light struct {
 	name  string
 	role  string // color or breathe, from z2m.Classify
 	model string // vendor and model, for the table
+}
+
+// indexOf is the position of the light called name in ls, or -1.
+func indexOf(ls []light, name string) int {
+	return slices.IndexFunc(ls, func(l light) bool { return l.name == name })
 }
 
 // stem is a name without its trailing number: pendant-1 gives pendant.

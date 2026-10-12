@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"slices"
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/cli"
@@ -66,14 +65,12 @@ func (s *session) run(ctx context.Context) int {
 	}
 	proposal, _ := arrange(existing, offered)
 	marked := map[string]bool{}
-	for _, f := range existing {
-		for _, l := range f.Lights {
-			marked[l] = true
-		}
+	for _, l := range lightsOf(existing) {
+		marked[l] = true
 	}
 	printTable(s.out, len(devs)-1, offered, fixtureOf(proposal), marked, refused, others)
 	for _, l := range lightsOf(existing) {
-		if !slices.ContainsFunc(offered, func(o light) bool { return o.name == l }) {
+		if indexOf(offered, l) < 0 {
 			fmt.Fprintf(s.out, "%s: %s; removed from the config\n", l, whyNot(devs, l))
 		}
 	}

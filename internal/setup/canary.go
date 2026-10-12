@@ -23,7 +23,7 @@ const (
 func (s *session) chooseCanary(ctx context.Context, devs []z2m.Device, chosen []light, current string) (canary string, code int) {
 	var cands []z2m.Device
 	for _, d := range devs {
-		if z2m.CanaryCandidate(d) && !slices.ContainsFunc(chosen, func(l light) bool { return l.name == d.Name }) {
+		if z2m.CanaryCandidate(d) && indexOf(chosen, d.Name) < 0 {
 			cands = append(cands, d)
 		}
 	}

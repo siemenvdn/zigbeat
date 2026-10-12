@@ -3,7 +3,6 @@ package setup
 import (
 	"context"
 	"fmt"
-	"slices"
 
 	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
@@ -14,7 +13,7 @@ func (s *session) chooseLights(ctx context.Context, devs []z2m.Device, offered [
 	if s.o.lights != nil {
 		var out []light
 		for _, n := range s.o.lights {
-			i := slices.IndexFunc(offered, func(l light) bool { return l.name == n })
+			i := indexOf(offered, n)
 			if i < 0 {
 				fmt.Fprintf(s.err, "-lights: %s is not offered (%s)\n", n, whyNot(devs, n))
 				return nil, cli.ExitUsage
