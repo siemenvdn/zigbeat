@@ -78,7 +78,7 @@ func (s Source) session(ctx context.Context, out chan<- music.Event, n *notes) t
 	msgs := make(chan message, msgBuffer)
 	go read(conn, clk, msgs, done)
 	ss := &session{src: s, conn: conn, out: out, n: n, clk: clk,
-		emit: stopped(), ping: stopped(), report: stopped()}
+		emit: stopped(), ping: stopped(), report: stopped(), fade: stopped()}
 	return ss.loop(ctx, msgs)
 }
 

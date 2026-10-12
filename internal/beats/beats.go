@@ -36,13 +36,13 @@ func Run(args []string) int {
 	defer stop()
 	src := run.Source(cfg, 0)
 	fmt.Printf("zigbeat beats: %v; Ctrl-C to stop\n", src)
-	print(ctx, src.Events(ctx), cfg.Budget.AudioOffset(), os.Stdout)
+	print(ctx, src.Events(ctx), cfg.Budget.AudioOffset(), cfg.Effects, os.Stdout)
 	return 0
 }
 
-// print writes one line per beat at the moment it should sound, beats arriving
-// ahead, until ctx is done or the source ends.
-func print(ctx context.Context, events <-chan music.Event, offset time.Duration, w io.Writer) {
+// print writes one line per track when it arrives and one line per beat at the
+// moment it should sound, beats arriving ahead, until ctx is done or the source ends.
+func print(ctx context.Context, events <-chan music.Event, offset time.Duration, e config.Effects, w io.Writer) {
 	var due []music.Beat
 	bpm := float64(music.DefaultBPM)
 	t := time.NewTimer(time.Hour) // stopped at once; any duration works
@@ -61,6 +61,7 @@ func print(ctx context.Context, events <-chan music.Event, offset time.Duration,
 				t.Stop()
 			case music.Track:
 				bpm = ev.BPM
+				fmt.Fprintf(w, "%s  %s\n", time.Now().Format(cli.ClockMS), trackLine(ev, e))
 			case music.Beat:
 				if due = append(due, ev); len(due) == 1 {
 					t.Reset(time.Until(ev.At.Add(offset)))

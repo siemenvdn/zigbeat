@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 
+	"github.com/siemenvdn/zigbeat/internal/music"
 	"github.com/siemenvdn/zigbeat/internal/ws"
 )
 
@@ -22,6 +23,7 @@ const (
 	kindBeat
 	kindWave
 	kindTime
+	kindColor
 	kindClear
 	kindEnd
 	kindError
@@ -33,16 +35,19 @@ type message struct {
 	kind           kind
 	f              frame
 	t1, t2, t3, t4 int64 // a time answer, in µs
+	palette        []music.RGB
 	err            error
 }
 
 type text struct {
-	Type    string `json:"type"`
-	Payload struct {
-		ClientTransmitted int64 `json:"client_transmitted"`
-		ServerReceived    int64 `json:"server_received"`
-		ServerTransmitted int64 `json:"server_transmitted"`
-	} `json:"payload"`
+	Type    string          `json:"type"`
+	Payload json.RawMessage `json:"payload"`
+}
+
+type timeAnswer struct {
+	ClientTransmitted int64 `json:"client_transmitted"`
+	ServerReceived    int64 `json:"server_received"`
+	ServerTransmitted int64 `json:"server_transmitted"`
 }
 
 func parseType(m ws.Message) string {
@@ -71,8 +76,11 @@ func parse(m ws.Message, now int64) message {
 	}
 	switch t.Type {
 	case "server/time":
-		p := t.Payload
+		var p timeAnswer
+		_ = json.Unmarshal(t.Payload, &p)
 		return message{kind: kindTime, t1: p.ClientTransmitted, t2: p.ServerReceived, t3: p.ServerTransmitted, t4: now}
+	case "color":
+		return message{kind: kindColor, palette: parsePalette(t.Payload)}
 	case "stream/clear":
 		return message{kind: kindClear}
 	case "stream/end":

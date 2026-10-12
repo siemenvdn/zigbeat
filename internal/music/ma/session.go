@@ -29,6 +29,8 @@ type session struct {
 	waveSince          time.Time // first audio since the last clear without a beat
 	beatSeen, hinted   bool
 	emit, ping, report *time.Timer
+	fade               *time.Timer  // a null palette counts when it fires
+	palette            []music.RGB  // the album art of what plays; it outlives a clear
 	sent               *music.Track // the last Track sent for this timeline
 }
 
@@ -52,6 +54,11 @@ func (s *session) loop(ctx context.Context, msgs <-chan message) time.Duration {
 				return 0
 			}
 			s.arm() // the burst is complete, so the first beat can be numbered from its downbeat
+		case <-s.fade.C:
+			s.palette = nil
+			if !s.track(ctx) {
+				return 0
+			}
 		case <-s.emit.C:
 			if !s.deliver(ctx) {
 				return 0
@@ -97,6 +104,10 @@ func (s *session) handle(ctx context.Context, m message) (wait time.Duration, do
 		if !s.beatSeen && !s.hinted && time.Since(s.waveSince) > noBeatsHint {
 			s.hinted = true
 			s.n.say("audio but no beats after %s; is the Smart Fades provider enabled?", cli.Seconds(noBeatsHint))
+		}
+	case kindColor:
+		if !s.album(ctx, m.palette) {
+			return 0, true
 		}
 	case kindClear:
 		if !s.forget(ctx, "new track or seek, waiting for beats") {
