@@ -50,11 +50,7 @@ func parseFlags(args []string) (options, error) {
 			o.mqttFlagsSet = append(o.mqttFlagsSet, "-"+f.Name)
 		}
 	})
-	for _, l := range strings.Split(lights, ",") {
-		if l = strings.TrimSpace(l); l != "" {
-			o.lights = append(o.lights, l)
-		}
-	}
+	o.lights = cli.Names(lights)
 	if lights != "" && len(o.lights) == 0 {
 		return o, errors.New("-lights needs at least one name")
 	}

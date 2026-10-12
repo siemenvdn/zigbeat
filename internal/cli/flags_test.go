@@ -39,3 +39,12 @@ func TestExit(t *testing.T) {
 		}
 	}
 }
+
+func TestNames(t *testing.T) {
+	if got := Names(" lamp-1, ,lamp-2,"); len(got) != 2 || got[0] != "lamp-1" || got[1] != "lamp-2" {
+		t.Errorf("Names = %q", got)
+	}
+	if got := Names(""); got != nil {
+		t.Errorf("Names of nothing = %q", got)
+	}
+}

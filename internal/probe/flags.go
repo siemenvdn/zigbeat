@@ -63,7 +63,7 @@ func parseFlags(args []string) (options, error) {
 		return cfg, err
 	}
 
-	cfg.targets = splitNames(targets)
+	cfg.targets = cli.Names(targets)
 	if cfg.config != "" {
 		set := map[string]bool{}
 		fs.Visit(func(f *flag.Flag) { set[f.Name] = true })
@@ -105,15 +105,4 @@ func parseFlags(args []string) (options, error) {
 		cfg.rates = append(cfg.rates, v)
 	}
 	return cfg, nil
-}
-
-// splitNames splits a comma-separated list and drops empty names.
-func splitNames(list string) []string {
-	var out []string
-	for _, n := range strings.Split(list, ",") {
-		if n = strings.TrimSpace(n); n != "" {
-			out = append(out, n)
-		}
-	}
-	return out
 }

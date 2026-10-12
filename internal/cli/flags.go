@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 )
 
 // ErrUsage means the flag package already printed the problem and the usage.
@@ -49,4 +50,15 @@ func Exit(err error) (code int, stop bool) {
 		fmt.Fprintln(os.Stderr, err)
 	}
 	return ExitUsage, true
+}
+
+// Names splits a comma-separated list of names from a flag and drops empty ones.
+func Names(list string) []string {
+	var out []string
+	for _, n := range strings.Split(list, ",") {
+		if n = strings.TrimSpace(n); n != "" {
+			out = append(out, n)
+		}
+	}
+	return out
 }
