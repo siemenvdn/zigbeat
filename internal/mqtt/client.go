@@ -18,7 +18,8 @@ import (
 const DefaultBroker = "127.0.0.1:1883"
 
 const (
-	// defaultKeepAlive notices a dead broker within half a minute, with pingWait.
+	// defaultKeepAlive notices a dead broker within about 35 s: paho pings after
+	// this long without traffic, checks every 5 s and waits pingWait for the answer.
 	defaultKeepAlive = 20 * time.Second
 	pingWait         = defaultKeepAlive / 2
 	// ioWait bounds a dial, a write and a broker's answer: a LAN broker answers in
