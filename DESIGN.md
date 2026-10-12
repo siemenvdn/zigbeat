@@ -177,7 +177,7 @@ The relay anchors a track's beats on the position the player reports. A constant
 
 **Rejected:**
 
-- **Sendspin visualizer.** It only gets data inside a Sendspin group; a Chromecast joins only through MA's experimental Sendspin over Cast, which is rarely in sync without a delay set by hand per speaker. Sendspin 1.0 also requires Noise encryption and pairing. A later upgrade behind the same `music.Source`.
+- **Sendspin visualizer.** The relay already speaks its wire format: `beat` is type 17 with the same downbeat bit, the colours are the `color@v1` roles, the clock is the same `client/time`; the waveform (type 22) is extra, in Sendspin's reserved range. Sendspin's own `loudness`, `spectrum` and `peak` (any transient, hi-hats too) can be derived from that waveform, and a Zigbee room shows at most about 15 frames/s anyway. What it would add is time stamps on the group's real playback clock instead of the reported position, but only for Sendspin players (MA's web player) and AirPlay, the one protocol MA bridges; a Chromecast joins only through MA's experimental Sendspin over Cast, rarely in sync without a delay set by hand per speaker. The cost: since 1.0-rc1 (in MA from October 2026) every connection uses Noise encryption with pairing or operator-approved unpaired access, and zigbeat would be joined to a group instead of following whichever player plays. Whether MA sends its Smart Fades beats as `beat` is unclear; its Hue plugin finds beats in bass peaks of the spectrum. Worth it when the relay goes, or when an error per track turns out to come from the reported position. A later upgrade behind the same `music.Source`.
 - **Tempo database plus playback position.** No free database gives the time of the first beat; Home Assistant's Spotify integration reports the position in whole seconds every 30 s; databases disagree by 0.1 to 0.2 BPM. A change on the beat is judged like a single flash and beep (noticed from about 45 ms late or 125 ms early, ITU-R BT.1359), so a random phase misses most of the time and a rounded tempo drifts off within half a minute.
 - **Music Assistant's `audio_analysis/wave_form`** for energy: the RMS of a whole track in 1800 bins, but through the main API, and without a mapping from media time to the relay's clock.
 - Microphones and other extra hardware; Spotify's audio analysis API (closed in November 2024).
@@ -283,10 +283,10 @@ Small known issues that are not planned yet: [BACKLOG.md](BACKLOG.md). Ideas for
 
 | Question | Matters for |
 |---|---|
-| How well does Music Assistant's Cast player report its position at a track start, and does the error differ per track? | One audio offset for every track |
+| How well does Music Assistant's Cast player, or its web player, report its position at a track start, and does the error differ per track? | One audio offset for every track; Sendspin |
 | How long does Smart Fades take on a Raspberry Pi 5 before the beats of a first play arrive? | The quiet start of new tracks |
 | Do downbeats arrive on the user's Music Assistant? | Moments on the first beat of a bar |
-| Does Music Assistant's experimental visualizer relay stay as it is in later releases? | The beat source |
+| Does Music Assistant's experimental visualizer relay stay as it is in later releases? | The beat source; if it goes, Sendspin |
 | Does Zigbee2MQTT confirm a command only after the bulb answered, or earlier? | Trusting the probe's latency |
 | Does the colour still blend when colour and brightness arrive in one message (IKEA)? | The kick |
 | Is the 50 to 70 ms ripple across a `together` fixture visible? | Fixture mode |
@@ -582,6 +582,8 @@ Packages are small and split by concern; a file rarely passes 150 lines.
 - [Music Assistant: Smart Fades, the beat analysis](https://github.com/music-assistant/server/tree/dev/music_assistant/providers/smart_fades)
 - [Music Assistant PR #6081: Sendspin over Cast off by default](https://github.com/music-assistant/server/pull/6081)
 - [Sendspin protocol](https://github.com/Sendspin/spec)
+- [Music Assistant: the Sendspin provider, its AirPlay bridge and virtual players](https://github.com/music-assistant/server/tree/dev/music_assistant/providers/sendspin)
+- [Music Assistant PR #6716: Sendspin 1.0.0-rc1](https://github.com/music-assistant/server/pull/6716)
 - [Home Assistant's Spotify integration: position in whole seconds, polled every 30 s](https://github.com/home-assistant/core/tree/dev/homeassistant/components/spotify)
 - [ITU-R BT.1359: relative timing of sound and vision](https://www.itu.int/rec/R-REC-BT.1359)
 - [RFC 6455: the WebSocket protocol](https://www.rfc-editor.org/rfc/rfc6455)
