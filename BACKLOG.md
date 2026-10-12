@@ -16,9 +16,6 @@ Small known issues, found in the reviews of phases 1a to 2 and left for later. P
 - **The show's connect ignores ctx.** `Dial` and the subscriptions in `connect` (up to 5 s per step) do not watch ctx, so an `OFF` or Ctrl-C during a slow connect waits for it.
 - **`+20` is absolute.** In the offset line `+` moves 10 ms later, but `+20` sets 20 ms, as the spec says. At 180 ms, `+20` jumps 160 ms earlier. Reject a signed number, or make it relative.
 
-## Music Assistant
-
-
 ## zigbeat serve
 
 - **"Ctrl-C again" after a Home Assistant OFF.** `Play` prints `stopping: interrupted (Ctrl-C again to quit without restoring)` also when the switch stopped the show; then no Ctrl-C happened and the next one only stops serve after the restore. Let the caller supply the hint.
