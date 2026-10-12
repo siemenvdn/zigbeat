@@ -12,7 +12,7 @@ Keep the README short and about what works today. Plans, rationale and research 
 
 ## Code
 
-- Go. Use a well-maintained library when it makes our code smaller; propose each new dependency first, with the reason. In use: `go.yaml.in/yaml/v3` for configuration, `github.com/lucasb-eyer/go-colorful` for colour conversion, `github.com/eclipse/paho.mqtt.golang` for MQTT and `golang.org/x/time/rate` for the frame budget.
+- Go. Use a well-maintained library when it makes our code smaller; propose each new dependency first, with the reason. In use: `go.yaml.in/yaml/v3` for configuration, `github.com/lucasb-eyer/go-colorful` for colour conversion, `github.com/eclipse/paho.mqtt.golang` for MQTT, `golang.org/x/time/rate` for the frame budget and `github.com/gorilla/websocket` for the Music Assistant relay.
 - Before every commit: `gofmt -l .` is empty, `go vet ./...` and `go test ./...` pass.
 - The binary is static: `CGO_ENABLED=0`. Release targets are linux/amd64 and linux/arm64.
 - New Zigbee behaviour is tested against `cmd/fake-z2m` first. Extend the fake when it cannot simulate something.

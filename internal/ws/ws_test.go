@@ -1,11 +1,8 @@
 package ws
 
 import (
-	"bufio"
 	"bytes"
 	"errors"
-	"io"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -15,42 +12,31 @@ import (
 
 const testTimeout = 2 * time.Second
 
-// pipe returns a client and a server joined in memory.
-func pipe() (client, server *Conn) {
-	a, b := net.Pipe()
-	return &Conn{nc: a, r: bufio.NewReader(a), client: true}, &Conn{nc: b, r: bufio.NewReader(b)}
-}
-
-func TestAcceptKey(t *testing.T) {
-	// The example from RFC 6455, section 1.3.
-	if got := acceptKey("dGhlIHNhbXBsZSBub25jZQ=="); got != "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=" {
-		t.Errorf("accept key %q", got)
-	}
-}
-
-func TestClientMasksServerDoesNot(t *testing.T) {
-	c, s := pipe()
-	go c.WriteText([]byte("hi"))
-	raw := make([]byte, 8)
-	if _, err := io.ReadFull(s.nc, raw); err != nil {
+// pair returns both ends of a connection through a real HTTP handshake.
+func pair(t *testing.T) (client, server *Conn) {
+	t.Helper()
+	servers := make(chan *Conn, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c, err := Upgrade(w, r)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		servers <- c
+	}))
+	t.Cleanup(srv.Close)
+	client, err := Dial("ws"+strings.TrimPrefix(srv.URL, "http"), testTimeout)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if raw[0] != 0x81 || raw[1] != 0x82 || raw[6]^raw[2] != 'h' || raw[7]^raw[3] != 'i' {
-		t.Errorf("client frame % x", raw)
-	}
-	go s.WriteText([]byte("hi"))
-	raw = make([]byte, 4)
-	if _, err := io.ReadFull(c.nc, raw); err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(raw, []byte{0x81, 0x02, 'h', 'i'}) {
-		t.Errorf("server frame % x", raw)
-	}
+	server = <-servers
+	t.Cleanup(func() { client.Close(); server.Close() })
+	return client, server
 }
 
 func TestLengthsAndTypes(t *testing.T) {
-	c, s := pipe()
-	for _, n := range []int{0, 125, 126, 65535, 65536} {
+	c, s := pair(t)
+	for _, n := range []int{0, 125, 126, 65535, 65536, 1 << 20} {
 		data := bytes.Repeat([]byte{'x'}, n)
 		go s.WriteBinary(data)
 		if m, err := c.Read(); err != nil || !m.Binary || !bytes.Equal(m.Data, data) {
@@ -63,38 +49,32 @@ func TestLengthsAndTypes(t *testing.T) {
 	}
 }
 
-func TestFragmentedMessage(t *testing.T) {
-	c, s := pipe()
-	go func() {
-		_, _ = s.nc.Write([]byte{0x01, 2, 'a', 'b'}) // text, not final
-		_, _ = s.nc.Write([]byte{0x80, 2, 'c', 'd'}) // continuation, final
-	}()
-	if m, err := c.Read(); err != nil || m.Binary || string(m.Data) != "abcd" {
-		t.Errorf("got %q, %v", m.Data, err)
+func TestWritesFromManyGoroutines(t *testing.T) {
+	c, s := pair(t)
+	const n = 50
+	for range n {
+		go c.WriteText([]byte("hi"))
+	}
+	for i := range n {
+		if m, err := s.Read(); err != nil || string(m.Data) != "hi" {
+			t.Fatalf("message %d: %q, %v", i, m.Data, err)
+		}
 	}
 }
 
-func TestPingIsAnswered(t *testing.T) {
-	c, s := pipe()
+func TestPingIsAnsweredNotRead(t *testing.T) {
+	c, s := pair(t)
 	go func() {
 		_ = s.Ping()
 		_ = s.WriteText([]byte("after"))
 	}()
-	pong := make(chan byte, 1)
-	go func() {
-		_, op, _, _ := s.readFrame()
-		pong <- op
-	}()
 	if m, err := c.Read(); err != nil || string(m.Data) != "after" {
 		t.Fatalf("got %q, %v", m.Data, err)
-	}
-	if op := <-pong; op != opPong {
-		t.Errorf("answer opcode %d, want a pong", op)
 	}
 }
 
 func TestCloseError(t *testing.T) {
-	c, s := pipe()
+	c, s := pair(t)
 	go s.CloseWith(4001, "Invalid or expired token")
 	_, err := c.Read()
 	var ce *CloseError
@@ -134,35 +114,39 @@ func TestDialAndUpgrade(t *testing.T) {
 	if m, err := c.Read(); err != nil || string(m.Data) != "lamp 1: hi" {
 		t.Errorf("got %q, %v", m.Data, err)
 	}
-	if _, err := Dial(base+"/elsewhere", testTimeout); err == nil || !strings.Contains(err.Error(), "404") {
-		t.Errorf("a plain 404 must fail the dial, got %v", err)
+	var se *StatusError
+	if _, err := Dial(base+"/elsewhere", testTimeout); !errors.As(err, &se) || se.Code != http.StatusNotFound {
+		t.Errorf("a plain 404 must fail the dial with its status, got %v", err)
 	}
 	if _, err := Dial("wss://"+srv.Listener.Addr().String(), testTimeout); err == nil {
 		t.Error("wss is not supported")
 	}
 }
 
-func TestIdleTimeoutRenewsPerFrame(t *testing.T) {
-	c, s := pipe()
+func TestIdleTimeoutRenewsPerMessage(t *testing.T) {
+	c, s := pair(t)
 	c.SetIdleTimeout(100 * time.Millisecond)
-	go func() { // reads the pongs, so the client's answers do not block
-		for {
-			if _, _, _, err := s.readFrame(); err != nil {
-				return
-			}
-		}
-	}()
 	go func() {
 		for range 4 {
 			time.Sleep(60 * time.Millisecond)
-			_ = s.Ping()
+			_ = s.WriteText([]byte("beat"))
 		}
-		_ = s.WriteText([]byte("late"))
 	}()
-	if m, err := c.Read(); err != nil || string(m.Data) != "late" {
-		t.Fatalf("pings 60 ms apart keep a 100 ms idle timeout alive: %q, %v", m.Data, err)
+	for i := range 4 {
+		if m, err := c.Read(); err != nil || string(m.Data) != "beat" {
+			t.Fatalf("messages 60 ms apart keep a 100 ms idle timeout alive: message %d: %q, %v", i, m.Data, err)
+		}
 	}
 	if _, err := c.Read(); err == nil {
 		t.Error("silence must end the read")
+	}
+}
+
+func TestReadDeadline(t *testing.T) {
+	c, _ := pair(t)
+	_ = c.SetReadDeadline(time.Now().Add(50 * time.Millisecond))
+	start := time.Now()
+	if _, err := c.Read(); err == nil || time.Since(start) > testTimeout {
+		t.Errorf("a passed deadline must end the read: %v after %s", err, time.Since(start))
 	}
 }

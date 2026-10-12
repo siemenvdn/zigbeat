@@ -1,43 +1,32 @@
-// Package ws is a minimal WebSocket (RFC 6455) client, plus the server side
-// for tests and fakes. No extensions, compression or TLS.
+// Package ws adapts github.com/gorilla/websocket to zigbeat's small API: ws://
+// only, text and binary messages, close codes, a read deadline and an idle
+// timeout. The server side is for tests and fake-ma.
 package ws
 
 import (
-	"bufio"
-	"encoding/binary"
 	"errors"
 	"fmt"
-	"net"
+	"net/http"
+	"net/url"
 	"sync"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 const (
-	opCont   = 0x0
-	opText   = 0x1
-	opBinary = 0x2
-	opClose  = 0x8
-	opPing   = 0x9
-	opPong   = 0xA
-
 	// maxMessage caps what a bad peer can make us hold, far above MA's largest frame of about 1 KiB.
 	maxMessage = 4 << 20
 	// writeTimeout gives up on a peer that stopped reading.
 	writeTimeout = 5 * time.Second
-
-	// RFC 6455 close codes.
-	closeNormal   = 1000
-	closeNoStatus = 1005
 )
 
-// Conn is one WebSocket connection. Read must be called from one goroutine;
-// writes may come from any.
+// Conn is one WebSocket connection. Read, SetReadDeadline and SetIdleTimeout
+// belong to one goroutine; writes may come from any.
 type Conn struct {
-	nc     net.Conn
-	r      *bufio.Reader
-	client bool          // a client masks its frames
-	idle   time.Duration // 0, or the read deadline every frame renews
-	wmu    sync.Mutex
+	c    *websocket.Conn
+	idle time.Duration // zero, or how long Read waits for each message
+	wmu  sync.Mutex    // gorilla takes one writer at a time
 }
 
 // Message is one text or binary message.
@@ -54,73 +43,97 @@ type CloseError struct {
 
 func (e *CloseError) Error() string { return fmt.Sprintf("closed by peer: %d %s", e.Code, e.Reason) }
 
-// Read returns the next text or binary message. It answers pings and returns
-// a *CloseError when the peer closes.
-func (c *Conn) Read() (Message, error) {
-	var msg []byte
-	var op byte
-	for {
-		fin, o, payload, err := c.readFrame()
-		if err != nil {
-			return Message{}, err
-		}
-		switch o {
-		case opPing:
-			if err := c.write(opPong, payload); err != nil {
-				return Message{}, err
-			}
-			continue
-		case opPong:
-			continue
-		case opClose:
-			ce := &CloseError{Code: closeNoStatus}
-			if len(payload) >= 2 {
-				ce.Code, ce.Reason = int(binary.BigEndian.Uint16(payload)), string(payload[2:])
-			}
-			_ = c.write(opClose, payload[:min(2, len(payload))])
-			return Message{}, ce
-		case opText, opBinary:
-			if op != 0 {
-				return Message{}, errors.New("ws: new message inside a fragmented one")
-			}
-			op = o
-		case opCont:
-			if op == 0 {
-				return Message{}, errors.New("ws: continuation without a message")
-			}
-		default:
-			return Message{}, fmt.Errorf("ws: unknown opcode %d", o)
-		}
-		if msg = append(msg, payload...); len(msg) > maxMessage {
-			return Message{}, errors.New("ws: message too large")
-		}
-		if fin {
-			return Message{Binary: op == opBinary, Data: msg}, nil
-		}
+// StatusError is a handshake the server answered with another HTTP status.
+type StatusError struct {
+	Code   int
+	Status string
+}
+
+func (e *StatusError) Error() string { return "ws: " + e.Status }
+
+// Dial opens a client connection to a ws:// URL, giving up after timeout. A
+// Dialer without Proxy keeps HTTP_PROXY away from a connection on the LAN.
+func Dial(rawURL string, timeout time.Duration) (*Conn, error) {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return nil, err
 	}
+	if u.Scheme != "ws" {
+		return nil, fmt.Errorf("ws: unsupported scheme %q", u.Scheme)
+	}
+	d := websocket.Dialer{HandshakeTimeout: timeout}
+	c, resp, err := d.Dial(rawURL, nil)
+	if err != nil {
+		if resp != nil && resp.StatusCode != http.StatusSwitchingProtocols {
+			return nil, &StatusError{Code: resp.StatusCode, Status: resp.Status}
+		}
+		return nil, err
+	}
+	return newConn(c), nil
+}
+
+// Upgrade answers a client's handshake and returns the server side.
+func Upgrade(w http.ResponseWriter, r *http.Request) (*Conn, error) {
+	c, err := (&websocket.Upgrader{}).Upgrade(w, r, nil)
+	if err != nil {
+		return nil, err
+	}
+	return newConn(c), nil
+}
+
+func newConn(c *websocket.Conn) *Conn {
+	c.SetReadLimit(maxMessage)
+	return &Conn{c: c}
+}
+
+// Read returns the next text or binary message. It answers pings and returns
+// a *CloseError when the peer closes. After a timeout the connection is done.
+func (c *Conn) Read() (Message, error) {
+	if c.idle > 0 {
+		_ = c.c.SetReadDeadline(time.Now().Add(c.idle))
+	}
+	typ, p, err := c.c.ReadMessage()
+	var ce *websocket.CloseError
+	if errors.As(err, &ce) {
+		return Message{}, &CloseError{Code: ce.Code, Reason: ce.Text}
+	}
+	if err != nil {
+		return Message{}, err
+	}
+	return Message{Binary: typ == websocket.BinaryMessage, Data: p}, nil
 }
 
 // WriteText sends one text message.
-func (c *Conn) WriteText(p []byte) error { return c.write(opText, p) }
+func (c *Conn) WriteText(p []byte) error { return c.write(websocket.TextMessage, p) }
 
 // WriteBinary sends one binary message.
-func (c *Conn) WriteBinary(p []byte) error { return c.write(opBinary, p) }
+func (c *Conn) WriteBinary(p []byte) error { return c.write(websocket.BinaryMessage, p) }
 
-// Ping sends a ping; the peer's Read answers it.
-func (c *Conn) Ping() error { return c.write(opPing, nil) }
+func (c *Conn) write(typ int, p []byte) error {
+	c.wmu.Lock()
+	defer c.wmu.Unlock()
+	_ = c.c.SetWriteDeadline(time.Now().Add(writeTimeout))
+	return c.c.WriteMessage(typ, p)
+}
+
+// Ping sends a ping; the peer's Read answers it. Like CloseWith, it may run
+// next to a write.
+func (c *Conn) Ping() error {
+	return c.c.WriteControl(websocket.PingMessage, nil, time.Now().Add(writeTimeout))
+}
 
 // SetReadDeadline makes Read fail after t.
-func (c *Conn) SetReadDeadline(t time.Time) error { return c.nc.SetReadDeadline(t) }
+func (c *Conn) SetReadDeadline(t time.Time) error { return c.c.SetReadDeadline(t) }
 
-// SetIdleTimeout makes Read fail when no frame, a ping included, arrives for d.
-// Call it from the reading goroutine.
+// SetIdleTimeout makes Read fail when no message arrives for d; it wins over
+// SetReadDeadline, and pings do not count.
 func (c *Conn) SetIdleTimeout(d time.Duration) { c.idle = d }
 
 // CloseWith sends a close frame with code and reason and closes the connection.
 func (c *Conn) CloseWith(code int, reason string) error {
-	_ = c.write(opClose, append(binary.BigEndian.AppendUint16(nil, uint16(code)), reason...))
-	return c.nc.Close()
+	_ = c.c.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(code, reason), time.Now().Add(writeTimeout))
+	return c.c.Close()
 }
 
 // Close closes the connection normally.
-func (c *Conn) Close() error { return c.CloseWith(closeNormal, "") }
+func (c *Conn) Close() error { return c.CloseWith(websocket.CloseNormalClosure, "") }

@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	silence = 60 * time.Second // MA pings every 25 s
+	silence = 60 * time.Second // far above burstEvery, whose requests MA answers
 	// dialWait and authWait: MA answers on a LAN in milliseconds, so this long
 	// means it is not there.
 	dialWait = 10 * time.Second
