@@ -9,18 +9,18 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/run/flow"
 )
 
-// longest is the slowest the budget may stretch the pace to.
-var longest = config.Paces[len(config.Paces)-1]
-
-// interval is the beats between moments: the pace, doubled while the colour
-// changes of a moment without kicks do not fit its room. A beat is a moment
-// when its index is a multiple of it, so moments stay on the grid when the
-// pace or the tempo changes, and a pickup beat of a new track is a moment only
-// on that track's grid.
+// interval is the beats between moments: the pace, or the next longer of
+// config.Paces while the colour changes of a moment without kicks do not fit
+// its room. A beat is a moment when its index is a multiple of it, so moments
+// stay on the grid when the pace or the tempo changes, and a pickup beat of a
+// new track is a moment only on that track's grid.
 func (p *Planner) interval() int {
 	n := p.pace
-	for n < longest && float64(min(flow.MaxPerMoment, p.nColor)*p.changeFrames(false)) > p.room(n) {
-		n *= 2
+	colour := float64(min(flow.MaxPerMoment, p.nColor) * p.changeFrames(false))
+	for _, longer := range config.Paces {
+		if longer > n && colour > p.room(n) {
+			n = longer
+		}
 	}
 	return n
 }
