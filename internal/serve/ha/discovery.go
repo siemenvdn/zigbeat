@@ -15,17 +15,20 @@ const (
 	CommandTopic   = "zigbeat/show/set"
 )
 
+// template reads key from zigbeat/state.
+func template(key string) string { return "{{ value_json." + key + " }}" }
+
 // Discovery is the Home Assistant device discovery message for every entity.
 func Discovery(version string) []byte {
 	measure := map[string]any{"state_class": "measurement"}
 	sensor := func(name, key string, opts map[string]any) map[string]any {
-		c := map[string]any{"platform": "sensor", "name": name, "value_template": "{{ value_json." + key + " }}"}
+		c := map[string]any{"platform": "sensor", "name": name, "value_template": template(key)}
 		maps.Copy(c, opts)
 		return c
 	}
 	components := map[string]map[string]any{
 		"show": {"platform": "switch", "name": "Show", "command_topic": CommandTopic, "icon": "mdi:music",
-			"value_template": "{{ value_json.show }}"},
+			"value_template": template("show")},
 		"status": sensor("Status", "status", map[string]any{"device_class": "enum", "options": Statuses}),
 		"frames": sensor("Frames per second", "frames_per_s", map[string]any{"unit_of_measurement": "frames/s",
 			"state_class": "measurement", "suggested_display_precision": fpsDecimals}),
@@ -39,7 +42,7 @@ func Discovery(version string) []byte {
 		c := maps.Clone(s.component)
 		c["command_topic"] = StyleTopic(s.key)
 		c["retain"] = true // the broker keeps the choice
-		c["value_template"] = "{{ value_json." + s.key + " }}"
+		c["value_template"] = template(s.key)
 		components[s.key] = c
 	}
 	for id, c := range components {
