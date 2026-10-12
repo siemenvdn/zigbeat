@@ -8,10 +8,9 @@ const (
 	kickFall   = 0.3 // seconds
 )
 
-// change gives unit u its next colour. A unit of more than flow.MaxPerMoment
-// lights changes in parts, one per moment, all in this colour.
-func (p *Planner) change(u []string, b music.Beat, calm bool) []Message {
-	c := p.colorFor(u)
+// change gives unit u colour c. A unit of more than flow.MaxPerMoment lights
+// changes in parts, one per moment, all in this colour.
+func (p *Planner) change(u []string, c string, b music.Beat, calm bool) []Message {
 	ps := split(u)
 	for _, rest := range ps[1:] {
 		p.parts = append(p.parts, part{rest, c})

@@ -15,10 +15,11 @@ var T0 = time.Date(2026, 10, 11, 21, 0, 0, 0, time.UTC)
 func At(ms int) time.Time { return T0.Add(time.Duration(ms) * time.Millisecond) }
 
 // Config has lamp-1..3 in one color fixture with mode, lamp-4 breathing,
-// a budget of 100 frames/s at 50 ms and no canary.
+// a budget of 100 frames/s at 50 ms, no canary, and the walk variant.
 func Config(mode string) config.Config {
 	effects := config.DefaultEffects
 	effects.Palette = config.DefaultPalette
+	effects.Variant = "walk"
 	return config.Config{
 		MQTT:   config.MQTT{Broker: "b:1883", BaseTopic: "zigbee2mqtt"},
 		Budget: config.Budget{MaxRate: 100, LatencyMS: 50},

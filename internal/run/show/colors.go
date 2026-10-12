@@ -1,16 +1,16 @@
 package show
 
-// colorFor picks the next palette colour that no light of the fixture shows,
-// else one the unit itself does not show.
-func (p *Planner) colorFor(u []string) string {
-	fixture, own := map[string]bool{}, map[string]bool{}
-	for _, l := range p.fixtureOf[u[0]] {
-		fixture[p.current[l]] = true
+// colorFor picks the next palette colour that no light in avoid shows, else
+// one the unit itself does not show.
+func (p *Planner) colorFor(u, avoid []string) string {
+	shown, own := map[string]bool{}, map[string]bool{}
+	for _, l := range avoid {
+		shown[p.current[l]] = true
 	}
 	for _, l := range u {
 		own[p.current[l]] = true
 	}
-	if c, ok := p.take(fixture); ok {
+	if c, ok := p.take(shown); ok {
 		return c
 	}
 	if c, ok := p.take(own); ok {

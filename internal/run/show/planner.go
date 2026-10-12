@@ -2,7 +2,9 @@
 package show
 
 import (
+	"fmt"
 	"math"
+	"math/rand/v2"
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/config"
@@ -35,6 +37,13 @@ type Planner struct {
 	current     map[string]string // colour each light was last given
 	parts       []part            // the rest of a unit too large for one moment
 	cursor      int
+	setting     string // effects.variant
+	playing     string // the variant of the last moment
+	rng         *rand.Rand
+	deck        [][]string // shuffle: the units still to come
+	dealt       string     // shuffle: the unit list the deck was dealt from
+	turn        int        // swap: the group whose turn it is
+	target      string     // build: the colour the room fills with
 	moments     int
 	units       int
 	cadence     time.Duration
@@ -58,6 +67,8 @@ func NewPlanner(c config.Config) *Planner {
 		albumColors: c.Effects.AlbumColors,
 		current:     map[string]string{},
 		cadence:     c.Effects.Cadence,
+		setting:     c.Effects.Variant,
+		rng:         rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64())),
 		bpm:         music.DefaultBPM,
 		base:        level(c.Effects.Brightness),
 		kick:        level(min(c.Effects.Brightness+kickPoints, config.MaxPercent)),
@@ -97,13 +108,17 @@ func (p *Planner) Beat(b music.Beat, backoff int) []Message {
 	if b.Index%n != 0 {
 		return nil
 	}
+	if v := p.variantAt(b.Index); v != p.playing {
+		p.notes = append(p.notes, fmt.Sprintf("variant %s from bar %d", v, (b.Index-b.InBar)/music.PerBar))
+		p.playing, p.deck, p.turn, p.target = v, nil, 0, ""
+	}
 	calm := backoff >= flow.CalmLevel
 	var out []Message
 	if pt, ok := p.nextPart(); ok {
 		out = p.paint(pt.lights, pt.color, b, calm) // the chase waits for the rest of a unit
 	} else {
-		for _, u := range p.pick() {
-			out = append(out, p.change(u, b, calm)...)
+		for _, u := range p.pickFor(p.playing) {
+			out = append(out, p.change(u, p.colorOf(p.playing, u), b, calm)...)
 		}
 	}
 	out = append(out, p.breath(b, n)...)

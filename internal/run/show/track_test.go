@@ -28,6 +28,7 @@ func TestTrackBringsAlbumColours(t *testing.T) {
 			t.Errorf("%s got %s, not an album colour", m.Light, c["hex"])
 		}
 	}
+	p.TakeNotes() // the variant's
 	p.Track(music.Track{BPM: 124})
 	if !slices.Equal(p.palette, config.DefaultPalette) {
 		t.Errorf("without album colours the palette plays: %v", p.palette)

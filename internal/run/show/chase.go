@@ -25,25 +25,30 @@ func (p *Planner) unitList() [][]string {
 	return us
 }
 
-// pick takes units from the cursor until 1 in chaseShare colour lights are covered,
+// fill takes units in order until 1 in chaseShare colour lights are covered,
 // at most flow.MaxPerMoment messages; the first unit always goes, whatever its size.
-func (p *Planner) pick() [][]string {
-	us := p.unitList()
-	if len(us) == 0 {
-		return nil
-	}
+func (p *Planner) fill(units [][]string) [][]string {
 	want := (p.nColor + chaseShare - 1) / chaseShare
 	var picked [][]string
 	lights := 0
-	for range us {
-		u := us[p.cursor%len(us)]
+	for _, u := range units {
 		if len(picked) > 0 && (lights >= want || lights+len(u) > flow.MaxPerMoment) {
 			break
 		}
 		picked = append(picked, u)
 		lights += len(u)
-		p.cursor++
 	}
-	p.cursor %= len(us)
+	return picked
+}
+
+// walk takes units in config order from where the last moment stopped.
+func (p *Planner) walk() [][]string {
+	us := p.unitList()
+	if len(us) == 0 {
+		return nil
+	}
+	from := p.cursor % len(us)
+	picked := p.fill(append(us[from:len(us):len(us)], us[:from]...))
+	p.cursor = (from + len(picked)) % len(us)
 	return picked
 }
