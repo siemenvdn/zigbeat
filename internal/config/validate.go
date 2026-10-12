@@ -9,6 +9,14 @@ import (
 
 var hexColor = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 
+const (
+	// minCadence: faster moments outrun a budget of a few frames per second.
+	minCadence = time.Second
+	minPercent = 1 // effects are in percent; 0 would be off
+	MaxPercent = 100
+	minPalette = 2 // alternating needs two colours
+)
+
 func (c Config) validate() error {
 	switch {
 	case c.MQTT.Broker == "":
@@ -69,14 +77,14 @@ func (c Config) validate() error {
 	}
 	e := c.Effects
 	switch {
-	case e.Cadence < time.Second:
-		return errors.New("effects.cadence must be at least 1s")
-	case e.Brightness < 1 || e.Brightness > 100:
-		return errors.New("effects.brightness must be 1 to 100")
-	case e.BreatheRange[0] < 1 || e.BreatheRange[1] > 100 || e.BreatheRange[0] >= e.BreatheRange[1]:
-		return errors.New("effects.breathe_range must be [low, high] within 1 to 100 with low below high")
-	case len(e.Palette) < 2:
-		return errors.New("effects.palette needs at least 2 colours")
+	case e.Cadence < minCadence:
+		return fmt.Errorf("effects.cadence must be at least %v", minCadence)
+	case e.Brightness < minPercent || e.Brightness > MaxPercent:
+		return fmt.Errorf("effects.brightness must be %d to %d", minPercent, MaxPercent)
+	case e.BreatheRange[0] < minPercent || e.BreatheRange[1] > MaxPercent || e.BreatheRange[0] >= e.BreatheRange[1]:
+		return fmt.Errorf("effects.breathe_range must be [low, high] within %d to %d with low below high", minPercent, MaxPercent)
+	case len(e.Palette) < minPalette:
+		return fmt.Errorf("effects.palette needs at least %d colours", minPalette)
 	}
 	for _, p := range e.Palette {
 		if !hexColor.MatchString(p) {

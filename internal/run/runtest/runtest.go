@@ -17,6 +17,8 @@ func At(ms int) time.Time { return T0.Add(time.Duration(ms) * time.Millisecond) 
 // Config has lamp-1..3 in one color fixture with mode, lamp-4 breathing,
 // a budget of 100 frames/s at 50 ms and no canary.
 func Config(mode string) config.Config {
+	effects := config.DefaultEffects
+	effects.Palette = config.DefaultPalette
 	return config.Config{
 		MQTT:   config.MQTT{Broker: "b:1883", BaseTopic: "zigbee2mqtt"},
 		Budget: config.Budget{MaxRate: 100, LatencyMS: 50},
@@ -24,7 +26,7 @@ func Config(mode string) config.Config {
 			{Name: "pendant", Role: "color", Mode: mode, Lights: []string{"lamp-1", "lamp-2", "lamp-3"}},
 			{Name: "floor", Role: "breathe", Lights: []string{"lamp-4"}},
 		},
-		Effects: config.Effects{Cadence: 2 * time.Second, Brightness: 60, Palette: config.DefaultPalette, BreatheRange: [2]int{30, 80}},
+		Effects: effects,
 	}
 }
 

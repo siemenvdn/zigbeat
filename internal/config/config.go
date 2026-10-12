@@ -10,6 +10,9 @@ import (
 	"time"
 
 	"go.yaml.in/yaml/v3"
+
+	"github.com/siemenvdn/zigbeat/internal/mqtt"
+	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
 type Config struct {
@@ -29,8 +32,9 @@ type MQTT struct {
 	Password    string `yaml:"-"` // read from PasswordEnv
 }
 
-// Limits of budget.audio_offset_ms. Beats arrive 1 s ahead, so a much earlier
-// offset would ask for messages before their beat is known.
+// Limits of budget.audio_offset_ms. Beats arrive beat.Lookahead ahead, so a much
+// earlier offset would ask for messages before their beat is known; speakers
+// that lag more than 2 s are not worth a show.
 const MinOffsetMS, MaxOffsetMS = -500, 2000
 
 type Budget struct {
@@ -56,6 +60,13 @@ type Effects struct {
 	BreatheRange [2]int        `yaml:"breathe_range"`
 }
 
+// DefaultEffects fills what the effects block leaves out; the palette comes after decoding.
+var DefaultEffects = Effects{
+	Cadence:      2 * time.Second, // a moment once a bar at 120 BPM
+	Brightness:   60,              // percent: room for the kick above it
+	BreatheRange: [2]int{30, 80},  // percent: a clear swell, never dark or full
+}
+
 // DefaultPalette is used when effects.palette is empty.
 var DefaultPalette = []string{"#ff2a6d", "#ff7b00", "#ffd400", "#00e5ff", "#2962ff", "#aa00ff"}
 
@@ -71,8 +82,8 @@ func Load(path string) (Config, error) {
 // Parse decodes YAML, fills in defaults and validates.
 func Parse(data []byte, getenv func(string) string) (Config, error) {
 	c := Config{
-		MQTT:    MQTT{Broker: "127.0.0.1:1883", BaseTopic: "zigbee2mqtt"},
-		Effects: Effects{Cadence: 2 * time.Second, Brightness: 60, BreatheRange: [2]int{30, 80}},
+		MQTT:    MQTT{Broker: mqtt.DefaultBroker, BaseTopic: z2m.DefaultBaseTopic},
+		Effects: DefaultEffects,
 	}
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	dec.KnownFields(true)
