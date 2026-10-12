@@ -18,7 +18,8 @@ type fakeLink struct {
 	reconnect  bool
 	sets       int
 	reconnects int
-	groups     []string // nil: bridge/groups never arrives
+	groups     []string     // nil: bridge/groups never arrives
+	devices    []z2m.Device // nil: bridge/devices never arrives
 }
 
 func newShell(t *testing.T) (*runner, *fakeLink) {
@@ -59,6 +60,8 @@ func (f *fakeLink) Err() error { return nil }
 func (f *fakeLink) Close() {}
 
 func (f *fakeLink) Groups(context.Context) ([]string, bool) { return f.groups, f.groups != nil }
+
+func (f *fakeLink) Devices(context.Context) ([]z2m.Device, bool) { return f.devices, f.devices != nil }
 
 func (f *fakeLink) Reconnect(context.Context) bool {
 	f.reconnects++

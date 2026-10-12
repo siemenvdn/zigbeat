@@ -14,9 +14,11 @@ import (
 // start checks the config against Zigbee2MQTT, takes the snapshot and measures
 // the canary. Nothing is changed yet, so a stop here needs no restore.
 func (r *runner) start(ctx context.Context) (limit time.Duration, code int, ok bool) {
-	if err := r.refuseGroups(ctx); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 0, 1, false
+	for _, refuse := range []func(context.Context) error{r.refuseGroups, r.refuseDevices} {
+		if err := refuse(ctx); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 0, 1, false
+		}
 	}
 	snapped := r.snapshot(ctx)
 	if snapped {
@@ -44,6 +46,27 @@ func (r *runner) refuseGroups(ctx context.Context) error {
 		return nil
 	}
 	return r.cfg.RejectGroups(groups)
+}
+
+// refuseDevices stops the show before it starts when a light may not be driven
+// in its role, by the rules of zigbeat setup: they also hold for a config
+// edited by hand. Without bridge/devices it warns and goes on.
+func (r *runner) refuseDevices(ctx context.Context) error {
+	devs, ok := r.link.Devices(ctx)
+	if !ok {
+		if ctx.Err() == nil {
+			fmt.Fprintf(os.Stderr, "warning: no %s/bridge/devices; the lights in the config were not checked against it\n", r.cfg.MQTT.BaseTopic)
+		}
+		return nil
+	}
+	for _, f := range r.cfg.Fixtures {
+		for _, l := range f.Lights {
+			if err := z2m.Check(devs, l, f.Role); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 const (
