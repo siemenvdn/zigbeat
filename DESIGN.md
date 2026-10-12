@@ -25,6 +25,9 @@ How zigbeat works and why. To use it, start with the [README](README.md).
 | Existing Zigbee bulbs only; no Hue Bridge, WLED, microphone or other hardware | The point of the project |
 | One change every 2 to 5 s on the beat, never a flash on every beat | Zigbee cannot keep up with every beat reliably. Hitting the beat matters more than speed |
 | Relays and smart plugs are never driven | Mechanical relays wear out within a few evenings, click audibly and stress LED drivers with inrush current |
+| An allowlist decides what may be driven: `zigbeat setup` offers a device only when every rule holds, and run, serve and the probe check every light against the same rules | Some relay inserts, dimming plugs and dimmer modules present themselves as a light with brightness. A bulb refused wrongly is an inconvenience; a relay driven is what must never happen |
+| `zigbeat setup` asks two questions and writes a file to edit; on an existing file it replaces only the lights and the canary | Picking a few lights from a list is quick; the budget, the offset and the effects stay |
+| The configuration is edited in place: only the values that change move | Comments, blank lines and alignment belong to the user; no YAML library keeps them all |
 | Unicast only, no Zigbee groups | Group commands are broadcasts: every router in the house repeats them and they are the first thing to saturate |
 | Closed loop with a ceiling and backoff | The rest of the house always has priority |
 | Network trouble pauses the show, never ends it | A party should not stop because one bulb or the broker hiccups. A pause is the deepest backoff, so the network still always wins |
@@ -51,6 +54,8 @@ zigbeat never needs to know what your lamps are called or where they hang. Two i
 | `breathe` | Dimmable bulb | Brightness slowly rises and falls with the music |
 
 Anything without a role is never touched. That is also how relays and plugs stay safe.
+
+`zigbeat setup` proposes the role from Zigbee2MQTT's device list: a light with xy colour becomes `color`, any other dimmable bulb `breathe`. It offers only enabled, interviewed routers with a native definition and exactly one light on one channel, with settable state and brightness, without switch, cover, fan, lock or climate parts, power metering, in-wall settings or a description that reads like a plug, relay, dimmer or module; Tuya datapoint lights are left out too. `zigbeat run`, `serve` and `probe` check every light against the same rules before anything changes.
 
 **Fixtures** group bulbs that physically belong together, like a pendant with three bulbs. Effects can move per bulb or per fixture, which looks very different in a room.
 
@@ -189,7 +194,7 @@ effects:
 
 Unknown keys are an error, so typos do not pass silently. Every light belongs to exactly one fixture, and the canary is not one of the lights.
 
-Light names are Zigbee2MQTT friendly names. A planned `zigbeat setup` reads `zigbee2mqtt/bridge/devices`, lists the lights and suggests a role from what each device supports: colour becomes `color`, dimmable becomes `breathe`, on/off-only devices are not offered.
+Light names are Zigbee2MQTT friendly names. `zigbeat setup` writes the file with a budget of zeros; `zigbeat probe -config` fills in `max_rate` and `latency_ms`, with the date and the measured rate in the comment, and typing `save` in `zigbeat run` writes `audio_offset_ms`. Each of them changes only those values: comments, blank lines and alignment stay byte for byte. A value they cannot change safely, such as a quoted one, is left alone with a message naming the value to set by hand.
 
 ## The probe
 
@@ -230,9 +235,8 @@ Small known issues that are not planned yet: [BACKLOG.md](BACKLOG.md). Ideas for
 
 ### Phase 3: setup and effects
 
-- `zigbeat setup`: discover devices, suggest roles, write the configuration.
-- `zigbeat probe` writes its result into the configuration.
-- Effect tuning: chase variants, palette per track, album art colours.
+- **3a (built):** `zigbeat setup` with an allowlist of what may be driven, `zigbeat probe -config` writing the budget, `save` for the audio offset, and the check of every light at the start. Tested against `cmd/fake-z2m`. To do: classify the device list of a real home.
+- **3b:** effect tuning: chase variants, a palette per track from the album art, energy from the music.
 
 ### Phase 4: release
 
@@ -254,6 +258,8 @@ Small known issues that are not planned yet: [BACKLOG.md](BACKLOG.md). Ideas for
 | Does breathe stay within its range over an hour? | Re-anchoring every 4th moment |
 | How much does the budget differ between coordinator types (EmberZNet, Z-Stack, deCONZ)? | Defaults for other users |
 | Should ZHA (Home Assistant's own Zigbee stack) be supported later? | Reach |
+| Does the allowlist offer every bulb in a real home, and nothing else? | What setup offers, and the start check |
+| Do bulbs with only `color_hs` show the colours zigbeat sends as hex? | Offering them as `color` |
 
 ## Why Zigbee needs care
 
@@ -275,19 +281,20 @@ Bulb behaviour that zigbeat relies on (seen on IKEA bulbs, to be verified on oth
 
 ```
 cmd/
-  zigbeat/        the binary: zigbeat probe, run, serve and beats, later setup
-  fake-z2m/       simulated Zigbee2MQTT: one coordinator queue, time per frame, optional loss, groups, a landing log
+  zigbeat/        the binary: zigbeat setup, probe, run, serve and beats
+  fake-z2m/       simulated Zigbee2MQTT: one coordinator queue, time per frame, optional loss, groups, kinds of device, a landing log
   fake-ma/        simulated Music Assistant relay: tracks, analysis delay, seeks, gaps, its own clock
 internal/
   cli/            what the subcommands share: stop signals, flag errors, the time stamp, the 5 s redial
   mqtt/           minimal MQTT 3.1.1 client (QoS 0, retained publish and will, keepalive, wildcards)
   ws/             minimal WebSocket client, and the server side for tests and fake-ma
-  z2m/            Zigbee2MQTT topics, groups, frame count, the canary limit
+  z2m/            Zigbee2MQTT topics, groups, the device list and which lights may be driven, frame count, the canary limit
   lights/         snapshot and restore of lights, shared by probe and run
-  config/         the YAML configuration
+  config/         the YAML configuration, and editing it in place
   beat/           beats, the Source interface, the metronome
     ma/           the Music Assistant source: connection, clock sync, beat grid
   beats/          zigbeat beats: the beats from Music Assistant, printed without touching a light
+  setup/          zigbeat setup: the device survey, the questions, fixtures, writing the config
   run/            zigbeat run: connection, startup, the real-time loop, stop and restore
     show/         the planner: moments, chase, colours, kick, breathe
     flow/         frame budget, one message in flight per light, backoff, canary

@@ -6,9 +6,9 @@ Ordinary Zigbee bulbs on [Zigbee2MQTT](https://www.zigbee2mqtt.io/) have no good
 
 ## Status
 
-- **Works today:** `zigbeat probe` measures how many light commands per second your network handles. `zigbeat run` drives your lights within that budget to the beats of the music that [Music Assistant](https://www.music-assistant.io/) plays, or to a fixed-BPM metronome. `zigbeat serve` does the same as a service that Home Assistant switches on and off.
+- **Works today:** `zigbeat setup` finds your lights in Zigbee2MQTT and writes the configuration. `zigbeat probe` measures how many light commands per second your network handles and writes that budget into it. `zigbeat run` drives your lights within that budget to the beats of the music that [Music Assistant](https://www.music-assistant.io/) plays, or to a fixed-BPM metronome. `zigbeat serve` does the same as a service that Home Assistant switches on and off.
 - **In progress:** checking on real speakers that the lights land on the beat by ear.
-- **Later:** `zigbeat setup`, a container image.
+- **Later:** effects that follow the music more closely, a container image.
 
 ## What it does
 
@@ -42,9 +42,7 @@ Home Assistant only switches the show on and off and reads its status. It stays 
 
 zigbeat is a single static Go binary, meant to run next to Zigbee2MQTT. Architecture, effects, roadmap and decisions: [DESIGN.md](DESIGN.md).
 
-## Measure your network
-
-`zigbeat probe` sends colour commands to a few target bulbs at a rising rate while it watches a far-away **canary** device for the rest of the network. It stops at the first sign of overload: lost commands, rising latency, a slower canary or Zigbee2MQTT errors. The result becomes the engine's budget.
+## Set up
 
 ### Install
 
@@ -56,16 +54,35 @@ go install github.com/siemenvdn/zigbeat/cmd/zigbeat@latest
 
 To build for a Raspberry Pi or another machine, see [Build from source](#build-from-source).
 
-### Choose targets and a canary
+### Find your lights
 
-- **Targets:** two to four colour bulbs (xy colour) that zigbeat will drive later. Mains powered, not behind a switch that might be turned off.
-- **Canary:** a mains-powered device as far from the targets as possible, ideally in another room. Not a battery device, because those sleep and answer late. The canary is only read, never changed.
+Create an MQTT user for zigbeat on your broker. Then, ideally on the same host as the broker:
 
-Use Zigbee2MQTT friendly names.
+```bash
+read -rs ZIGBEAT_MQTT_PASSWORD && export ZIGBEAT_MQTT_PASSWORD
+zigbeat setup -broker 127.0.0.1:1883
+```
+
+zigbeat reads the device list of Zigbee2MQTT and shows every light it may drive, with a role and a fixture it proposes:
+
+- Colour bulbs (xy colour) get `color`; other dimmable bulbs, white ones included, get `breathe`.
+- Relays, plugs, dimmer modules, lights with several channels and anything else that is not a bulb are never offered. The list says why.
+
+Answer which lights take part, such as `1-3,7`, and which device is the **canary**: a mains-powered device far from those lights, ideally in another room. zigbeat watches it to see how the rest of the network is doing; it is only read, never changed. Then zigbeat writes `config.yaml`.
+
+Run `zigbeat setup` again after adding a bulb: it changes only the lights and the canary in the file. `-lights` and `-canary` answer the questions up front; `zigbeat setup -h` lists all flags.
+
+## Measure your network
+
+`zigbeat probe` sends colour commands to the colour lights of the config at a rising rate while it watches the canary. It stops at the first sign of overload: lost commands, rising latency, a slower canary or Zigbee2MQTT errors. The result becomes the show's budget.
 
 ### Run it
 
-Create an MQTT user for zigbeat on your broker. Then, ideally on the same host as the broker:
+```bash
+zigbeat probe -config config.yaml
+```
+
+Without colour lights in the config, it measures the other lights with brightness commands. Without a config, name two to four mains-powered colour bulbs and a canary, with the MQTT user in the environment:
 
 ```bash
 export MQTT_USER=zigbeat
@@ -73,13 +90,14 @@ read -rs MQTT_PASSWORD && export MQTT_PASSWORD
 zigbeat probe -broker 127.0.0.1:1883 -targets pendant-1,pendant-2,pendant-3 -canary hallway-ceiling
 ```
 
-`zigbeat probe -h` lists all flags.
+`zigbeat probe -h` lists all flags. A target that `zigbeat setup` would not offer, such as a plug, stops the probe before anything changes.
 
 What you will see:
 
 - The run takes at least 5 minutes, a few more on a strong network. The targets flash in all colours the whole time. Leave them alone, also in Home Assistant.
 - At the end every target goes back to its starting state, also after Ctrl-C. A second Ctrl-C quits at once without restoring. The starting state is printed as JSON at the top of the output, so you can restore it by hand.
 - Raw samples go to a CSV file.
+- With `-config`, the budget goes into the config at the end, also after Ctrl-C: `budget written to config.yaml: max_rate 0 -> 15 frames/s, latency_ms 0 -> 66 ms`.
 
 ### Read the result
 
@@ -102,9 +120,9 @@ If `p50` stays below about 20 ms everywhere, Zigbee2MQTT confirmed before the bu
 
 ### Configure
 
-Copy [`config.example.yaml`](config.example.yaml) to `config.yaml` and fill it in:
+`zigbeat setup` and `zigbeat probe` write `config.yaml`; edit it to change what they chose. [`config.example.yaml`](config.example.yaml) shows every key:
 
-- `budget.max_rate`: the suggested budget from the probe. `budget.latency_ms`: the p50 the probe reported at that load. The show will not start without them.
+- `budget.max_rate` and `budget.latency_ms`: written by `zigbeat probe -config`. The show will not start without them.
 - `fixtures`: your lights, grouped as they hang. Give each fixture a role:
   - `color` for colour bulbs. `mode` decides how a fixture changes: `separate` (one bulb at a time), `together` (the whole fixture at once) or `alternate` (switches between the two every few moments, the default).
   - `breathe` for dimmable bulbs.
@@ -112,7 +130,7 @@ Copy [`config.example.yaml`](config.example.yaml) to `config.yaml` and fill it i
 - `effects` (optional): the time between changes, the base brightness, the colour palette and the breathe range.
 - `music_assistant` (optional): where the beats come from, see [Play to the music](#play-to-the-music). Without it the show runs to a metronome.
 
-Lights that are not in the config are never touched. List lights one by one: a Zigbee2MQTT group name is refused, because group commands are broadcasts. The MQTT password comes from the environment variable named in `password_env`.
+Lights that are not in the config are never touched. List lights one by one: a Zigbee2MQTT group name is refused, because group commands are broadcasts. At the start, the show also refuses a light that `zigbeat setup` would not offer, such as a plug, and a `color` light without xy colour. The MQTT password comes from the environment variable named in `password_env`.
 
 ### Start it
 
@@ -185,11 +203,12 @@ TVs, soundbars and amplifiers delay the sound, so the lights need to wait for it
 | `+30` or `-30` | The lights that many ms later or earlier |
 | A number such as `180` | Sets the offset in ms, -500 to 2000 |
 | Empty | Prints the current offset |
+| `save` | Writes the offset into the config as `budget.audio_offset_ms` |
 
 1. Play a track with a clear kick, for example house around 124 BPM.
 2. Watch the brightness jump of a colour bulb: it is instant, the colour blends after it.
 3. Find where it starts to look late and where it starts to look early, and type the number halfway.
-4. Put it in the config as `budget.audio_offset_ms`; zigbeat prints the line to copy when the show stops.
+4. Type `save` to keep it in the config. When the show stops, zigbeat says so if the offset changed after the last `save`.
 5. Check with two tracks of another tempo, for example around 90 and 170 BPM.
 
 ## Home Assistant
@@ -239,6 +258,12 @@ go run ./cmd/zigbeat probe -broker 127.0.0.1:18830 -targets lamp-1,lamp-2,lamp-3
 ```
 
 The probe should report OK up to around 8/s and stop at 10/s.
+
+`fake-z2m` also simulates a white bulb, a plug, a relay, a dimmer module and a sensor; `fake-z2m -h` lists the kinds. `zigbeat setup` against it offers `lamp-1` to `far-lamp` and refuses the others:
+
+```bash
+ZIGBEAT_MQTT_PASSWORD=x go run ./cmd/zigbeat setup -broker 127.0.0.1:18830 -config try.yaml
+```
 
 Run the show against the same simulation with the example config:
 

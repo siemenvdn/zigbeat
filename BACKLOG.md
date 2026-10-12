@@ -22,6 +22,12 @@ Small known issues, found in the reviews of phases 1a to 2 and left for later. P
 - **A brief stopping → running flip.** An `OFF` that lands between the end of the start and the first `Status` call, or on a 10 s tick, publishes `stopping`, `running`, `stopping`.
 - **PID 1 in a container.** The kernel ignores default-action signals for PID 1, so a second signal does not quit there. The phase 4 image needs an init (`docker run --init`, `init: true`).
 
+## zigbeat setup and probe
+
+- **The fixture column is a guess.** Setup's table shows the fixture each light would get if every offered light were chosen (`arrange` over all of them in `internal/setup/setup.go`). With only some chosen, a light alone in its stem gets a fixture named after itself instead.
+- **A retained state counts as a canary answer.** When Zigbee2MQTT retains device states, the first read of a canary in `mqttBridge.Read` (`internal/setup/bridge.go`) can be answered by the retained message, with a latency near 0 ms.
+- **"remove it from the config" after -targets.** `z2m.Check` ends its message with advice for the config, also when the probe refused a light named with `-targets`.
+
 ## Docs and code style
 
 - A `ponytail:` prefix in a comment in `internal/run/show/kick.go`.
