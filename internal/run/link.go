@@ -14,13 +14,14 @@ import (
 
 // link is the show's connection to Zigbee2MQTT; tests replace it with a fake.
 type link interface {
-	Set(light string, payload any) error
-	Get(light string, payload any) error
-	Lost() <-chan struct{} // closed when the connection drops
-	Err() error
+	Set(light string, payload any) error // a state for light, on its set topic
+	Get(light string, payload any) error // ask light for its state
+	Lost() <-chan struct{}               // closed when the connection drops
+	Err() error                          // why it dropped
+	// Reconnect dials until it works, and subscribes again; false when ctx is done first.
 	Reconnect(ctx context.Context) bool
-	Groups(ctx context.Context) ([]string, error)
-	Devices(ctx context.Context) ([]z2m.Device, error)
+	Groups(ctx context.Context) ([]string, error)      // the retained group names
+	Devices(ctx context.Context) ([]z2m.Device, error) // the retained device list
 	Close()
 }
 

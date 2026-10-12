@@ -12,7 +12,9 @@ import (
 
 // Conn is what saving and restoring needs from the connection to Zigbee2MQTT.
 type Conn interface {
+	// Get asks light for its state, on <base_topic>/<light>/get.
 	Get(light string, payload any) error
+	// Set sends light a state, on <base_topic>/<light>/set.
 	Set(light string, payload any) error
 	// Await waits up to d for a state from light that arrived after since. It is
 	// false when none came, the connection dropped or ctx is done.

@@ -14,6 +14,7 @@ import (
 
 // bridge is what setup needs from Zigbee2MQTT; tests replace it with a fake.
 type bridge interface {
+	// Devices is Zigbee2MQTT's retained device list.
 	Devices(ctx context.Context) ([]z2m.Device, error)
 	// Read asks name for its state and returns how long the answer took.
 	Read(ctx context.Context, name string) (time.Duration, bool)
