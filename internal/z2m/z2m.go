@@ -8,6 +8,9 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/mqtt"
 )
 
+// MaxBrightness is Zigbee2MQTT's top brightness; it runs 0..254.
+const MaxBrightness = 254
+
 type XY struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
