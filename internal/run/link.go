@@ -67,7 +67,7 @@ func (l *mqttLink) dial() error {
 	return nil
 }
 
-// Reconnect dials again every 5 s until it works or ctx is done.
+// Reconnect dials again every cli.RedialEvery until it works or ctx is done.
 func (l *mqttLink) Reconnect(ctx context.Context) bool {
 	l.client.Close()
 	return cli.Redial(ctx, "reconnect", l.dial)

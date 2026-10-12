@@ -107,7 +107,7 @@ func (l *link) current() []byte {
 	return l.last
 }
 
-// run publishes each new state and dials again every 5 s after the connection
+// run publishes each new state and dials again every cli.RedialEvery after the connection
 // drops, until ctx is done. Then it publishes the last state and offline, and
 // disconnects; a clean disconnect does not trigger the will.
 func (l *link) run(ctx context.Context) {
@@ -121,7 +121,7 @@ func (l *link) run(ctx context.Context) {
 		case <-l.wake:
 			_ = l.client.PublishRetained(ha.StateTopic, l.current())
 		case <-l.client.Done():
-			fmt.Printf("%s  home assistant link lost (%v); reconnecting every 5 s\n", cli.Stamp(), l.client.Err())
+			fmt.Printf("%s  home assistant link lost (%v); reconnecting every %s\n", cli.Stamp(), l.client.Err(), cli.Seconds(cli.RedialEvery))
 			if !cli.Redial(ctx, "home assistant reconnect", l.connect) {
 				return
 			}
