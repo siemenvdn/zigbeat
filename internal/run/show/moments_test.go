@@ -1,8 +1,12 @@
 package show
 
 import (
+	"math"
+	"math/rand/v2"
 	"testing"
 	"time"
+
+	"github.com/siemenvdn/zigbeat/internal/run/flow"
 )
 
 func TestInterval(t *testing.T) {
@@ -28,7 +32,58 @@ func TestOnlyMomentsPlan(t *testing.T) {
 	if ps := p.Beat(moment(4), 0); len(ps) == 0 {
 		t.Error("beat 4 is a moment")
 	}
-	if ps := p.Beat(moment(4), 2); ps != nil {
-		t.Error("backoff 2 doubles the interval: beat 4 is no moment")
+	if ps := p.Beat(moment(8), 2); len(ps) == 0 {
+		t.Error("backoff 2 doubles the interval from beat 8, a moment of both grids")
 	}
+	if ps := p.Beat(moment(12), 2); ps != nil {
+		t.Error("backoff 2 doubles the interval: beat 12 is no moment")
+	}
+}
+
+// TestFadesEndOnAMoment: however the pace and the backoff change, a moment's
+// breathe fade lasts exactly until the next moment, so no fade runs on to the
+// bulb's own limit.
+func TestFadesEndOnAMoment(t *testing.T) {
+	rng := rand.New(rand.NewPCG(3, 1))
+	p := NewPlanner(testConfig("separate"))
+	p.Start(t0)
+	paces := []time.Duration{time.Second, 2 * time.Second, 3 * time.Second, 8 * time.Second, 16 * time.Second}
+	last, planned, backoff := -1, 0, 0 // the last moment, the beats its fade lasts
+	for i := 0; i < 4000; i++ {
+		if rng.IntN(8) == 0 {
+			p.cadence = paces[rng.IntN(len(paces))]
+		}
+		if rng.IntN(32) == 0 {
+			backoff = rng.IntN(flow.PauseLevel)
+		}
+		move, ok := fade(p.Beat(moment(i), backoff))
+		if !ok {
+			continue
+		}
+		if last >= 0 && i-last != planned {
+			t.Fatalf("the fade at beat %d was planned for %d beats; the next moment came at beat %d", last, planned, i)
+		}
+		last, planned = i, fadeBeats(p, move)
+	}
+}
+
+// fade returns the brightness_move of the breathe light lamp-4.
+func fade(ms []Message) (int, bool) {
+	for _, m := range ms {
+		if move, ok := m.Payload["brightness_move"].(int); ok && m.Light == "lamp-4" {
+			return move, true
+		}
+	}
+	return 0, false
+}
+
+// fadeBeats is how many beats a fade at move takes across the breathe range.
+func fadeBeats(p *Planner, move int) int {
+	for n := 1; n <= 2*intervals[len(intervals)-1]; n *= 2 {
+		until := time.Duration(n) * p.period()
+		if max(1, int(math.Round(float64(p.high-p.low)/until.Seconds()))) == max(move, -move) {
+			return n
+		}
+	}
+	return 0
 }

@@ -44,6 +44,7 @@ type Planner struct {
 	moments      int
 	units        int
 	cadence      time.Duration
+	every        int     // beats between moments in force; 0 before the first beat
 	bpm          float64 // the tempo of the current track
 	base         int     // Zigbee2MQTT brightness 0..z2m.MaxBrightness
 	kick         int
@@ -98,11 +99,8 @@ func (p *Planner) Moments() int { return p.moments }
 // Beat returns the messages for b, or nothing when b is not a moment.
 func (p *Planner) Beat(b music.Beat, backoff int) []Message {
 	p.lastBeat, p.lastPeriod, p.settled = b.At, p.period(), false
-	n := interval(p.bpm, p.cadence)
-	if backoff >= flow.SparseLevel {
-		n *= 2
-	}
-	if b.Index%n != 0 {
+	n := p.spacing(b.Index, backoff)
+	if n == 0 {
 		return nil
 	}
 	if v := p.variantAt(b.Index); v != p.playing {
