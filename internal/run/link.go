@@ -32,6 +32,7 @@ type mqttLink struct {
 	push   func(event)
 	client *mqtt.Client
 	bridge *z2m.Bridge
+	dialed time.Time // the last dial, kept one cli.RedialEvery from the next
 }
 
 func dialLink(cfg config.MQTT, watch func() []string, push func(event)) (*mqttLink, error) {
@@ -40,6 +41,7 @@ func dialLink(cfg config.MQTT, watch func() []string, push func(event)) (*mqttLi
 }
 
 func (l *mqttLink) dial() error {
+	l.dialed = time.Now()
 	client, err := mqtt.Dial(l.cfg.Broker, mqtt.Options{
 		ClientID: fmt.Sprintf("zigbeat-run-%d", os.Getpid()),
 		Username: l.cfg.Username,
@@ -69,8 +71,13 @@ func (l *mqttLink) dial() error {
 }
 
 // Reconnect dials again every cli.RedialEvery until it works or ctx is done.
+// The first dial goes at once when the last one is that long ago, so a stop
+// after the broker came back does not wait.
 func (l *mqttLink) Reconnect(ctx context.Context) bool {
 	l.client.Close()
+	if ctx.Err() == nil && time.Since(l.dialed) >= cli.RedialEvery && l.dial() == nil {
+		return true
+	}
 	return cli.Redial(ctx, "reconnect", l.dial)
 }
 
