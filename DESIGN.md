@@ -15,7 +15,7 @@ How zigbeat works and why. To use it, start with the [README](README.md).
 9. [Roadmap](#roadmap)
 10. [Open questions](#open-questions)
 11. [Why Zigbee needs care](#why-zigbee-needs-care)
-12. [Code layout](#code-layout)
+12. [Architecture](#architecture)
 13. [References](#references)
 
 ## Decisions
@@ -239,7 +239,7 @@ Small known issues that are not planned yet: [BACKLOG.md](BACKLOG.md). Ideas for
 
 ### Phase 1: engine with a metronome
 
-- **1a (done):** `zigbeat run`: configuration, `BeatSource` interface, metronome, planner, scheduler, rate limiter, closed loop, backoff with pause, robustness, snapshot and restore. Tested against `cmd/fake-z2m`.
+- **1a (done):** `zigbeat run`: configuration, the beat source interface (now `music.Source`), metronome, planner, scheduler, rate limiter, closed loop, backoff with pause, robustness, snapshot and restore. Tested against `cmd/fake-z2m`.
 - **1b (done):** `zigbeat serve`: a Home Assistant switch and sensors through MQTT discovery. Tested against `cmd/fake-z2m` and a throwaway Home Assistant container.
 - **1c:** one-hour soak test on real bulbs with canary measurements alongside.
 
@@ -302,7 +302,215 @@ Bulb behaviour that zigbeat relies on (seen on IKEA bulbs, to be verified on oth
 - Colour transitions do work, so a colour change can blend.
 - A smooth brightness fade is possible with `brightness_move`.
 
-## Code layout
+## Architecture
+
+zigbeat is one static binary. `cmd/zigbeat` hands each subcommand to `internal/<command>`, whose `Run` returns the exit code. Below the commands sit the show, the music, Zigbee2MQTT and the transports. Imports point down the layers. Two commands also build on `run`, and `lights` and `setup` wait by the loss rule in `run/flow`, `flow.LostAfter` (see [Dependencies](#dependencies)). The show's packages do no I/O.
+
+### Layers
+
+| Layer | Packages | Job |
+|---|---|---|
+| Commands | `setup`, `probe`, `run`, `serve`, `beats` | Flags, the steps of one command, what it prints. `run` is also the runtime of a show: `serve` plays through `run.Play`, and `beats` takes its source from `run.Source` |
+| The show | `run/engine`, `run/show`, `run/flow` | Plan and pace the messages of a show. No I/O and no clock of their own: the caller passes the time in |
+| Music | `music`, `music/ma` | What plays, ahead of time: tracks, beats and clears |
+| Lights | `lights`, `z2m`, `config` | Snapshot and restore, Zigbee2MQTT's topics and devices and which may be driven, the config file |
+| Transport and shared | `mqtt`, `ws`, `cli` | The MQTT and WebSocket clients; signals, flags, the time stamp and the redial |
+
+### Dependencies
+
+What each package imports from zigbeat, from `go list`:
+
+| Package | Imports |
+|---|---|
+| `setup` | `cli`, `config`, `mqtt`, `run/flow`, `z2m` |
+| `probe` | `cli`, `config`, `lights`, `mqtt`, `probe/measure`, `probe/palette`, `probe/report`, `z2m` |
+| `run` | `cli`, `config`, `lights`, `mqtt`, `music`, `music/ma`, `run/engine`, `run/flow`, `z2m` |
+| `serve` | `cli`, `config`, `mqtt`, `run`, `run/engine`, `serve/ha` |
+| `beats` | `cli`, `config`, `music`, `run`, `run/show` |
+| `run/engine` | `cli`, `config`, `music`, `run/flow`, `run/show`, `z2m` |
+| `run/show` | `config`, `music`, `run/flow`, `z2m` |
+| `run/flow` | nothing |
+| `serve/ha` | `run/engine` |
+| `music/ma` | `cli`, `music`, `ws` |
+| `music` | nothing |
+| `lights` | `run/flow`, `z2m` |
+| `z2m` | `mqtt` |
+| `config` | `mqtt`, `z2m` (their defaults) |
+| `probe/measure`, `probe/palette`, `probe/report` | `cli`, `z2m` and each other |
+| `mqtt`, `ws`, `cli` | nothing |
+
+### A show, end to end
+
+```mermaid
+flowchart LR
+  src["music.Source<br/>ma.Source or music.Metronome"] -->|"Clear, Track, Beat"| loop["run: the loop"]
+  serve["serve"] -->|"run.Play with Hooks"| loop
+  loop -->|"Music, State, ZigbeeError, Due"| eng["engine.Engine"]
+  eng -->|"Track, Beat, Start, Settle"| plan["show.Planner"]
+  eng -->|"Take, Add, Confirm, Signal"| flow["run/flow: Limiter, InFlight,<br/>Backoff, Canary"]
+  loop -->|"Set, Get"| link["run.link: z2m.Bridge<br/>over mqtt.Client"]
+  link -.->|"states, log lines"| loop
+```
+
+1. `run.Play` dials the link, refuses Zigbee2MQTT groups and lights that may not be driven (`config.RejectGroups`, `z2m.Check`), reads every light (`lights.Snapshot`) and times the canary at rest.
+2. It creates an `engine.Engine`; after a panic a fresh one, up to three.
+3. The loop is one goroutine. It waits for:
+   - an event from the source: `Engine.Music`;
+   - a state or a log line from the link: `Engine.State` or `Engine.ZigbeeError`;
+   - a tick every 10 ms: `Engine.Due`, whose `engine.Send`s go out through `link.Set` and `link.Get`;
+   - the status every 10 s: `Engine.Stats`, printed and handed to `Hooks.Status`;
+   - an audio offset typed in `zigbeat run`: `Engine.SetOffset`;
+   - a dropped link: `Engine.Disconnected` and `link.Reconnect`.
+
+   After each, it prints `Engine.TakeNotes`.
+4. Inside the engine, `Music` hands a `Track` to `Planner.Track` and a `Beat` to `Planner.Beat`. The planner returns `show.Message`s with the time they must land. The engine queues them per light and sends each early by its frames times the latency estimate. It takes the frames from `flow.Limiter`, keeps one message in flight per light in `flow.InFlight`, and moves `flow.Backoff` on slow confirmations, losses, a slow `flow.Canary` and Zigbee2MQTT errors.
+5. At the stop: `Hooks.Stopping`, `Engine.Halt`, a drain of up to `flow.LostAfter`, then `lights.Restore`.
+
+### Interfaces
+
+Five interfaces separate the parts that do I/O from the parts that decide. Each has one real implementation; the tests use fakes.
+
+#### `music.Source`: what plays
+
+| Method | Does |
+|---|---|
+| `Events(ctx) <-chan music.Event` | Starts the source. The channel brings `Clear`, `Track` and `Beat` in order, each beat at least `music.Lookahead` before it sounds. It is closed when the source ends or ctx is done |
+
+- **Implemented by** `ma.Source` (Music Assistant's relay; it never ends on its own and dials again every 5 s) and `music.Metronome` (a fixed tempo, `-bpm`).
+- **Chosen by** `run.Source(cfg, bpm)`. **Used by** the run loop and `zigbeat beats`.
+
+#### `music.Event`: one item of that stream
+
+A closed set: its method `isEvent()` is unexported, so only package `music` adds types. Consumers use a type switch and skip types they do not know.
+
+| Type | Fields | Meaning |
+|---|---|---|
+| `music.Clear` | none | What came before no longer applies: a seek, a new track, the music stopping |
+| `music.Track` | `BPM`, `Palette []RGB`; `Period()` | The track that plays: before its first beat, and again when a field changes |
+| `music.Beat` | `At`, `Index`, `InBar`, `Energy` | When the beat sounds, its number from the track's first downbeat, its place in the bar, and the loudness of the coming bar from 0 to 1 |
+
+A source sends a `Track` before the first `Beat` of a track, and a `Clear` before the `Track` of a new timeline.
+
+#### `lights.Conn`: reading and restoring lights
+
+| Method | Does |
+|---|---|
+| `Get(light, payload) error` | Asks a light for its state, on `<base_topic>/<light>/get` |
+| `Set(light, payload) error` | Sends a light a state, on `<base_topic>/<light>/set` |
+| `Await(ctx, light, since, d) (z2m.State, bool)` | Waits up to d for a state of light that arrived after since. False when none came, the connection dropped or ctx is done |
+| `Online() bool` | Whether the broker is there, dialling again first when it can |
+
+- **Implemented by** `run.conn` (the show's link) and `probe.session`.
+- **Used by** `lights.Snapshot` and `lights.Restore`.
+
+#### `run.link`: the show's connection to Zigbee2MQTT (unexported)
+
+| Method | Does |
+|---|---|
+| `Set`, `Get` | As in `lights.Conn` |
+| `Lost() <-chan struct{}` | Closed when the connection drops |
+| `Err() error` | Why it dropped |
+| `Reconnect(ctx) bool` | Dials every 5 s until it works or ctx is done, and subscribes again; at once when the last dial is that long ago |
+| `Groups(ctx)`, `Devices(ctx)` | The retained `bridge/groups` and `bridge/devices`, for the checks at the start |
+| `Close()` | Closes the connection |
+
+- **Implemented by** `mqttLink`: an `mqtt.Client` with a `z2m.Bridge`, subscribed to the lights, the canary and Zigbee2MQTT's log. States and log lines reach the loop as events on a channel.
+- **Used by** the runner in `internal/run`.
+
+#### `setup.bridge`: what setup needs from Zigbee2MQTT (unexported)
+
+| Method | Does |
+|---|---|
+| `Devices(ctx) ([]z2m.Device, error)` | The device list |
+| `Read(ctx, name) (time.Duration, bool)` | Asks a device for its state and returns how long the answer took; setup proposes the canary from it |
+
+- **Implemented by** `mqttBridge`.
+- **Used by** the session in `internal/setup`.
+
+### Package APIs
+
+What each package offers the others. Unexported helpers are left out; `go doc ./internal/<package>` lists everything.
+
+#### Commands
+
+| Package | Offers |
+|---|---|
+| `setup`, `probe`, `beats` | `Run(args []string) int` |
+| `serve` | `Run(args []string, version string) int` |
+| `run` | `Run(args []string) int` |
+| | `Play(ctx, cfg, src, hooks) int`: one show, from the checks at the start to the restore. Returns 0, or 1 when the show could not start, after three panics, or when the broker is gone at the stop |
+| | `Source(cfg, bpm) music.Source`: Music Assistant from the config, or a metronome at bpm |
+| | `Hooks`: `Status(engine.Stats)` every 10 s, `Stopping() string` right before the restore, `Offsets <-chan time.Duration` with new audio offsets |
+| | `ParseOptions(name, about, args) (Options, error)`: `-config` and `-bpm` for run, serve and beats |
+| `serve/ha` | `Discovery(version) []byte`: the discovery message. `State`, `Playing(stats, lights)` and `Off`: the state payload. `DiscoveryTopic`, `AvailTopic`, `StateTopic`, `CommandTopic` |
+
+#### The show
+
+| `run/engine` | Does |
+|---|---|
+| `New(cfg, canaryLimit, now) *Engine` | One show. Only the loop goroutine calls it |
+| `Music(now, event)` | A `Clear` drops the moments planned and not sent; a `Track` goes to the planner; a `Beat` is planned unless it is past, the show pauses or it stops |
+| `State(light, at)` | A state from a light or the canary: confirms the message in flight |
+| `ZigbeeError(at, msg)` | An error line from Zigbee2MQTT's log: raises the backoff |
+| `Due(now) []Send` | Counts unanswered messages as lost and returns what to publish now, within the budget |
+| `Stats(now) Stats` | The numbers of the status line (`Stats.Line`) and of Home Assistant |
+| `TakeNotes() []string` | Stamped lines for the operator: backoff, lights left alone, album colours, variants |
+| `SetOffset(d)` | The audio offset |
+| `Halt()`, `Disconnected()` | Stop planning and sending; forget what was in flight on a dropped connection |
+| `Away(light) bool`, `InFlight() int` | For the restore order and the drain |
+
+| `run/show` | Does |
+|---|---|
+| `NewPlanner(cfg) *Planner` | The planner of one show |
+| `Start(now) []Message` | Every light on: colour lights at the base brightness with a first colour, breathe lights at their low end |
+| `Track(music.Track)` | Takes the tempo, and the album colours when `effects.album_palette` is on |
+| `Beat(b, backoff) []Message` | The messages of a moment, or nil when b is no moment: the variant, colours, kick and return, breathe |
+| `Settle(now) []Message` | Breathe lights to their low end when the beats stop |
+| `TakeNotes() []string`, `Moments() int` | Notes since the last call; moments planned so far |
+| `AlbumColors(palette, n) []string` | n vivid hex colours from album art, or nil; also used by `zigbeat beats` |
+| `Message` | One message: the light, the payload, when it must land, its moment unit, whether it may be dropped |
+
+| `run/flow` | Does |
+|---|---|
+| `Limiter`: `NewLimiter(rate, now)`, `Take(now, frames) bool` | The token bucket in Zigbee frames; the rate is a ceiling |
+| `InFlight`: `Add`, `Confirm`, `Busy`, `Expire`, `Count`, `Estimate`, `Median`, `Rising`, `Base`, `Clear`, `Forget` | One message in flight per light, and the latency per frame |
+| `Backoff`: `Level`, `Signal`, `NamedError`, `Pause`, `Tick` | The ladder from 0 to `PauseLevel` |
+| `Canary`: `NewCanary`, `Due`, `Sent`, `Answer`, `Expire`, `Waiting`, `Last`, `Name`, `Forget` | Reads of the far-away device |
+| Constants | `MaxPerMoment`, `Burst`, `LostAfter`, `RecoverAfter`, `CalmLevel`, `SparseLevel`, `PauseLevel`, `NamedLimit`, `NamedWindow` |
+
+`run/runtest` holds the test fixtures that the show's packages share: `Config`, `Beat`, `At`, `T0`.
+
+#### Music
+
+| Package | Offers |
+|---|---|
+| `music` | `Source`, `Event`, `Clear`, `Track`, `Beat`, `RGB`; `Metronome{BPM, Lookahead}`; `PerBar`, `DefaultBPM`, `Lookahead`, `UnknownEnergy` |
+| `music/ma` | `Source{URL, Token, Player, Lookahead, Notes}` with `Events(ctx)`; its notes, such as `music assistant: connected`, go to `Notes` |
+
+#### Lights, Zigbee2MQTT and the config
+
+| Package | Offers |
+|---|---|
+| `lights` | `Snapshot(ctx, conn, lights, rate) map[string]z2m.State`, `Restore(conn, snaps, lights, rate) (left []string)`, both one light at a time within rate frames per second; `Conn` |
+| `z2m` | `New(client, baseTopic) *Bridge` with `Set`, `Get`, `OnState`, `OnLog`, `Devices`, `Groups` |
+| | `Classify(device) (role, why)`: whether a device may be driven and in which role. `Check(devices, name, role) error`: the same for a light in the config. `Find`, `CanaryCandidate`, `CanaryLimit` |
+| | `Frames(payload) int`: the Zigbee frames of a payload. `Echoes(payload) bool`: whether Zigbee2MQTT answers it with a state |
+| | `State`, `Device`, `LogEntry`, `MaxBrightness`, `ErrNoRetained` |
+| `config` | `Load`, `LoadDraft` (no budget yet), `LoadWithoutMQTT` (no password needed), `Parse`, `ParseDraft` |
+| | `Config.Lights`, `Config.Keep`, `Config.RejectGroups`, `Budget.AudioOffset`; `DefaultEffects`, `DefaultPalette` |
+| | `File`, which edits the config in place: `OpenFile`, `NewFile`, `Set(key, value, comment)`, `SetBlock(key, text)`, `Bytes`, `Save(check)` |
+
+#### Transport and shared
+
+| Package | Offers |
+|---|---|
+| `mqtt` | `Dial(addr, Options) (*Client, error)`. `Client`: `Publish`, `PublishRetained`, `Subscribe`, `SubscribeLive` (no retained messages), `Unsubscribe`, `Done`, `Err`, `Closed`, `Close`. `Match(filter, topic)` |
+| `ws` | `Dial(url, timeout)`, `Upgrade(w, r)` for the server side. `Conn`: `Read`, `WriteText`, `WriteBinary`, `Ping`, `Close`, `CloseWith`, `SetIdleTimeout`, `SetReadDeadline`. `Message{Binary, Data}` |
+| `cli` | `StopContext`, `QuitOnInterrupt`, `QuitHint`; `NewFlagSet`, `Parse`, `Exit`, `Names`; `Redial`, `RedialEvery`; `Stamp`, `Clock`, `ClockMS`, `Seconds` |
+
+The probe's own packages serve only `internal/probe`: `measure` (`Recorder`, `Tracker`, `Canary`, `Phase`, `Step`, `Stats`, `Evaluate`, `Drifting`), `palette` (`New(mode)` and `Generator.Next`, `KeyFunc`) and `report` (`Header`, `Row`, `Summary`, `Suggest`, `WriteCSV`).
+
+### Code layout
 
 ```
 cmd/
@@ -324,6 +532,7 @@ internal/
     show/         the planner: moments, variants, colours, album colours, kick, breathe
     flow/         frame budget, one message in flight per light, backoff, canary
     engine/       the show as a state machine without I/O
+    runtest/      test fixtures shared by run's packages
   serve/          zigbeat serve: the Home Assistant link, the switch and the show lifecycle
     ha/           Home Assistant topics, the discovery message and the state payload
   probe/          zigbeat probe: session, rate steps, climb
