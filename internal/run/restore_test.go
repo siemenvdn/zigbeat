@@ -1,6 +1,16 @@
 package run
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
+
+func TestRestoreOrderLeavesAwayLightsForLast(t *testing.T) {
+	away := func(l string) bool { return l == "lamp-1" || l == "lamp-3" }
+	if got := strings.Join(restoreOrder([]string{"lamp-1", "lamp-2", "lamp-3", "lamp-4"}, away), ","); got != "lamp-2,lamp-4,lamp-1,lamp-3" {
+		t.Errorf("order %s", got)
+	}
+}
 
 func TestRestoreSurvivesAReconnect(t *testing.T) {
 	r, f := newShell(t)

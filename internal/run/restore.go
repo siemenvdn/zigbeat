@@ -15,12 +15,29 @@ import (
 // restore puts every light back within the budget. It returns false when the
 // broker stayed away, after printing what is left to restore by hand.
 func (r *runner) restore() bool {
-	left := lights.Restore(conn{r}, r.snaps, r.cfg.Lights(), r.cfg.Budget.MaxRate)
+	left := lights.Restore(conn{r}, r.snaps, restoreOrder(r.cfg.Lights(), r.away), r.cfg.Budget.MaxRate)
 	if len(left) > 0 {
 		r.restoreByHand(left)
 		return false
 	}
 	return true
+}
+
+// away reports whether the show left light alone.
+func (r *runner) away(light string) bool { return r.eng != nil && r.eng.Away(light) }
+
+// restoreOrder puts the lights that are left alone last: each takes all its
+// tries, which would hold up the lights behind it.
+func restoreOrder(ls []string, away func(string) bool) []string {
+	var first, last []string
+	for _, l := range ls {
+		if away(l) {
+			last = append(last, l)
+		} else {
+			first = append(first, l)
+		}
+	}
+	return append(first, last...)
 }
 
 // restoreRedial is how long the restore dials a lost broker: a restart is back

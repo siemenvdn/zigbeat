@@ -11,6 +11,12 @@ const (
 	retryAway = time.Minute // how often a light that is left alone is read
 )
 
+// Away reports whether light is left alone.
+func (e *Engine) Away(light string) bool {
+	_, gone := e.away[light]
+	return gone
+}
+
 // failed counts a lost or refused message. A light that fails awayAfter times in a
 // row is left alone, so one light switched off at the wall cannot drag the rest of
 // the show into backoff. It returns true when the light is left alone.
