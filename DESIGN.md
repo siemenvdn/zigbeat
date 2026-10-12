@@ -245,6 +245,7 @@ Small known issues that are not planned yet: [BACKLOG.md](BACKLOG.md). Ideas for
 |---|---|
 | How well does Music Assistant's Cast player report its position at a track start, and does the error differ per track? | One audio offset for every track |
 | How long does Smart Fades take on a Raspberry Pi 5 before the beats of a first play arrive? | The quiet start of new tracks |
+| Do downbeats arrive on the user's Music Assistant? | Moments on the first beat of a bar |
 | Does Music Assistant's experimental visualizer relay stay as it is in later releases? | The beat source |
 | Does Zigbee2MQTT confirm a command only after the bulb answered, or earlier? | Trusting the probe's latency |
 | Does the colour still blend when colour and brightness arrive in one message (IKEA)? | The kick |

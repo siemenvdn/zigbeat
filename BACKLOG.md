@@ -33,7 +33,6 @@ Small known issues, found in the reviews of phases 1a to 2 and left for later. P
 ## Docs and code style
 
 - A `ponytail:` prefix in a comment in `internal/run/show/kick.go`.
-- DESIGN.md's open questions lack "Do downbeats arrive on the user's Music Assistant?", one of the questions the phase 2 check on real hardware answers.
 
 ## Separate task
 
