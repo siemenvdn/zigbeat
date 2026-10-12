@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/cli"
@@ -39,16 +39,17 @@ func (n *notes) say(format string, args ...any) {
 // failed reports a connection that did not work and returns how long to wait.
 func (n *notes) failed(err error) time.Duration {
 	var ce *ws.CloseError
+	var se *ws.StatusError
 	switch {
 	case errors.As(err, &ce) && ce.Code == tokenRefused:
-		n.say("token refused (%s); check the token in music_assistant.token_env, trying again every 60 s", ce.Reason)
+		n.say("token refused (%s); check the token in music_assistant.token_env, trying again every %s", ce.Reason, cli.Seconds(refusedEvery))
 		return refusedEvery
-	case strings.Contains(err.Error(), "404"):
-		n.say("no visualizer relay (%v); is the MilkDrop Visualizer plugin enabled? Trying again every 5 s", err)
+	case errors.As(err, &se) && se.Code == http.StatusNotFound:
+		n.say("no visualizer relay (%v); is the MilkDrop Visualizer plugin enabled? Trying again every %s", err, cli.Seconds(cli.RedialEvery))
 	default:
-		n.say("connection lost (%v), reconnecting every 5 s", err)
+		n.say("connection lost (%v), reconnecting every %s", err, cli.Seconds(cli.RedialEvery))
 	}
-	return retryEvery
+	return cli.RedialEvery
 }
 
 func (n *notes) noPlayer(player string) {

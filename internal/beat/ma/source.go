@@ -11,9 +11,12 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/beat"
 )
 
-var (
-	retryEvery   = 5 * time.Second  // after a lost connection or no player
-	refusedEvery = 60 * time.Second // after a refused token
+const (
+	// refusedEvery waits for a fixed token far longer than cli.RedialEvery, which
+	// follows a lost connection or no player.
+	refusedEvery = 60 * time.Second
+	// msgBuffer holds the burst of beats MA sends right after connecting.
+	msgBuffer = 64
 )
 
 // Source delivers the beats that Music Assistant's analysis found in what it plays.
@@ -21,7 +24,7 @@ type Source struct {
 	URL       string        // ws://host:port of MA's webserver
 	Token     string        // a long-lived MA token
 	Player    string        // MA player id; empty follows the player that is playing
-	Lookahead time.Duration // how long before At each beat is delivered; 0 means 1 s
+	Lookahead time.Duration // how long before At each beat is delivered; 0 means beat.Lookahead
 	Notes     io.Writer     // where changes are reported; nil means stdout
 }
 
@@ -37,7 +40,7 @@ func (s Source) lead() time.Duration {
 	if s.Lookahead > 0 {
 		return s.Lookahead
 	}
-	return time.Second
+	return beat.Lookahead
 }
 
 // Beats connects to MA and keeps connecting until ctx is done; only then is the channel closed.
@@ -69,7 +72,7 @@ func (s Source) session(ctx context.Context, out chan<- beat.Beat, n *notes) tim
 	defer conn.Close()
 	done := make(chan struct{})
 	defer close(done)
-	msgs := make(chan message, 64)
+	msgs := make(chan message, msgBuffer)
 	go read(conn, clk, msgs, done)
 	ss := &session{src: s, conn: conn, out: out, n: n, clk: clk,
 		emit: stopped(), ping: stopped(), report: stopped()}

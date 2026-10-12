@@ -12,9 +12,17 @@ import (
 )
 
 const (
-	beatTag = 17               // [17][ts:8][flags], bit 0 of flags is a downbeat
-	waveTag = 22               // [22][ts:8][1024 samples]
+	beatTag   = 17            // [17][ts:8][flags], bit 0 of flags is a downbeat
+	waveTag   = 22            // [22][ts:8][1024 samples]
+	headerLen = 1 + 8         // tag and timestamp
+	beatLen   = headerLen + 1 // and the flags
+	downBit   = 1
+
 	silence = 60 * time.Second // MA pings every 25 s
+	// dialWait and authWait: MA answers on a LAN in milliseconds, so this long
+	// means it is not there.
+	dialWait = 10 * time.Second
+	authWait = 10 * time.Second
 )
 
 type kind int
@@ -45,7 +53,7 @@ func (s Source) dial() (*ws.Conn, error) {
 	if s.Player != "" {
 		u += "?player=" + url.QueryEscape(s.Player)
 	}
-	c, err := ws.Dial(u, 10*time.Second)
+	c, err := ws.Dial(u, dialWait)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +61,7 @@ func (s Source) dial() (*ws.Conn, error) {
 	err = c.WriteText(auth)
 	var m ws.Message
 	if err == nil {
-		_ = c.SetReadDeadline(time.Now().Add(10 * time.Second))
+		_ = c.SetReadDeadline(time.Now().Add(authWait))
 		m, err = c.Read()
 	}
 	if err == nil && parseType(m) != "auth_ok" {
@@ -105,13 +113,13 @@ func parseType(m ws.Message) string {
 
 func parse(m ws.Message, now int64) message {
 	if m.Binary {
-		if len(m.Data) < 9 {
+		if len(m.Data) < headerLen {
 			return message{}
 		}
-		ts := int64(binary.BigEndian.Uint64(m.Data[1:9]))
+		ts := int64(binary.BigEndian.Uint64(m.Data[1:headerLen]))
 		switch {
-		case m.Data[0] == beatTag && len(m.Data) >= 10:
-			return message{kind: kindBeat, f: frame{ts: ts, down: m.Data[9]&1 != 0}}
+		case m.Data[0] == beatTag && len(m.Data) >= beatLen:
+			return message{kind: kindBeat, f: frame{ts: ts, down: m.Data[headerLen]&downBit != 0}}
 		case m.Data[0] == waveTag:
 			return message{kind: kindWave}
 		}

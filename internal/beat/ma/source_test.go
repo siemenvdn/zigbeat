@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/beat"
+	"github.com/siemenvdn/zigbeat/internal/cli"
 )
 
 const lead = 300 * time.Millisecond
@@ -115,8 +116,9 @@ func TestRefusedAndNoPlayer(t *testing.T) {
 }
 
 func TestReconnect(t *testing.T) {
-	retryEvery = 50 * time.Millisecond
-	t.Cleanup(func() { retryEvery = 5 * time.Second })
+	old := cli.RedialEvery
+	cli.RedialEvery = 50 * time.Millisecond
+	t.Cleanup(func() { cli.RedialEvery = old })
 	f := startMA(t)
 	beats, notes := listen(t, f, "", "good")
 	(<-f.conns).Close()

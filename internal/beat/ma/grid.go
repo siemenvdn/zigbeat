@@ -49,7 +49,7 @@ func (g *grid) peek() (frame, bool) {
 }
 
 // deliver numbers the next beat, landing at at, and moves past it. A downbeat
-// gets the next multiple of 4, so moments stay on the first beat of a bar; the
+// gets the next multiple of beat.PerBar, so moments stay on the first beat of a bar; the
 // first beat of a track counts back from the first downbeat.
 func (g *grid) deliver(at time.Time) beat.Beat {
 	f := g.known[g.next]
@@ -58,7 +58,7 @@ func (g *grid) deliver(at time.Time) beat.Beat {
 	case f.down && !g.started:
 		idx = 0
 	case f.down:
-		idx = floorDiv(g.last, 4)*4 + 4
+		idx = floorDiv(g.last, beat.PerBar)*beat.PerBar + beat.PerBar
 	case g.started:
 		idx = g.last + 1
 	default:
@@ -71,10 +71,10 @@ func (g *grid) deliver(at time.Time) beat.Beat {
 	}
 	g.last, g.started = idx, true
 	g.next++
-	return beat.Beat{At: at, BPM: g.bpm(), Index: idx, InBar: (idx%4 + 4) % 4, Energy: 1}
+	return beat.Beat{At: at, BPM: g.bpm(), Index: idx, InBar: (idx%beat.PerBar + beat.PerBar) % beat.PerBar, Energy: 1}
 }
 
-// bpm is the tempo of the track: 60 s over the median interval of its beats.
+// bpm is the tempo of the track: a minute over the median interval of its beats.
 func (g *grid) bpm() float64 {
 	if g.tempo == 0 {
 		var iv []int64
@@ -84,11 +84,11 @@ func (g *grid) bpm() float64 {
 		switch {
 		case len(iv) > 0:
 			slices.Sort(iv)
-			g.tempo = 60e6 / float64(iv[len(iv)/2])
+			g.tempo = float64(time.Minute.Microseconds()) / float64(iv[len(iv)/2])
 		case g.prev > 0:
 			g.tempo = g.prev
 		default:
-			g.tempo = 120
+			g.tempo = beat.DefaultBPM
 		}
 	}
 	return g.tempo

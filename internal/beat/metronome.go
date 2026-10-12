@@ -16,7 +16,7 @@ func (m Metronome) String() string { return fmt.Sprintf("metronome at %g BPM", m
 
 func (m Metronome) beat(start time.Time, i int) Beat {
 	period := time.Duration(float64(time.Minute) / m.BPM)
-	return Beat{At: start.Add(time.Duration(i) * period), BPM: m.BPM, Index: i, InBar: i % 4, Energy: 1}
+	return Beat{At: start.Add(time.Duration(i) * period), BPM: m.BPM, Index: i, InBar: i % PerBar, Energy: 1}
 }
 
 func (m Metronome) Beats(ctx context.Context) <-chan Beat {

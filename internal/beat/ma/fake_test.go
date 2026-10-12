@@ -39,7 +39,7 @@ func startMA(t *testing.T) *fakeMA {
 		}
 		m, err := c.Read()
 		if err != nil || !strings.Contains(string(m.Data), `"token":"good"`) {
-			c.CloseWith(4001, "Invalid or expired token")
+			c.CloseWith(tokenRefused, "Invalid or expired token")
 			return
 		}
 		_ = c.WriteText([]byte(`{"type": "auth_ok"}`))

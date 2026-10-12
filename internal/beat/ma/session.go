@@ -5,12 +5,17 @@ import (
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/beat"
+	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/ws"
 )
 
 const (
 	reportAfter = 200 * time.Millisecond // a burst of beats is reported once it is quiet this long
+	// noBeatsHint is well past MA's analysis of a first play: beats are not coming.
 	noBeatsHint = 30 * time.Second
+	// minLeadPct of the lead must be left when a beat is sent; a later one came
+	// too late to plan like the rest, and is numbered but not sent.
+	minLeadPct = 90
 )
 
 // session is one connection to the relay. Only its loop goroutine touches it.
@@ -64,7 +69,7 @@ func (s *session) handle(m message) (wait time.Duration, done bool) {
 		return s.n.failed(m.err), true
 	case kindError:
 		s.n.noPlayer(s.src.Player)
-		return retryEvery, true
+		return cli.RedialEvery, true
 	case kindTime:
 		s.clk.add(m.t1, m.t2, m.t3, m.t4)
 		if !s.synced {
@@ -87,7 +92,7 @@ func (s *session) handle(m message) (wait time.Duration, done bool) {
 		}
 		if !s.beatSeen && !s.hinted && time.Since(s.waveSince) > noBeatsHint {
 			s.hinted = true
-			s.n.say("audio but no beats after 30 s; is the Smart Fades provider enabled?")
+			s.n.say("audio but no beats after %s; is the Smart Fades provider enabled?", cli.Seconds(noBeatsHint))
 		}
 	case kindClear:
 		s.forget("new track or seek, waiting for beats")
@@ -131,7 +136,7 @@ func (s *session) deliver(ctx context.Context) bool {
 			break
 		}
 		b := s.g.deliver(at)
-		if lead < s.src.lead()*9/10 {
+		if lead < s.src.lead()*minLeadPct/100 {
 			continue
 		}
 		select {
