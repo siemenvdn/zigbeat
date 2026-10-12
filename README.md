@@ -244,7 +244,7 @@ Next to the switch you set the style of the show, before it starts or while it p
 | `number.zigbeat_brightness` | The base brightness of the colour bulbs, 1 to 100 % | `effects.brightness` |
 | `number.zigbeat_pace` | The least time between moments, 1 to 16 s. A moment still falls on 1, 2, 4, 8 or 16 beats, so the pace moves in steps | `effects.cadence` |
 
-A choice stays until you change it in Home Assistant, also when zigbeat or Home Assistant restarts: the broker keeps it, and over its own restart too when it has persistence, as Home Assistant's Mosquitto add-on does. What you never chose comes from `config.yaml`; `zigbeat run` uses only `config.yaml`. To give one setting back to the config, wipe its choice, for example the brightness:
+A choice stays until you change it in Home Assistant, also when zigbeat or Home Assistant restarts: the broker keeps it, and over its own restart too when it has persistence, as Home Assistant's Mosquitto add-on does. What you never chose comes from `config.yaml`; editing a key there that you chose in Home Assistant changes nothing until you wipe the choice. `zigbeat run` uses only `config.yaml`. To give one setting back to the config, wipe its choice, for example the brightness:
 
 ```bash
 mosquitto_pub -r -n -t zigbeat/style/brightness/set
