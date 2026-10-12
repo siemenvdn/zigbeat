@@ -1,12 +1,20 @@
 # Backlog
 
-Small known issues, found in the reviews of phases 1a to 2 and left for later. Plans and decisions live in [DESIGN.md](DESIGN.md).
+Small known issues, found in the reviews of phases 1a to 3b and left for later. Plans and decisions live in [DESIGN.md](DESIGN.md).
 
 ## zigbeat run
 
 - **A silent broker drop can still pause the show.** A drop that only the keepalive finds (up to 30 s) gives the lights losses that raise backoff. After the reconnect their failure counts start over and lights left alone are read at once, but a pause holds those reads until the backoff steps down, up to a minute. Idea: a loss while the canary does not answer either is the network's, not the light's.
 - **A pause freezes lights mid-effect.** During a backoff pause, a light left alone or an outage, breathe lights keep moving until 100% or their minimum, and colour lights can stay at the kick level because the queued return is cleared. Breathe lights get their low end when the pause ends (`Planner.Settle`); during it they still run free. Spec decision: may a pause send one stop or anchor per breathe light?
+- **Five album colours for six.** `AlbumColors` (`internal/run/show/album.go`) fills up with the dominant hue ±30°, ±60° and ±90°. A cover with hues between those steps blocks two of them each: red, amber and pink (0°, 45°, 315°) with `album_colors: 6` give five colours. Add ±120°, ±150° and 180° to `fillSteps`; then six always fit.
+- **No test that a dropped part leaves the rest.** Each part of a large unit is its own moment unit (`internal/run/show/parts.go`), but only the separate unit ids are tested. An engine test that drops the first part as late and still sends the second would pin it.
 - **Build counts a dropped unit as changed.** A moment dropped as late still sets its colour in `Planner.current` (`internal/run/show/kick.go`), so `build` takes that light for done and skips it until the target moves on; the light keeps its old colour for a round.
+
+## Music Assistant source and fake-ma
+
+- **An empty waveform frame makes energy NaN.** `parse` (`internal/music/ma/message.go`) accepts a waveform frame without samples, and `meter.add` then divides 0 by 0, so every beat until the next clear has energy NaN. Music Assistant always sends 1024 samples; skip a frame without them.
+- **fake-ma sends a new track's waveform before its clear.** `play` (`cmd/fake-ma/timeline.go`) starts the new music before `clear`, so `waveform` can send the first 5 s of the next track while the old one still plays; zigbeat's meter then drops them at the clear. Music Assistant clears first. Call `music` after `clear`.
+- **`bar()` repeats the beat period.** `internal/music/ma/deliver.go` computes a bar from the tempo itself; `music.Track{BPM: ...}.Period()` already does.
 
 ## zigbeat serve
 
