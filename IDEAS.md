@@ -19,6 +19,8 @@ Ideas for later, grouped by topic. Nothing here is planned yet; plans live in th
 ## Effects
 
 - **Energy that steers the effects,** within the room of a moment and the breathe range. Built: a quiet part plays calmer (`follow_energy`). Still ideas: how high the kick goes, which variant plays, how deep the breathe bulbs go, and a burst at a drop (energy rising by 0.5 or more between bars). `zigbeat beats` prints the energy per beat.
+- **An effect per energy level.** In a quiet part every colour bulb takes one colour together and fades slowly over the whole moment; at full energy the variants as now; maybe a burst at a drop. The user's wish after the first evening with Music Assistant.
+- **Kicks off the beat grid,** for hip-hop and drum and bass, whose kicks are not on every beat: onsets in the low band of the waveform frames, which arrive 5 s ahead, scheduled like the moments and within their room. Single hi-hats are out of reach: sixteenths at 125 BPM are 8 a second, more than a bulb shows and than the budget holds for the whole room. How busy the hi-hats are could steer the effects like the energy does.
 - **A random variant per phrase**, never the same twice in a row, in place of the fixed rotation (`rotation` in `internal/run/show/rotation.go`).
 - **Pale fill-ins:** when a cover has fewer hues than `album_colors`, pale versions of its hues instead of other hues, as Music Assistant's Hue plugin does.
 - **A section event** for a detected drop or breakdown, next to `Track` and `Beat` in the music stream.
@@ -33,3 +35,7 @@ Ideas for later, grouped by topic. Nothing here is planned yet; plans live in th
 - **The palette or the fixture mode from Home Assistant.**
 - **A sensor with the variant that plays now,** from the planner's variant note.
 - **Presets per kind of party,** such as "dinner" and "dance": a select that sets several choices at once.
+
+## Interface
+
+- **A settings page** for everything in the config: the lights and fixtures, their roles and modes, which effect plays at which energy, the palette. Served by `zigbeat serve` next to Zigbee2MQTT, writing `config.yaml`; Home Assistant keeps the knobs for during the show. First the effect model has to settle: what can be set per energy level and per fixture.

@@ -158,6 +158,26 @@ zigbeat run -config config.yaml
 
 Ctrl-C, `kill` or a closed SSH session stops the show and puts every light back, lights that were off included. A second Ctrl-C quits at once without restoring.
 
+### What the lights do
+
+The show plays in **moments**: one every `pace` beats (every 2 by default), always on the beat. At a moment at most three colour bulbs change. Per part:
+
+| Part | What you see | Set with |
+|---|---|---|
+| Colour change | A colour bulb blends to its next colour in 0.7 s: the album's colours, or `palette` | `album_palette`, `album_colors`, `palette` |
+| Kick | With its colour change the bulb jumps 30 % brighter on the beat, and falls back half a moment later | `brightness` (the level it falls back to) |
+| `build` | One bulb per moment takes a shared colour until every bulb shows it, then the next colour | `variant` |
+| `walk` | About half the bulbs change, walking through the room in the order of the config | `variant` |
+| `shuffle` | As many bulbs, in a random order; every bulb once before any comes back | `variant` |
+| `swap` | The bulbs in two groups that take turns, each group in one colour, like a checkerboard | `variant` |
+| `rotation` | `build` for the first 16 bars of a track, then `walk`, `shuffle` and `swap`, 16 bars each | `variant` (the default) |
+| Fixture mode | `separate`: one bulb of a fixture at a time; `together`: the whole fixture at once in one colour; `alternate`: switches between the two every 4 moments | `mode` per fixture |
+| `pulse` | The dimmable bulbs jump to the top of `breathe_range` with the kick and fall back to the bottom | `breathe_variant` |
+| `flip` | Every other dimmable bulb high, the rest low; they swap at each moment | `breathe_variant` |
+| Quiet part | In a breakdown or a quiet verse: half as many moments, no kick, the dimmable bulbs low | `follow_energy` |
+
+Every setting except the fixture mode and the palette is also in Home Assistant. When the network gets busy, the white goes first, then the kick; the colour changes stay. The exact rules are in [DESIGN.md](DESIGN.md#effects).
+
 ### When something goes wrong
 
 The show keeps going and gets calmer instead:
