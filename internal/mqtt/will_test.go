@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"net"
 	"testing"
+	"time"
 )
 
 func TestWillAndRetain(t *testing.T) {
@@ -49,7 +50,7 @@ func TestWillAndRetain(t *testing.T) {
 
 	connect := <-got
 	want := appendString(nil, "MQTT")
-	want = append(want, protocolLevel, 0x02|0x04|0x20|0x40|0x80, 0, 30)
+	want = append(want, protocolLevel, 0x02|0x04|0x20|0x40|0x80, 0, byte(defaultKeepAlive/time.Second))
 	for _, s := range []string{"id", "zigbeat/availability", "offline", "u", "p"} {
 		want = appendString(want, s)
 	}

@@ -20,6 +20,31 @@ const (
 	typeDisconnect  = 14
 	protocolLevel   = 4
 	maxRemainingLen = 268435455
+	maxLenBytes     = 4 // bytes of the remaining length, at most
+	maxHeader       = 1 + maxLenBytes
+
+	// CONNECT flags.
+	flagCleanSession = 0x02
+	flagWill         = 0x04
+	flagWillRetain   = 0x20
+	flagPassword     = 0x40
+	flagUsername     = 0x80
+
+	flagRetain    = 0x01 // PUBLISH
+	subscribeBits = 0x02 // reserved bits of SUBSCRIBE
+	subackFailure = 0x80
+)
+
+const (
+	// defaultKeepAlive notices a dead broker within half a minute (keepAliveGrace).
+	defaultKeepAlive = 20 * time.Second
+	// keepAliveGrace is the read deadline in keepalives, as MQTT 3.1.1 3.1.2.10 allows.
+	keepAliveGrace = 1.5
+	// pingsPerKeepAlive leaves room for one late ping within the keepalive.
+	pingsPerKeepAlive = 2
+	// ioWait bounds a dial, a write and a broker's answer: a LAN broker answers in
+	// milliseconds, so this long means it is gone.
+	ioWait = 5 * time.Second
 )
 
 // Handler is called from the read loop and must not block.

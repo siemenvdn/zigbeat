@@ -19,9 +19,9 @@ var connackErrors = map[byte]string{
 
 func Dial(addr string, opts Options) (*Client, error) {
 	if opts.KeepAlive == 0 {
-		opts.KeepAlive = 30 * time.Second
+		opts.KeepAlive = defaultKeepAlive
 	}
-	conn, err := net.DialTimeout("tcp", addr, 5*time.Second)
+	conn, err := net.DialTimeout("tcp", addr, ioWait)
 	if err != nil {
 		return nil, err
 	}
@@ -47,15 +47,15 @@ func Dial(addr string, opts Options) (*Client, error) {
 func (c *Client) handshake(o Options) error {
 	var vh []byte
 	vh = appendString(vh, "MQTT")
-	flags := byte(0x02) // clean session
+	flags := byte(flagCleanSession)
 	if o.WillTopic != "" {
-		flags |= 0x04 | 0x20 // will, retained, QoS 0
+		flags |= flagWill | flagWillRetain // QoS 0
 	}
 	if o.Username != "" {
-		flags |= 0x80
+		flags |= flagUsername
 	}
 	if o.Password != "" {
-		flags |= 0x40
+		flags |= flagPassword
 	}
 	vh = append(vh, protocolLevel, flags)
 	vh = binary.BigEndian.AppendUint16(vh, uint16(o.KeepAlive/time.Second))
@@ -73,7 +73,7 @@ func (c *Client) handshake(o Options) error {
 	if err := c.write(typeConnect<<4, vh); err != nil {
 		return err
 	}
-	_ = c.conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	_ = c.conn.SetReadDeadline(time.Now().Add(ioWait))
 	h, body, err := c.readPacket()
 	if err != nil {
 		return fmt.Errorf("waiting for CONNACK: %w", err)
@@ -91,7 +91,7 @@ func (c *Client) handshake(o Options) error {
 }
 
 func (c *Client) pingLoop() {
-	t := time.NewTicker(c.ka / 2)
+	t := time.NewTicker(c.ka / pingsPerKeepAlive)
 	defer t.Stop()
 	for {
 		select {

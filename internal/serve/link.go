@@ -34,7 +34,6 @@ func newLink(cfg config.Config, version string) *link {
 			ClientID:    fmt.Sprintf("zigbeat-serve-%d", os.Getpid()),
 			Username:    cfg.MQTT.Username,
 			Password:    cfg.MQTT.Password,
-			KeepAlive:   20 * time.Second,
 			WillTopic:   ha.AvailTopic,
 			WillPayload: []byte("offline"),
 		},

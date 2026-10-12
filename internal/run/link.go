@@ -40,10 +40,9 @@ func dialLink(cfg config.MQTT, watch func() []string, push func(event)) (*mqttLi
 
 func (l *mqttLink) dial() error {
 	client, err := mqtt.Dial(l.cfg.Broker, mqtt.Options{
-		ClientID:  fmt.Sprintf("zigbeat-run-%d", os.Getpid()),
-		Username:  l.cfg.Username,
-		Password:  l.cfg.Password,
-		KeepAlive: 20 * time.Second,
+		ClientID: fmt.Sprintf("zigbeat-run-%d", os.Getpid()),
+		Username: l.cfg.Username,
+		Password: l.cfg.Password,
 	})
 	if err != nil {
 		return fmt.Errorf("mqtt: %v", err)

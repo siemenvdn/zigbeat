@@ -43,10 +43,9 @@ type session struct {
 // connect dials the broker and subscribes to the targets, the canary and the Zigbee2MQTT log.
 func connect(ctx context.Context, cfg config) (*session, error) {
 	client, err := mqtt.Dial(cfg.broker, mqtt.Options{
-		ClientID:  fmt.Sprintf("zigbeat-probe-%d", os.Getpid()),
-		Username:  cfg.user,
-		Password:  cfg.password,
-		KeepAlive: 20 * time.Second,
+		ClientID: fmt.Sprintf("zigbeat-probe-%d", os.Getpid()),
+		Username: cfg.user,
+		Password: cfg.password,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("mqtt: %v", err)

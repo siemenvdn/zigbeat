@@ -24,16 +24,16 @@ func (c *Client) Subscribe(filter string, fn Handler) error {
 	vh = binary.BigEndian.AppendUint16(vh, id)
 	vh = appendString(vh, filter)
 	vh = append(vh, 0)
-	if err := c.write(typeSubscribe<<4|0x02, vh); err != nil {
+	if err := c.write(typeSubscribe<<4|subscribeBits, vh); err != nil {
 		return err
 	}
 	select {
 	case codes := <-ack:
-		if len(codes) == 0 || codes[0] == 0x80 {
+		if len(codes) == 0 || codes[0] == subackFailure {
 			return fmt.Errorf("subscription to %q refused", filter)
 		}
 		return nil
-	case <-time.After(5 * time.Second):
+	case <-time.After(ioWait):
 		return fmt.Errorf("no SUBACK for %q", filter)
 	case <-c.done:
 		return c.Err()

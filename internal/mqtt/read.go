@@ -9,7 +9,7 @@ import (
 
 func (c *Client) readLoop() {
 	for {
-		_ = c.conn.SetReadDeadline(time.Now().Add(c.ka * 3 / 2))
+		_ = c.conn.SetReadDeadline(time.Now().Add(time.Duration(float64(c.ka) * keepAliveGrace)))
 		h, body, err := c.readPacket()
 		if err != nil {
 			c.shutdown(fmt.Errorf("connection lost: %w", err))

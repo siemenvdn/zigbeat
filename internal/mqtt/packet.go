@@ -11,13 +11,13 @@ func (c *Client) write(header byte, body []byte) error {
 	if len(body) > maxRemainingLen {
 		return errors.New("packet too large")
 	}
-	pkt := make([]byte, 0, len(body)+5)
+	pkt := make([]byte, 0, len(body)+maxHeader)
 	pkt = append(pkt, header)
 	pkt = appendVarint(pkt, len(body))
 	pkt = append(pkt, body...)
 	c.wmu.Lock()
 	defer c.wmu.Unlock()
-	_ = c.conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+	_ = c.conn.SetWriteDeadline(time.Now().Add(ioWait))
 	_, err := c.conn.Write(pkt)
 	if err != nil {
 		c.shutdown(err)
@@ -46,7 +46,7 @@ func appendVarint(b []byte, n int) []byte {
 
 func readVarint(r io.ByteReader) (int, error) {
 	n, mul := 0, 1
-	for i := 0; i < 4; i++ {
+	for range maxLenBytes {
 		d, err := r.ReadByte()
 		if err != nil {
 			return 0, err
