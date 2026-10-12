@@ -32,6 +32,9 @@ How zigbeat works and why. To use it, start with the [README](README.md).
 | `zigbeat serve` is a separate command; `zigbeat run` stays the one-shot CLI | The service that Home Assistant switches has a different life: it waits, plays, restores and waits again |
 | serve has its own MQTT connection; each show opens its own | A stuck Home Assistant link never slows the show, and an idle serve subscribes to no light |
 | serve always starts with the show off | A restart must never start a show on its own |
+| The beats come from Music Assistant's own analysis, through its visualizer relay | Real beat times with downbeats, on any speaker Music Assistant plays to and from any of its providers. See [Beat sources](#beat-sources) |
+| Own WebSocket client, no dependency | The relay needs no extensions, compression or TLS; about 200 lines, like the MQTT client |
+| The audio offset is calibrated by ear while `zigbeat run` plays | One number per speaker setup; Home Assistant stays on and off only |
 | Roles and fixtures instead of device names in code | Works in any home |
 | Measure first, then build | The budget shapes the effect design |
 | Go, standard library plus `go.yaml.in/yaml/v3` | A single static binary; YAML is friendlier than JSON to edit by hand |
@@ -55,9 +58,9 @@ Anything without a role is never touched. That is also how relays and plugs stay
 
 | Part | Job |
 |---|---|
-| `BeatSource` | Interface that delivers beats at least 1 s before they become audible. Sources are pluggable; the first one is a fixed-BPM metronome. |
+| `BeatSource` | Interface that delivers beats at least 1 s before they become audible. Music Assistant is the source when the config has it, else a fixed-BPM metronome. See [Beat sources](#beat-sources). |
 | Planner | Decides per moment which bulbs change: colour, brightness kick, breathing direction. See [Effects](#effects). |
-| Scheduler | Sends each message early by its number of Zigbee frames times the measured latency per frame, plus a configurable audio offset for TV and amplifier delay. The estimate starts at `budget.latency_ms` and follows the median of the last 20 confirmations. A moment that cannot leave within 150 ms of its send time is dropped as a whole; returns and breathe are never dropped. Due messages for one bulb are merged. |
+| Scheduler | Sends each message early by its number of Zigbee frames times the measured latency per frame, plus a configurable audio offset for TV and amplifier delay, which `zigbeat run` can change while it plays. The estimate starts at `budget.latency_ms` and follows the median of the last 20 confirmations. A moment that cannot leave within 150 ms of its send time is dropped as a whole; returns and breathe are never dropped. Due messages for one bulb are merged. |
 | Rate limiter | Token bucket in Zigbee frames at `budget.max_rate`, holding one moment (6 frames). A hard ceiling, never a target. Colour plus brightness in one message is two frames. |
 | Closed loop | At most one message in flight per bulb and three in total. A message is confirmed by the bulb's next state; a `brightness_move` publishes none, so it frees its slot after 1 s. Unanswered after 5 s counts as lost. |
 | Backoff | Level 0 normal, 1 no kick and one message in flight, 2 half as many moments, 3 pause: nothing is sent but canary reads. Signals: latency per frame above twice the show's own starting median, a lost message, a slow canary, a Zigbee2MQTT error. One step per 10 s at most; one step back after a quiet minute. Three errors about our bulbs within a minute pause at once. Errors about other devices raise it to 1 at most. |
@@ -88,7 +91,8 @@ A moment falls every 1, 2, 4, 8 or 16 beats: the shortest that lasts at least `e
 
 | Tempo | Moment |
 |---|---|
-| 30 to 60 BPM | Every 2 beats |
+| 30 BPM | Every beat |
+| 31 to 60 BPM | Every 2 beats |
 | 61 to 120 BPM | Every bar |
 | 121 to 240 BPM | Every 2 bars |
 | 241 to 300 BPM | Every 4 bars |
@@ -109,6 +113,7 @@ Backoff level 2 doubles the interval.
 - Brightness moves with Zigbee's `brightness_move`: one message starts a smooth fade that the bulb performs itself, at a rate that reaches the other end of `breathe_range` exactly at the next moment.
 - Each moment flips the direction: one message per bulb.
 - Every 4th moment also sets the low end as an absolute brightness, against drift.
+- When the beats stop (a pause, a new track, a first play waiting for its analysis), each bulb gets its low end once, a beat after the last beat; otherwise its fade would run on to the bulb's own limit.
 - Later: bulbs in the same fixture breathing in counter-phase.
 
 ## Budget
@@ -124,17 +129,24 @@ The budget is half of the highest clean rate the probe measured, so this room wa
 
 ## Beat sources
 
-The biggest open piece. Candidates:
+The source is Music Assistant (MA) 2.10 or later. Its Smart Fades analysis runs Beat This!, a neural beat tracker with downbeats, on the audio MA decodes for playback, and its MilkDrop Visualizer plugin relays the beats over a WebSocket on MA's webserver. That works on any speaker MA plays to, a Chromecast included, and for every MA provider, but not for audio MA only passes on: Spotify Connect into MA and radio have no beats.
 
-**A. Music Assistant (2.9 or later).** Music Assistant runs beat analysis on tracks and streams visualizer data over its Sendspin protocol. zigbeat would join as a Sendspin visualizer client.
-- Music has to play through Music Assistant, for example via its Spotify Connect plugin.
-- In an earlier experiment, visualizer players could not attach to a Chromecast as the playing device. Whether that is fixed is unknown.
+| Step | How |
+|---|---|
+| Connect | `ws://<ma>:8095/milkdrop_visualizer`, optionally `?player=<id>`; a long-lived MA token as the first message. Without a player, MA picks the one that is playing |
+| Clock | Bursts of 8 `client/time` requests every 10 s; the answer with the shortest round trip in the last 30 s maps MA's monotonic clock onto zigbeat's |
+| Beats | Binary frames `[17][timestamp µs][downbeat]`, every remaining beat of a track at once when the analysis is there: on a first play about 5 to 10 s into the track, at once when it is cached. `stream/clear` (new track, seek, resume) and `stream/end` drop them |
+| Numbering | `Index` counts per track and jumps to the next multiple of 4 at every downbeat, so moments stay on the first beat of a bar. The tempo is the median interval of the track |
+| Delivery | Each beat 1 s before it sounds; a beat known later than 0.9 s ahead is skipped |
+| Trouble | Notes on change only; a lost connection or no player is retried every 5 s, a refused token every 60 s. The source never ends the show |
 
-**B. Tempo database plus playback position.** An external API (for example ReccoBeats, by Spotify track ID) provides the tempo; the Spotify integration in Home Assistant provides the position in the track. Together they give a beat grid. The phase of the first beat is uncertain and the API's reliability varies, but at a 2 to 5 s cadence a small phase error is much less visible.
+The relay anchors a track's beats on the position the player reports. A constant error, such as TV and amplifier delay, is the audio offset; an error that differs per track is not (an open question).
 
-**Ruled out:** microphones and other extra hardware; Spotify's audio analysis API (closed in November 2024).
+**Rejected:**
 
-Until a source is chosen, the engine is built against the `BeatSource` interface with a metronome.
+- **Sendspin visualizer.** It only gets data inside a Sendspin group; a Chromecast joins only through MA's experimental Sendspin over Cast, which is rarely in sync without a delay set by hand per speaker. Sendspin 1.0 also requires Noise encryption and pairing. A later upgrade behind the same `BeatSource`.
+- **Tempo database plus playback position.** No free database gives the time of the first beat; Home Assistant's Spotify integration reports the position in whole seconds every 30 s; databases disagree by 0.1 to 0.2 BPM. A change every 2 to 5 s is judged like a single flash and beep (noticed from about 45 ms late or 125 ms early, ITU-R BT.1359), so a random phase misses most of the time and a rounded tempo drifts off within half a minute.
+- Microphones and other extra hardware; Spotify's audio analysis API (closed in November 2024).
 
 ## Configuration
 
@@ -150,7 +162,12 @@ mqtt:
 budget:
   max_rate: 15          # Zigbee frames per second, from `zigbeat probe`, required
   latency_ms: 66        # p50 at that load, from `zigbeat probe`, required
-  audio_offset_ms: 0    # extra delay of TV and speakers, calibrate by ear
+  audio_offset_ms: 0    # extra delay of TV and speakers, -500 to 2000, calibrate in zigbeat run
+
+music_assistant:        # optional; without it the show runs to a metronome
+  url: ws://music-assistant:8095
+  token_env: ZIGBEAT_MA_TOKEN
+  player: ""            # optional MA player id; empty follows the player that is playing
 
 canary: hallway-ceiling # optional
 
@@ -190,7 +207,7 @@ Safety rails:
 
 ## Roadmap
 
-Small known issues that are not planned yet: [BACKLOG.md](BACKLOG.md).
+Small known issues that are not planned yet: [BACKLOG.md](BACKLOG.md). Ideas for later: [IDEAS.md](IDEAS.md).
 
 ### Phase 0: network probe (done)
 
@@ -206,8 +223,8 @@ Small known issues that are not planned yet: [BACKLOG.md](BACKLOG.md).
 
 ### Phase 2: a real beat source
 
-- Implement source A or B (or both).
-- Audio offset calibration.
+- **Built:** Music Assistant as the beat source, live audio offset calibration, breathe settling in gaps, `zigbeat beats`. Tested against `cmd/fake-ma` and `cmd/fake-z2m`.
+- **To do:** the check on real speakers and lights.
 
 **Done when:** colour changes land on the beat by ear for three tracks of different tempo.
 
@@ -226,8 +243,9 @@ Small known issues that are not planned yet: [BACKLOG.md](BACKLOG.md).
 
 | Question | Matters for |
 |---|---|
-| Can a Sendspin visualizer listen along while a Chromecast plays? | Beat source A |
-| How reliable is a tempo database for beat timing at a 2 to 5 s cadence? | Beat source B |
+| How well does Music Assistant's Cast player report its position at a track start, and does the error differ per track? | One audio offset for every track |
+| How long does Smart Fades take on a Raspberry Pi 5 before the beats of a first play arrive? | The quiet start of new tracks |
+| Does Music Assistant's experimental visualizer relay stay as it is in later releases? | The beat source |
 | Does Zigbee2MQTT confirm a command only after the bulb answered, or earlier? | Trusting the probe's latency |
 | Does the colour still blend when colour and brightness arrive in one message (IKEA)? | The kick |
 | Is the 50 to 70 ms ripple across a `together` fixture visible? | Fixture mode |
@@ -256,15 +274,19 @@ Bulb behaviour that zigbeat relies on (seen on IKEA bulbs, to be verified on oth
 
 ```
 cmd/
-  zigbeat/        the binary: zigbeat probe, run and serve, later setup
-  fake-z2m/       simulated Zigbee2MQTT: one coordinator queue, time per frame, optional loss, groups
+  zigbeat/        the binary: zigbeat probe, run, serve and beats, later setup
+  fake-z2m/       simulated Zigbee2MQTT: one coordinator queue, time per frame, optional loss, groups, a landing log
+  fake-ma/        simulated Music Assistant relay: tracks, analysis delay, seeks, gaps, its own clock
 internal/
   cli/            what the subcommands share: stop signals, flag errors, the time stamp, the 5 s redial
   mqtt/           minimal MQTT 3.1.1 client (QoS 0, retained publish and will, keepalive, wildcards)
+  ws/             minimal WebSocket client, and the server side for tests and fake-ma
   z2m/            Zigbee2MQTT topics, groups, frame count, the canary limit
   lights/         snapshot and restore of lights, shared by probe and run
   config/         the YAML configuration
   beat/           beats, the Source interface, the metronome
+    ma/           the Music Assistant source: connection, clock sync, beat grid
+  beats/          zigbeat beats: the beats from Music Assistant, printed without touching a light
   run/            zigbeat run: connection, startup, the real-time loop, stop and restore
     show/         the planner: moments, chase, colours, kick, breathe
     flow/         frame budget, one message in flight per light, backoff, canary
@@ -291,4 +313,11 @@ Packages are small and split by concern; a file rarely passes 150 lines.
 - [Music Assistant 2.9](https://www.music-assistant.io/blog/2026/06/10/music-assistant-2-9/)
 - [Music Assistant: Hue Lights Sync plugin](https://www.music-assistant.io/plugins/hue-entertainment/)
 - [Music Assistant PR #3901: WLED Audio Sync (closed)](https://github.com/music-assistant/server/pull/3901)
+- [Music Assistant: the MilkDrop visualizer relay (relay.py, tap.py)](https://github.com/music-assistant/server/tree/dev/music_assistant/providers/milkdrop_visualizer)
+- [Music Assistant: Smart Fades, the beat analysis](https://github.com/music-assistant/server/tree/dev/music_assistant/providers/smart_fades)
+- [Music Assistant PR #6081: Sendspin over Cast off by default](https://github.com/music-assistant/server/pull/6081)
+- [Sendspin protocol](https://github.com/Sendspin/spec)
+- [Home Assistant's Spotify integration: position in whole seconds, polled every 30 s](https://github.com/home-assistant/core/tree/dev/homeassistant/components/spotify)
+- [ITU-R BT.1359: relative timing of sound and vision](https://www.itu.int/rec/R-REC-BT.1359)
+- [RFC 6455: the WebSocket protocol](https://www.rfc-editor.org/rfc/rfc6455)
 - [go.yaml.in/yaml, the maintained continuation of go-yaml](https://github.com/Go-yaml/yaml)
