@@ -2,6 +2,7 @@ package flow
 
 import "time"
 
+// canaryEvery sees a busy network within seconds, for one frame of the budget.
 const canaryEvery = 5 * time.Second
 
 // Canary reads a far-away device now and then to see how the rest of the network is doing.
@@ -37,9 +38,9 @@ func (c *Canary) Answer(at time.Time) bool {
 	return c.last > c.limit
 }
 
-// Expire reports a read that stayed unanswered for lostAfter.
+// Expire reports a read that stayed unanswered for LostAfter.
 func (c *Canary) Expire(now time.Time) bool {
-	if c.wait && now.Sub(c.sent) >= lostAfter {
+	if c.wait && now.Sub(c.sent) >= LostAfter {
 		c.wait = false
 		return true
 	}

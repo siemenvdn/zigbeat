@@ -4,12 +4,20 @@ import "time"
 
 const (
 	stepEvery    = 10 * time.Second // at most one step down per this
-	recoverAfter = 60 * time.Second // quiet time before one step back up
-	PauseLevel   = 3
+	RecoverAfter = 60 * time.Second // quiet time before one step back up
+
+	// The levels of the ladder above 0, normal.
+	CalmLevel   = 1 // no kick, one message in flight
+	SparseLevel = 2 // half as many moments
+	PauseLevel  = 3 // nothing but canary reads
+
+	// NamedLimit errors about our lights within NamedWindow pause the show: one
+	// light fails now and then, several at once point at the network.
+	NamedLimit  = 3
+	NamedWindow = time.Minute
 )
 
-// Backoff is the ladder: 0 normal, 1 no kick and one message in flight,
-// 2 half as many moments, 3 pause. It never stops the show.
+// Backoff is the ladder from 0 to PauseLevel. It never stops the show.
 type Backoff struct {
 	level    int
 	lastDown time.Time
@@ -40,21 +48,21 @@ func (b *Backoff) Pause(now time.Time) {
 }
 
 // NamedError records an error about one of our lights and reports whether
-// three of them fell within a minute.
+// NamedLimit of them fell within NamedWindow.
 func (b *Backoff) NamedError(now time.Time) bool {
 	keep := b.named[:0]
 	for _, t := range b.named {
-		if now.Sub(t) < time.Minute {
+		if now.Sub(t) < NamedWindow {
 			keep = append(keep, t)
 		}
 	}
 	b.named = append(keep, now)
-	return len(b.named) >= 3
+	return len(b.named) >= NamedLimit
 }
 
-// Tick lowers the level by one after recoverAfter without signals. It returns true when it did.
+// Tick lowers the level by one after RecoverAfter without signals. It returns true when it did.
 func (b *Backoff) Tick(now time.Time) bool {
-	if b.level == 0 || now.Sub(b.quiet) < recoverAfter || now.Sub(b.lastUp) < recoverAfter {
+	if b.level == 0 || now.Sub(b.quiet) < RecoverAfter || now.Sub(b.lastUp) < RecoverAfter {
 		return false
 	}
 	b.level--

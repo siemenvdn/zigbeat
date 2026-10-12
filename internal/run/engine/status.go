@@ -39,7 +39,7 @@ func (e *Engine) Stats(now time.Time) Stats {
 	}
 }
 
-// Line is the status line printed every 10 s.
+// Line is the status line printed at each status tick.
 func (s Stats) Line() string {
 	canary := "-"
 	if s.Canary > 0 {

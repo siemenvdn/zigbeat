@@ -23,13 +23,17 @@ func (r *runner) restore() bool {
 	return true
 }
 
-// online reports whether the broker is there, dialling again for up to 30 s when it is not.
+// restoreRedial is how long the restore dials a lost broker: a restart is back
+// within it, and a stop does not seem to hang.
+const restoreRedial = 30 * time.Second
+
+// online reports whether the broker is there, dialling again for up to restoreRedial when it is not.
 func (r *runner) online() bool {
 	if !r.offline() {
 		return true
 	}
-	fmt.Printf("%s  mqtt connection lost; reconnecting for up to 30 s\n", cli.Stamp())
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	fmt.Printf("%s  mqtt connection lost; reconnecting for up to %s\n", cli.Stamp(), cli.Seconds(restoreRedial))
+	ctx, cancel := context.WithTimeout(context.Background(), restoreRedial)
 	defer cancel()
 	return r.link.Reconnect(ctx)
 }

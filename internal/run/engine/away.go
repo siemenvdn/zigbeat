@@ -1,6 +1,10 @@
 package engine
 
-import "time"
+import (
+	"time"
+
+	"github.com/siemenvdn/zigbeat/internal/cli"
+)
 
 const (
 	awayAfter = 2           // failures in a row before a light is left alone
@@ -20,7 +24,7 @@ func (e *Engine) failed(now time.Time, light string) bool {
 	}
 	e.away[light] = now.Add(retryAway)
 	delete(e.queue, light)
-	e.note(now, light+" does not answer; leaving it alone and retrying every minute")
+	e.note(now, light+" does not answer; leaving it alone and retrying every "+cli.Seconds(retryAway))
 	return true
 }
 

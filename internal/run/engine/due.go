@@ -5,6 +5,7 @@ import (
 	"maps"
 	"time"
 
+	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/run/flow"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
@@ -13,14 +14,14 @@ import (
 func (e *Engine) Due(now time.Time) []Send {
 	for _, l := range e.fl.Expire(now) {
 		if !e.failed(now, l) {
-			e.raise(now, flow.PauseLevel, l+" did not answer within 5 s")
+			e.raise(now, flow.PauseLevel, l+" did not answer within "+cli.Seconds(flow.LostAfter))
 		}
 	}
 	if e.canary.Expire(now) {
-		e.raise(now, flow.PauseLevel, "canary did not answer within 5 s")
+		e.raise(now, flow.PauseLevel, "canary did not answer within "+cli.Seconds(flow.LostAfter))
 	}
 	if e.bo.Tick(now) {
-		e.note(now, fmt.Sprintf("backoff %d: quiet for a minute", e.bo.Level()))
+		e.note(now, fmt.Sprintf("backoff %d: quiet for %s", e.bo.Level(), cli.Seconds(flow.RecoverAfter)))
 	}
 	if e.stopping {
 		return nil

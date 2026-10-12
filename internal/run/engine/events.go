@@ -6,8 +6,13 @@ import (
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/beat"
+	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/run/flow"
 )
+
+// slowFactor times budget.latency_ms at the show's start means the probe's
+// figure no longer fits the network.
+const slowFactor = 3
 
 // Beat plans b if it is a moment. Beats already past are skipped, so a
 // reconnect does not cause a burst; a pause plans nothing.
@@ -35,7 +40,7 @@ func (e *Engine) State(light string, at time.Time) {
 	if !e.fl.Confirm(light, at) {
 		return
 	}
-	if !e.slowSeen && e.fl.Base() > 3*e.latency {
+	if !e.slowSeen && e.fl.Base() > slowFactor*e.latency {
 		e.slowSeen = true
 		e.note(at, fmt.Sprintf("latency %d ms per frame is far above budget.latency_ms %d ms; run zigbeat probe again",
 			e.fl.Base().Milliseconds(), e.latency.Milliseconds()))
@@ -51,17 +56,17 @@ func (e *Engine) ZigbeeError(at time.Time, msg string) {
 	e.errs++
 	light := e.named(msg)
 	if light == "" {
-		e.raise(at, 1, "Zigbee2MQTT error elsewhere: "+msg)
+		e.raise(at, flow.CalmLevel, "Zigbee2MQTT error elsewhere: "+msg)
 		return
 	}
 	// Only a signal: the error may be about an older message, so the slot and
-	// the failure count are left to the echo or the 5 s expiry.
+	// the failure count are left to the echo or the flow.LostAfter expiry.
 	if _, gone := e.away[light]; gone {
 		return
 	}
 	if e.bo.NamedError(at) {
 		e.bo.Pause(at)
-		e.paused(at, "3 Zigbee2MQTT errors about our lights within a minute")
+		e.paused(at, fmt.Sprintf("%d Zigbee2MQTT errors about our lights within %s", flow.NamedLimit, cli.Seconds(flow.NamedWindow)))
 		return
 	}
 	e.raise(at, flow.PauseLevel, "Zigbee2MQTT error: "+msg)

@@ -7,8 +7,13 @@ import (
 	"time"
 )
 
-// Burst fits one moment: 3 messages of 2 frames.
-const Burst = 6
+const (
+	// MaxPerMoment is the most messages one moment sends.
+	MaxPerMoment = 3
+	// Burst fits one moment: MaxPerMoment messages of 2 frames, a kick's
+	// brightness and colour.
+	Burst = MaxPerMoment * 2
+)
 
 // Limiter is a token bucket in Zigbee frames; the rate is a ceiling, never raised.
 type Limiter struct {

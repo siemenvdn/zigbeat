@@ -7,6 +7,8 @@ import (
 
 	"github.com/siemenvdn/zigbeat/internal/beat"
 	"github.com/siemenvdn/zigbeat/internal/config"
+	"github.com/siemenvdn/zigbeat/internal/run/flow"
+	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
 // Message is one message the planner wants to land at a moment.
@@ -31,7 +33,7 @@ type Planner struct {
 	moments   int
 	units     int
 	cadence   time.Duration
-	base      int // Zigbee2MQTT brightness 0..254
+	base      int // Zigbee2MQTT brightness 0..z2m.MaxBrightness
 	kick      int
 	low, high int
 	up        bool
@@ -48,7 +50,7 @@ func NewPlanner(c config.Config) *Planner {
 		current:   map[string]string{},
 		cadence:   c.Effects.Cadence,
 		base:      level(c.Effects.Brightness),
-		kick:      level(min(c.Effects.Brightness+kickPoints, 100)),
+		kick:      level(min(c.Effects.Brightness+kickPoints, config.MaxPercent)),
 		low:       level(c.Effects.BreatheRange[0]),
 		high:      level(c.Effects.BreatheRange[1]),
 		up:        true,
@@ -69,7 +71,7 @@ func NewPlanner(c config.Config) *Planner {
 
 // level converts percent to Zigbee2MQTT brightness.
 func level(percent int) int {
-	return int(math.Round(float64(percent) * 254 / 100))
+	return int(math.Round(float64(percent) * z2m.MaxBrightness / 100))
 }
 
 // Moments counts the moments planned so far.
@@ -79,7 +81,7 @@ func (p *Planner) Moments() int { return p.moments }
 func (p *Planner) Beat(b beat.Beat, backoff int) []Message {
 	p.lastBeat, p.lastPeriod, p.settled = b.At, b.Period(), false
 	n := interval(b.BPM, p.cadence)
-	if backoff >= 2 {
+	if backoff >= flow.SparseLevel {
 		n *= 2
 	}
 	if b.Index%n != 0 {
@@ -87,7 +89,7 @@ func (p *Planner) Beat(b beat.Beat, backoff int) []Message {
 	}
 	var out []Message
 	for _, u := range p.pick() {
-		out = append(out, p.change(u, b, backoff >= 1)...)
+		out = append(out, p.change(u, b, backoff >= flow.CalmLevel)...)
 	}
 	out = append(out, p.breath(b, n)...)
 	p.moments++

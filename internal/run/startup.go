@@ -7,6 +7,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/siemenvdn/zigbeat/internal/run/flow"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
@@ -45,27 +46,32 @@ func (r *runner) refuseGroups(ctx context.Context) error {
 	return r.cfg.RejectGroups(groups)
 }
 
-// canaryBaseline reads the canary 5 times, 1 s apart, and returns its limit.
+const (
+	canaryReads = 5           // reads at rest: the slowest sets the limit
+	canaryGap   = time.Second // about as often as the probe's canary
+)
+
+// canaryBaseline reads the canary canaryReads times, canaryGap apart, and returns its limit.
 // A canary that does not answer is dropped with a warning.
 func (r *runner) canaryBaseline(ctx context.Context) time.Duration {
 	if r.cfg.Canary == "" {
 		return 0
 	}
 	var lat []time.Duration
-	for i := 0; i < 5; i++ {
+	for range canaryReads {
 		sent := time.Now()
 		_ = r.link.Get(r.cfg.Canary, map[string]string{"state": ""})
-		if _, at, ok := r.waitState(ctx, r.cfg.Canary, sent, 5*time.Second); ok {
+		if _, at, ok := r.waitState(ctx, r.cfg.Canary, sent, flow.LostAfter); ok {
 			lat = append(lat, at.Sub(sent))
 		}
 		select {
 		case <-ctx.Done():
 			return 0
-		case <-time.After(time.Second - time.Since(sent)):
+		case <-time.After(canaryGap - time.Since(sent)):
 		}
 	}
-	if len(lat) < 3 {
-		fmt.Fprintf(os.Stderr, "warning: canary %s answered %d of 5 reads; running without a canary\n", r.cfg.Canary, len(lat))
+	if len(lat) < z2m.MinCanaryReads {
+		fmt.Fprintf(os.Stderr, "warning: canary %s answered %d of %d reads; running without a canary\n", r.cfg.Canary, len(lat), canaryReads)
 		r.cfg.Canary = ""
 		return 0
 	}
