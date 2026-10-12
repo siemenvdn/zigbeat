@@ -34,6 +34,10 @@ func Run(args []string) int {
 		return 1
 	}
 	defer s.client.Close()
+	if err := s.refuseTargets(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
 	if !s.saveState() {
 		if ctx.Err() != nil {
 			return cli.ExitInterrupted
