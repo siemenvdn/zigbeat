@@ -32,6 +32,7 @@ func main() {
 	queue := flag.Int("queue", 64, "coordinator queue depth before commands fail")
 	loss := flag.Float64("loss", 0, "share of commands that never get an answer, 0 to 1")
 	groups := flag.String("groups", "", "simulated Zigbee2MQTT groups, published retained on bridge/groups")
+	logLand := flag.Bool("log", false, "print every set command when the simulated light applies it")
 	flag.Parse()
 
 	c, err := mqtt.Dial(*broker, mqtt.Options{ClientID: "fake-z2m", Username: os.Getenv("MQTT_USER"), Password: os.Getenv("MQTT_PASSWORD")})
@@ -91,6 +92,10 @@ func main() {
 			}
 			b, _ := json.Marshal(st)
 			mu.Unlock()
+			if *logLand && j.kind == "set" {
+				body, _ := json.Marshal(j.body)
+				fmt.Printf("land %s %s %s\n", time.Now().Format("15:04:05.000"), j.device, body)
+			}
 			if echo {
 				_ = c.Publish(*base+"/"+j.device, b)
 			}
