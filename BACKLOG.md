@@ -1,6 +1,6 @@
 # Backlog
 
-Small known issues, found in the reviews of phases 1a to 3c and left for later. Plans and decisions live in [DESIGN.md](DESIGN.md).
+Small known issues, found in the reviews of phases 1a to 3c and of the cleanup, and left for later. Plans and decisions live in [DESIGN.md](DESIGN.md).
 
 ## zigbeat run
 
