@@ -42,11 +42,17 @@ func Run(args []string) int {
 	cal := newCalibration(o.Config, cfg.Budget.AudioOffset())
 	offsets := make(chan time.Duration)
 	go cal.read(os.Stdin, offsets)
-	code := Play(ctx, cfg, Source(cfg, o.BPM), Hooks{Stopping: cli.QuitOnInterrupt, Offsets: offsets})
+	code := Play(ctx, cfg, Source(cfg, o.BPM), Hooks{Stopping: quitOnInterrupt, Offsets: offsets})
 	if hint := cal.unsaved(); hint != "" {
 		fmt.Println(hint)
 	}
 	return code
+}
+
+// quitOnInterrupt is the Stopping hook of zigbeat run.
+func quitOnInterrupt() string {
+	cli.QuitOnInterrupt()
+	return cli.QuitHint
 }
 
 // show plays until ctx is done or the source ends. A panic starts a fresh

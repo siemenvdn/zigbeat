@@ -3,6 +3,7 @@ package serve
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/run"
@@ -56,34 +57,71 @@ func (s *server) waitOn(ctx context.Context) bool {
 }
 
 // play runs one show. OFF cancels it at once, also during the start, and ON is
-// ignored while it runs. A command that arrives during the restore waits in cmds
-// for the loop.
+// ignored while it runs. From the restore on, commands wait in cmds for the loop.
 func (s *server) play(ctx context.Context) {
 	fmt.Printf("%s  switched on in Home Assistant\n", cli.Stamp())
 	s.put(ha.Starting)
 	showCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	stop, stopped := make(chan struct{}), make(chan struct{})
+	st := &states{put: s.put}
+	unwatch := s.watchOff(st, cancel)
+	defer unwatch()
+	s.show(showCtx, run.Hooks{
+		Status: func(stats engine.Stats) { st.playing(ha.Playing(stats, s.total)) },
+		Stopping: func() string {
+			unwatch()
+			st.stopping()
+			if ctx.Err() != nil {
+				return cli.QuitHint
+			}
+			return ""
+		},
+	})
+}
+
+// watchOff cancels the show when OFF comes, until unwatch is called; unwatch
+// returns when the watcher is gone.
+func (s *server) watchOff(st *states, cancel func()) (unwatch func()) {
+	quit, gone := make(chan struct{}), make(chan struct{})
 	go func() {
-		defer close(stopped)
+		defer close(gone)
 		for {
 			select {
 			case on := <-s.cmds:
 				if !on {
 					fmt.Printf("%s  switched off in Home Assistant\n", cli.Stamp())
-					s.put(ha.Stopping)
+					st.stopping()
 					cancel()
 					return
 				}
-			case <-stop:
+			case <-quit:
 				return
 			}
 		}
 	}()
-	s.show(showCtx, run.Hooks{
-		Status:   func(st engine.Stats) { s.put(ha.Playing(st, s.total)) },
-		Stopping: func() { s.put(ha.Stopping) },
-	})
-	close(stop)
-	<-stopped
+	var once sync.Once
+	return func() { once.Do(func() { close(quit); <-gone }) }
+}
+
+// states passes a show's states on to Home Assistant. Once it is stopping, a
+// running state that the show loop sent late is held back.
+type states struct {
+	mu   sync.Mutex
+	put  func(ha.State)
+	stop bool
+}
+
+func (t *states) playing(st ha.State) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if !t.stop {
+		t.put(st)
+	}
+}
+
+func (t *states) stopping() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.stop = true
+	t.put(ha.Stopping)
 }

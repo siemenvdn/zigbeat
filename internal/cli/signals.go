@@ -28,3 +28,6 @@ func StopContext() (context.Context, context.CancelFunc) {
 // and SIGHUP stay caught: a closed SSH session sends a hangup twice, and the
 // second one must not cut the restore short.
 func QuitOnInterrupt() { signal.Reset(os.Interrupt) }
+
+// QuitHint says what QuitOnInterrupt allows.
+const QuitHint = "Ctrl-C again to quit without restoring"

@@ -14,9 +14,6 @@ Small known issues, found in the reviews of phases 1a to 2 and left for later. P
 
 ## zigbeat serve
 
-- **"Ctrl-C again" after a Home Assistant OFF.** `Play` prints `stopping: interrupted (Ctrl-C again to quit without restoring)` also when the switch stopped the show; then no Ctrl-C happened and the next one only stops serve after the restore. Let the caller supply the hint.
-- **ON during a restore that OFF did not start.** After a third panic the watcher in `server.play` (`internal/serve/lifecycle.go`) keeps reading `cmds` until `Play` returns, so an `ON` during that restore is dropped. Stop watching in the `Stopping` hook.
-- **A brief stopping → running flip.** An `OFF` that lands between the end of the start and the first `Status` call, or on a 10 s tick, publishes `stopping`, `running`, `stopping`.
 - **PID 1 in a container.** The kernel ignores default-action signals for PID 1, so a second signal does not quit there. The phase 4 image needs an init (`docker run --init`, `init: true`).
 
 ## zigbeat setup and probe

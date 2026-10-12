@@ -15,7 +15,7 @@ func (s *session) interrupted() bool {
 	}
 	s.intOnce.Do(func() {
 		cli.QuitOnInterrupt()
-		fmt.Println("\ninterrupted (Ctrl-C again to quit without restoring)")
+		fmt.Printf("\ninterrupted (%s)\n", cli.QuitHint)
 	})
 	return true
 }

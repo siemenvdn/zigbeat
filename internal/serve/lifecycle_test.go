@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/run"
 	"github.com/siemenvdn/zigbeat/internal/run/engine"
 	"github.com/siemenvdn/zigbeat/internal/serve/ha"
@@ -14,7 +15,10 @@ import (
 // fakeShow plays until ctx is done, then holds its restore until release gets a token.
 type fakeShow struct {
 	release chan struct{}
+	hints   chan string   // what the Stopping hook returned
 	start   chan struct{} // when set, the start waits for it to close
+	status  chan struct{} // when set, the first status waits for it to close, also after OFF
+	ends    chan struct{} // when set, the show also ends when it closes, like after a third panic
 	code    int           // when not 0, returned at once, like a show that could not start
 }
 
@@ -28,9 +32,15 @@ func (f *fakeShow) run(ctx context.Context, h run.Hooks) int {
 	if ctx.Err() != nil {
 		return 0 // like run.Play: cancelled before the show started, nothing was changed
 	}
+	if f.status != nil {
+		<-f.status
+	}
 	h.Status(engine.Stats{Lights: 2})
-	<-ctx.Done()
-	h.Stopping()
+	select {
+	case <-ctx.Done():
+	case <-f.ends:
+	}
+	f.hints <- h.Stopping()
 	<-f.release
 	return 0
 }
@@ -46,7 +56,7 @@ type harness struct {
 func serveFake(t *testing.T, code int) *harness {
 	t.Helper()
 	h := &harness{cmds: make(chan bool, 1), got: make(chan string, 64), done: make(chan struct{}),
-		show: &fakeShow{release: make(chan struct{}, 4), code: code}}
+		show: &fakeShow{release: make(chan struct{}, 4), hints: make(chan string, 4), code: code}}
 	var mu sync.Mutex
 	last := ""
 	put := func(st ha.State) { // called from several goroutines, like link.put
@@ -99,6 +109,9 @@ func TestOnAndOff(t *testing.T) {
 	h.expect(t, "starting", "running")
 	newest(h.cmds, false)
 	h.expect(t, "stopping")
+	if hint := <-h.show.hints; hint != "" {
+		t.Errorf("no Ctrl-C came, yet the hint is %q", hint)
+	}
 	h.show.release <- struct{}{}
 	h.expect(t, "off")
 }
@@ -137,6 +150,30 @@ func TestOffDuringStartIsShownAtOnce(t *testing.T) {
 	h.expect(t, "off")
 }
 
+func TestOffBeforeTheFirstStatusStaysStopping(t *testing.T) {
+	h := serveFake(t, 0)
+	h.show.status = make(chan struct{})
+	newest(h.cmds, true)
+	h.expect(t, "starting")
+	newest(h.cmds, false)
+	h.expect(t, "stopping")
+	close(h.show.status)
+	h.show.release <- struct{}{}
+	h.expect(t, "off")
+}
+
+func TestOnDuringARestoreOffDidNotStart(t *testing.T) {
+	h := serveFake(t, 0)
+	h.show.ends = make(chan struct{})
+	newest(h.cmds, true)
+	h.expect(t, "starting", "running")
+	close(h.show.ends)
+	h.expect(t, "stopping")
+	newest(h.cmds, true)
+	h.show.release <- struct{}{}
+	h.expect(t, "off", "starting", "running")
+}
+
 func TestFailedStartGoesBackToOff(t *testing.T) {
 	h := serveFake(t, 1)
 	newest(h.cmds, true)
@@ -149,6 +186,9 @@ func TestSignalStopsAndRestores(t *testing.T) {
 	h.expect(t, "starting", "running")
 	h.cancel()
 	h.expect(t, "stopping")
+	if hint := <-h.show.hints; hint != cli.QuitHint {
+		t.Errorf("hint %q after a signal", hint)
+	}
 	select {
 	case <-h.done:
 		t.Fatal("serve must wait for the restore")

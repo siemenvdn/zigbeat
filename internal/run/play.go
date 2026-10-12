@@ -14,7 +14,7 @@ import (
 // Hooks let a caller follow and steer one show. All are optional.
 type Hooks struct {
 	Status   func(engine.Stats)   // when play starts and every statusEvery, from the show loop; must not block
-	Stopping func()               // once, right before the restore
+	Stopping func() string        // once, right before the restore; returns a hint for the stop line, or ""
 	Offsets  <-chan time.Duration // new audio offsets, typed during the show
 }
 
@@ -38,8 +38,10 @@ func Play(ctx context.Context, cfg config.Config, src beat.Source, h Hooks) int 
 	fmt.Printf("show: %d lights, %v, audio offset %d ms, budget %g frames/s\n", len(r.cfg.Lights()), src, r.offset.Milliseconds(), r.cfg.Budget.MaxRate)
 	reason, code := r.show(ctx, src, limit)
 	if h.Stopping != nil {
-		h.Stopping()
+		if hint := h.Stopping(); hint != "" {
+			reason += " (" + hint + ")"
+		}
 	}
-	fmt.Printf("\nstopping: %s (Ctrl-C again to quit without restoring)\n", reason)
+	fmt.Printf("\nstopping: %s\n", reason)
 	return r.stop(code)
 }
