@@ -7,16 +7,18 @@ import (
 	"time"
 )
 
-var redialEvery = 5 * time.Second
+// RedialEvery is the wait between dials: a restarted broker is back soon, and
+// the log gets one line per try, not a flood.
+var RedialEvery = 5 * time.Second
 
-// Redial calls dial every 5 s until it works or ctx is done. Each failure goes
+// Redial calls dial every RedialEvery until it works or ctx is done. Each failure goes
 // to stderr after what.
 func Redial(ctx context.Context, what string, dial func() error) bool {
 	for {
 		select {
 		case <-ctx.Done():
 			return false
-		case <-time.After(redialEvery):
+		case <-time.After(RedialEvery):
 		}
 		err := dial()
 		if err == nil {

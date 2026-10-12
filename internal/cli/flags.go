@@ -10,6 +10,12 @@ import (
 // ErrUsage means the flag package already printed the problem and the usage.
 var ErrUsage = errors.New("usage")
 
+// Exit codes.
+const (
+	ExitUsage       = 2   // a bad flag, as the flag package uses it
+	ExitInterrupted = 130 // 128 + SIGINT, as shells report a Ctrl-C
+)
+
 // NewFlagSet returns the flag set of a subcommand; -h prints usage, about and the flags.
 func NewFlagSet(name, usage, about string) *flag.FlagSet {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
@@ -32,7 +38,7 @@ func Parse(fs *flag.FlagSet, args []string) error {
 }
 
 // Exit turns an error from parsing and checking flags into an exit code: 0 after
-// -h, 2 for a bad flag. Other errors are printed. stop is false for nil.
+// -h, ExitUsage for a bad flag. Other errors are printed. stop is false for nil.
 func Exit(err error) (code int, stop bool) {
 	switch {
 	case err == nil:
@@ -42,5 +48,5 @@ func Exit(err error) (code int, stop bool) {
 	case err != ErrUsage:
 		fmt.Fprintln(os.Stderr, err)
 	}
-	return 2, true
+	return ExitUsage, true
 }

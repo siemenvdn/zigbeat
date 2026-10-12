@@ -8,8 +8,8 @@ import (
 )
 
 func TestRedial(t *testing.T) {
-	defer func(d time.Duration) { redialEvery = d }(redialEvery)
-	redialEvery = time.Millisecond
+	defer func(d time.Duration) { RedialEvery = d }(RedialEvery)
+	RedialEvery = time.Millisecond
 	tries := 0
 	ok := Redial(context.Background(), "test reconnect", func() error {
 		if tries++; tries < 3 {
