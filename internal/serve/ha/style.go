@@ -2,11 +2,11 @@ package ha
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/siemenvdn/zigbeat/internal/config"
-	"github.com/siemenvdn/zigbeat/internal/music"
 )
 
 // The style topics. Home Assistant sets each setting on its own topic,
@@ -58,11 +58,17 @@ var settings = []setting{
 	field("album_colors", slider("Album colour count", "mdi:palette-swatch", config.MinAlbumColors, config.MaxAlbumColors, ""),
 		func(e *config.Effects) *int { return &e.AlbumColors }, whole),
 	field("variant", map[string]any{"platform": "select", "name": "Variant", "icon": "mdi:shuffle-variant", "options": config.Variants},
-		func(e *config.Effects) *string { return &e.Variant }, func(p string) (string, error) { return p, nil }),
+		func(e *config.Effects) *string { return &e.Variant }, word),
 	field("brightness", slider("Brightness", "mdi:brightness-6", config.MinPercent, config.MaxPercent, "%"),
 		func(e *config.Effects) *int { return &e.Brightness }, whole),
 	field("pace", map[string]any{"platform": "select", "name": "Pace", "icon": "mdi:metronome", "options": paceLabels()},
 		func(e *config.Effects) *int { return &e.Pace }, pace),
+	field("breathe_variant", map[string]any{"platform": "select", "name": "Breathe variant", "icon": "mdi:lightbulb-on-outline", "options": config.BreatheVariants},
+		func(e *config.Effects) *string { return &e.BreatheVariant }, word),
+	field("breathe_low", slider("Breathe low", "mdi:brightness-4", config.MinPercent, config.MaxPercent, "%"),
+		func(e *config.Effects) *int { return &e.BreatheRange[0] }, whole),
+	field("breathe_high", slider("Breathe high", "mdi:brightness-7", config.MinPercent, config.MaxPercent, "%"),
+		func(e *config.Effects) *int { return &e.BreatheRange[1] }, whole),
 }
 
 // slider is a number entity on a slider, in whole steps.
@@ -85,11 +91,15 @@ func find(key string) (setting, bool) {
 
 // Choose returns e with setting key set from Home Assistant's payload, checked
 // like the config; on an error, e as it was. An empty payload wipes the
-// choice: the key takes its value from base, the config.
+// choice: the key takes its value from base, the config. A setting that is
+// gone says how to wipe its kept choice; the wipe itself changes nothing.
 func Choose(e, base config.Effects, key, payload string) (config.Effects, error) {
 	s, ok := find(key)
-	if !ok {
-		return e, errors.New("no such setting")
+	switch {
+	case !ok && payload == "":
+		return e, nil
+	case !ok:
+		return e, fmt.Errorf("no such setting; wipe it with: mosquitto_pub -r -n -t %s", StyleTopic(key))
 	}
 	out := e
 	if err := s.set(&out, payload, base); err != nil {
@@ -101,11 +111,17 @@ func Choose(e, base config.Effects, key, payload string) (config.Effects, error)
 	return out, nil
 }
 
-// Value is setting key of e as the config writes it, such as 8s or false.
+// Value is setting key of e as the config writes it, such as 2 or false; nil
+// for a key that is no setting.
 func Value(e config.Effects, key string) any {
-	s, _ := find(key)
-	return s.value(e)
+	if s, ok := find(key); ok {
+		return s.value(e)
+	}
+	return nil
 }
+
+// word takes a select's option as it is; Validate checks it.
+func word(p string) (string, error) { return p, nil }
 
 func onOff(p string) (bool, error) {
 	switch p {
@@ -123,26 +139,4 @@ func whole(p string) (int, error) {
 		return 0, errors.New("not a whole number")
 	}
 	return n, nil
-}
-
-// paceLabel is how Home Assistant shows a pace: every beat, every 2 beats, every bar.
-func paceLabel(beats int) string { return "every " + music.Span(beats) }
-
-// paceLabels are the select's options, one per pace.
-func paceLabels() []string {
-	ls := make([]string, len(config.Paces))
-	for i, n := range config.Paces {
-		ls[i] = paceLabel(n)
-	}
-	return ls
-}
-
-// pace reads a pace label back to its beats.
-func pace(p string) (int, error) {
-	for _, n := range config.Paces {
-		if paceLabel(n) == p {
-			return n, nil
-		}
-	}
-	return 0, errors.New("not a pace")
 }

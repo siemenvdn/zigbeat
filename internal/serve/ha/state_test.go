@@ -65,6 +65,12 @@ func TestDiscovery(t *testing.T) {
 	ids := map[string]bool{}
 	for name, raw := range m["components"].(map[string]any) {
 		c := raw.(map[string]any)
+		if platform, gone := removed[name]; gone {
+			if len(c) != 1 || c["platform"] != platform {
+				t.Errorf("%s: a removed component is its platform only: %v", name, c)
+			}
+			continue
+		}
 		id, _ := c["unique_id"].(string)
 		if c["platform"] == nil || id == "" || ids[id] {
 			t.Errorf("%s: platform %v, unique_id %q", name, c["platform"], id)
@@ -76,8 +82,8 @@ func TestDiscovery(t *testing.T) {
 			t.Errorf("%s: value_template %v names no state key", name, c["value_template"])
 		}
 	}
-	if len(ids) != 12 {
-		t.Errorf("want 12 entities, got %d", len(ids))
+	if len(ids) != 15 {
+		t.Errorf("want 15 entities, got %d", len(ids))
 	}
 	status := m["components"].(map[string]any)["status"].(map[string]any)
 	var opts []string

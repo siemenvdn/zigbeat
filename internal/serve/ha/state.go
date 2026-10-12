@@ -27,11 +27,14 @@ type State struct {
 // Style is the part of the state that Home Assistant sets, under the keys of
 // the config.
 type Style struct {
-	AlbumPalette string `json:"album_palette"` // ON or OFF, as the switch says
-	AlbumColors  int    `json:"album_colors"`
-	Variant      string `json:"variant"`
-	Brightness   int    `json:"brightness"`
-	Pace         string `json:"pace"` // the label, as the select shows it
+	AlbumPalette   string `json:"album_palette"` // ON or OFF, as the switch says
+	AlbumColors    int    `json:"album_colors"`
+	Variant        string `json:"variant"`
+	Brightness     int    `json:"brightness"`
+	Pace           string `json:"pace"` // the label, as the select shows it
+	BreatheVariant string `json:"breathe_variant"`
+	BreatheLow     int    `json:"breathe_low"`
+	BreatheHigh    int    `json:"breathe_high"`
 }
 
 // StyleOf is the style of e for the state.
@@ -40,7 +43,8 @@ func StyleOf(e config.Effects) Style {
 	if e.AlbumPalette {
 		on = "ON"
 	}
-	return Style{AlbumPalette: on, AlbumColors: e.AlbumColors, Variant: e.Variant, Brightness: e.Brightness, Pace: paceLabel(e.Pace)}
+	return Style{AlbumPalette: on, AlbumColors: e.AlbumColors, Variant: e.Variant, Brightness: e.Brightness, Pace: paceLabel(e.Pace),
+		BreatheVariant: e.BreatheVariant, BreatheLow: e.BreatheRange[0], BreatheHigh: e.BreatheRange[1]}
 }
 
 // fpsDecimals rounds frames per second for Home Assistant.

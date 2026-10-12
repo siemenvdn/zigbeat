@@ -18,6 +18,10 @@ const (
 // template reads key from zigbeat/state.
 func template(key string) string { return "{{ value_json." + key + " }}" }
 
+// removed are settings an older zigbeat offered, with their platform. A
+// component with only its platform removes it from the device in Home Assistant.
+var removed = map[string]string{"cadence": "number"}
+
 // Discovery is the Home Assistant device discovery message for every entity.
 func Discovery(version string) []byte {
 	measure := map[string]any{"state_class": "measurement"}
@@ -47,6 +51,9 @@ func Discovery(version string) []byte {
 	}
 	for id, c := range components {
 		c["unique_id"] = "zigbeat_" + id
+	}
+	for key, platform := range removed {
+		components[key] = map[string]any{"platform": platform}
 	}
 	b, _ := json.Marshal(map[string]any{
 		"device": map[string]any{"identifiers": []string{"zigbeat"}, "name": "zigbeat", "manufacturer": "zigbeat",
