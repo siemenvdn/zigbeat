@@ -21,8 +21,6 @@ func (c Config) validate() error {
 	switch {
 	case c.MQTT.Broker == "":
 		return errors.New("mqtt.broker is empty")
-	case c.MQTT.PasswordEnv != "" && c.MQTT.Password == "":
-		return fmt.Errorf("mqtt.password_env: $%s is not set", c.MQTT.PasswordEnv)
 	case c.Budget.MaxRate <= 0:
 		return errors.New("budget.max_rate is required: use the budget zigbeat probe suggested")
 	case c.Budget.LatencyMS <= 0:

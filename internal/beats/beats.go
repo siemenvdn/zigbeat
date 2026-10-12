@@ -23,7 +23,7 @@ func Run(args []string) int {
 	if code, stop := cli.Exit(cli.Parse(fs, args)); stop {
 		return code
 	}
-	cfg, err := config.Load(path)
+	cfg, err := config.LoadWithoutMQTT(path) // beats never connects to MQTT
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
