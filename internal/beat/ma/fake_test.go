@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -21,6 +22,7 @@ type fakeMA struct {
 	base  time.Time
 	conns chan *ws.Conn
 	url   string
+	dials atomic.Int64 // connections opened
 }
 
 func (f *fakeMA) now() int64 { return time.Since(f.base).Microseconds() + offset.Microseconds() }
@@ -33,6 +35,7 @@ func (f *fakeMA) local(ts int64) time.Time {
 func startMA(t *testing.T) *fakeMA {
 	f := &fakeMA{base: time.Now(), conns: make(chan *ws.Conn, 4)}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		f.dials.Add(1)
 		c, err := ws.Upgrade(w, r)
 		if err != nil {
 			return

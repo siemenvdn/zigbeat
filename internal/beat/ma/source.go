@@ -51,6 +51,9 @@ func (s Source) Beats(ctx context.Context) <-chan beat.Beat {
 		n := newNotes(s.Notes)
 		for {
 			wait := s.session(ctx, out, n)
+			if ctx.Err() != nil {
+				return // a wait of 0 would race ctx and dial once more
+			}
 			select {
 			case <-ctx.Done():
 				return

@@ -130,3 +130,24 @@ func TestReconnect(t *testing.T) {
 		t.Errorf("after a reconnect: %+v", b)
 	}
 }
+
+func TestNoDialAfterStop(t *testing.T) {
+	f := startMA(t)
+	go func() {
+		for range f.conns {
+		}
+	}()
+	const stops = 20
+	for i := range stops {
+		ctx, cancel := context.WithCancel(context.Background())
+		notes := &syncBuf{}
+		beats := Source{URL: f.url, Token: "good", Notes: notes}.Beats(ctx)
+		notes.waitFor(t, "connected")
+		cancel()
+		for range beats {
+		}
+		if n := f.dials.Load(); n != int64(i+1) {
+			t.Fatalf("after %d stops %d dials: a stopped source must not dial again", i+1, n)
+		}
+	}
+}
