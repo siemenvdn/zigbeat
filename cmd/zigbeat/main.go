@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/siemenvdn/zigbeat/internal/beats"
 	"github.com/siemenvdn/zigbeat/internal/probe"
 	"github.com/siemenvdn/zigbeat/internal/run"
 	"github.com/siemenvdn/zigbeat/internal/serve"
@@ -18,8 +19,9 @@ usage: zigbeat <command> [flags]
 
 commands:
   probe     measure how many light commands per second your network handles
-  run       run the light show to a metronome
+  run       run the light show to the music, or to a metronome
   serve     run the show as a service that Home Assistant switches on and off
+  beats     print the beats from Music Assistant, without touching a light
   version   print the version
 
 Run "zigbeat <command> -h" for the flags of a command.
@@ -37,6 +39,8 @@ func main() {
 		os.Exit(run.Run(os.Args[2:]))
 	case "serve":
 		os.Exit(serve.Run(os.Args[2:], version))
+	case "beats":
+		os.Exit(beats.Run(os.Args[2:]))
 	case "version", "-v", "--version":
 		fmt.Println(version)
 	case "help", "-h", "--help":
