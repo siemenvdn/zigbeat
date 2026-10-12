@@ -13,13 +13,15 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/config"
 	"github.com/siemenvdn/zigbeat/internal/run/engine"
+	"github.com/siemenvdn/zigbeat/internal/run/flow"
 )
 
 const (
 	// maxPanics ends the show: one panic can be a fluke, this many are a bug.
 	maxPanics = 3
-	// drainWait lets the messages in flight land, far above a normal latency.
-	drainWait = 2 * time.Second
+	// drainWait lets every message in flight be confirmed or count as lost, so
+	// the restore never sends a light a second command.
+	drainWait = flow.LostAfter
 )
 
 // Run executes `zigbeat run` and returns an exit code.

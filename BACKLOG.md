@@ -8,8 +8,6 @@ Small known issues, found in the reviews of phases 1a to 2 and left for later. P
 - **A pause freezes lights mid-effect.** During a backoff pause, a light left alone or an outage, breathe lights keep moving until 100% or their minimum, and colour lights can stay at the kick level because the queued return is cleared. Breathe lights get their low end when the pause ends (`Planner.Settle`); during it they still run free. Spec decision: may a pause send one stop or anchor per breathe light?
 - **Restore order.** Lights are restored in config order, so a light that is left alone (9 s of tries) delays the reachable lights behind it. Restore the lights that answered recently first.
 - **The first redial at stop waits 5 s**, also when the broker is already back (`mqttLink.Reconnect`).
-- **Timeouts shorter than the loss rule.** The 2 s drain and the 3 s tries in `lights.Snapshot` and `lights.Restore` are shorter than the 5 s after which a message counts as lost, so a slow bulb can get a second command before the first one was confirmed.
-- **Snapshot pacing undercounts.** A snapshot read asks for 4 attributes, about 3 ZCL reads, but is paced as 1 frame.
 - **The show's connect ignores ctx.** `Dial` and the subscriptions in `connect` (up to 5 s per step) do not watch ctx, so an `OFF` or Ctrl-C during a slow connect waits for it.
 
 ## zigbeat serve

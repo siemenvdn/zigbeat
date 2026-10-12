@@ -6,6 +6,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/siemenvdn/zigbeat/internal/run/flow"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
@@ -20,9 +21,9 @@ type Conn interface {
 	Online() bool
 }
 
-// answerWait is how long a read or a set waits for the state: far above a normal
-// answer, short enough that a dead light does not hold up the others.
-const answerWait = 3 * time.Second
+// answerWait is how long a read or a set waits for the state: until it counts as
+// lost, so a slow light never gets a second command before the first one is confirmed.
+const answerWait = flow.LostAfter
 
 // pace is the time frames take at rate frames per second.
 func pace(frames int, rate float64) time.Duration {
