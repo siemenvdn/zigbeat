@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 )
 
@@ -52,11 +53,12 @@ func Exit(err error) (code int, stop bool) {
 	return ExitUsage, true
 }
 
-// Names splits a comma-separated list of names from a flag and drops empty ones.
+// Names splits a comma-separated list of names from a flag and drops empty
+// ones and repeats: a light named twice is still one light.
 func Names(list string) []string {
 	var out []string
 	for _, n := range strings.Split(list, ",") {
-		if n = strings.TrimSpace(n); n != "" {
+		if n = strings.TrimSpace(n); n != "" && !slices.Contains(out, n) {
 			out = append(out, n)
 		}
 	}

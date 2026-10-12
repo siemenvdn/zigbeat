@@ -26,7 +26,6 @@ Small known issues, found in the reviews of phases 1a to 2 and left for later. P
 
 - **The fixture column is a guess.** Setup's table shows the fixture each light would get if every offered light were chosen (`arrange` over all of them in `internal/setup/setup.go`). With only some chosen, a light alone in its stem gets a fixture named after itself instead.
 - **A retained state counts as a canary answer.** When Zigbee2MQTT retains device states, the first read of a canary in `mqttBridge.Read` (`internal/setup/bridge.go`) can be answered by the retained message, with a latency near 0 ms.
-- **`-lights a,a`** fails with a duplicate-fixture error instead of taking the light once, as the question does.
 - **Fixture names from unrenamed devices.** `stem` turns `0x0017880104e45518` into `0x0017880104e`, so two unrenamed bulbs are proposed as one oddly named fixture.
 - **The generated definition in `internal/z2m/testdata/bridge-devices.json`** belongs to an end device, so rule 1 refuses it before the rule about the source of the definition.
 - **"remove it from the config" after -targets.** `z2m.Check` ends its message with advice for the config, also when the probe refused a light named with `-targets`.
