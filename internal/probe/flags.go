@@ -1,6 +1,7 @@
 package probe
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"strconv"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/cli"
+	"github.com/siemenvdn/zigbeat/internal/config"
 	"github.com/siemenvdn/zigbeat/internal/mqtt"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
@@ -23,7 +25,10 @@ const (
 	minBaseline = 8 * time.Second
 )
 
-type config struct {
+type options struct {
+	config                       string        // -config: settings, targets and canary from this file, and the budget into it
+	budget                       config.Budget // the budget in the config before the probe
+	fallback                     bool          // no color lights in the config: the breathe lights in brightness mode
 	broker, user, password, base string
 	targets                      []string
 	canary                       string
@@ -34,17 +39,18 @@ type config struct {
 	yes                          bool
 }
 
-func parseFlags(args []string) (config, error) {
-	var cfg config
+func parseFlags(args []string) (options, error) {
+	var cfg options
 	var targets, rates string
-	fs := cli.NewFlagSet("probe", "usage: zigbeat probe -targets <names> -canary <name> [flags]",
+	fs := cli.NewFlagSet("probe", "usage: zigbeat probe -config config.yaml [flags]\n       zigbeat probe -targets <names> -canary <name> [flags]",
 		"Measures how many commands per second your Zigbee network handles. See the README.")
+	fs.StringVar(&cfg.config, "config", "", "configuration file: MQTT settings, targets and canary come from it, and the budget is written into it")
 	fs.StringVar(&cfg.broker, "broker", mqtt.DefaultBroker, "MQTT broker host:port")
 	fs.StringVar(&cfg.user, "user", "", "MQTT username (falls back to $MQTT_USER)")
 	fs.StringVar(&cfg.password, "password", "", "MQTT password (falls back to $MQTT_PASSWORD)")
 	fs.StringVar(&cfg.base, "base", z2m.DefaultBaseTopic, "Zigbee2MQTT base topic")
-	fs.StringVar(&targets, "targets", "", "comma-separated Zigbee2MQTT friendly names of colour lights to drive (required)")
-	fs.StringVar(&cfg.canary, "canary", "", "friendly name of a mains-powered device far from the targets, used to watch the rest of the network (required)")
+	fs.StringVar(&targets, "targets", "", "comma-separated Zigbee2MQTT friendly names of colour lights to drive (required without -config)")
+	fs.StringVar(&cfg.canary, "canary", "", "friendly name of a mains-powered device far from the targets, used to watch the rest of the network (required without -config)")
 	fs.StringVar(&rates, "rates", defaultRates, fmt.Sprintf("comma-separated starting rates (cmd/s, all targets together); after these the probe climbs by %g%% per step until trouble", climbPercent()))
 	fs.DurationVar(&cfg.step, "step", defaultStep, "duration of each rate step")
 	fs.DurationVar(&cfg.cooldown, "cooldown", defaultCooldown, "pause between steps")
@@ -57,11 +63,20 @@ func parseFlags(args []string) (config, error) {
 		return cfg, err
 	}
 
-	if cfg.user == "" {
-		cfg.user = os.Getenv("MQTT_USER")
-	}
-	if cfg.password == "" {
-		cfg.password = os.Getenv("MQTT_PASSWORD")
+	cfg.targets = splitNames(targets)
+	if cfg.config != "" {
+		set := map[string]bool{}
+		fs.Visit(func(f *flag.Flag) { set[f.Name] = true })
+		if err := cfg.fromConfig(set); err != nil {
+			return cfg, err
+		}
+	} else {
+		if cfg.user == "" {
+			cfg.user = os.Getenv("MQTT_USER")
+		}
+		if cfg.password == "" {
+			cfg.password = os.Getenv("MQTT_PASSWORD")
+		}
 	}
 	if cfg.baseline < minBaseline {
 		return cfg, fmt.Errorf("-baseline must be at least %v", minBaseline)
@@ -71,13 +86,8 @@ func parseFlags(args []string) (config, error) {
 	default:
 		return cfg, fmt.Errorf("unknown -mode %q", cfg.mode)
 	}
-	for _, t := range strings.Split(targets, ",") {
-		if t = strings.TrimSpace(t); t != "" {
-			cfg.targets = append(cfg.targets, t)
-		}
-	}
 	if len(cfg.targets) == 0 {
-		return cfg, fmt.Errorf("-targets is required, e.g. -targets lamp-1,lamp-2,lamp-3")
+		return cfg, fmt.Errorf("-targets is required, e.g. -targets lamp-1,lamp-2,lamp-3, or -config")
 	}
 	if cfg.canary == "" {
 		return cfg, fmt.Errorf("-canary is required: a mains-powered device far from the targets")
@@ -95,4 +105,15 @@ func parseFlags(args []string) (config, error) {
 		cfg.rates = append(cfg.rates, v)
 	}
 	return cfg, nil
+}
+
+// splitNames splits a comma-separated list and drops empty names.
+func splitNames(list string) []string {
+	var out []string
+	for _, n := range strings.Split(list, ",") {
+		if n = strings.TrimSpace(n); n != "" {
+			out = append(out, n)
+		}
+	}
+	return out
 }

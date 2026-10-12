@@ -20,7 +20,7 @@ type stateAt struct {
 
 // session holds what the phases of one probe run share.
 type session struct {
-	cfg            config
+	cfg            options
 	ctx            context.Context
 	client         *mqtt.Client
 	bridge         *z2m.Bridge
@@ -41,7 +41,7 @@ type session struct {
 }
 
 // connect dials the broker and subscribes to the targets, the canary and the Zigbee2MQTT log.
-func connect(ctx context.Context, cfg config) (*session, error) {
+func connect(ctx context.Context, cfg options) (*session, error) {
 	client, err := mqtt.Dial(cfg.broker, mqtt.Options{
 		ClientID: fmt.Sprintf("zigbeat-probe-%d", os.Getpid()),
 		Username: cfg.user,

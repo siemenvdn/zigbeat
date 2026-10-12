@@ -25,6 +25,9 @@ func Run(args []string) int {
 	if code, stop := cli.Exit(err); stop {
 		return code
 	}
+	if cfg.fallback {
+		fmt.Printf("no color lights in %s; probing the %d breathe lights in brightness mode\n", cfg.config, len(cfg.targets))
+	}
 
 	ctx, stopSignals := cli.StopContext()
 	defer stopSignals()
@@ -95,6 +98,9 @@ func Run(args []string) int {
 	wasInterrupted := s.interrupted()
 	s.restore()
 	s.finish(results, base)
+	if !s.saveBudget(results) {
+		return 1
+	}
 	if wasInterrupted {
 		return cli.ExitInterrupted
 	}
