@@ -20,6 +20,9 @@ func (c *clock) now() int64 { return time.Since(c.base).Microseconds() }
 
 // burst starts a new burst of answers; the oldest beyond keepBursts is forgotten.
 func (c *clock) burst() {
+	if n := len(c.bursts); n > 0 && c.bursts[n-1].rtt < 0 {
+		return // the last burst got no answer: keep the older ones rather than lose the estimate
+	}
 	c.bursts = append(c.bursts, estimate{rtt: -1})
 	if len(c.bursts) > keepBursts {
 		c.bursts = c.bursts[1:]

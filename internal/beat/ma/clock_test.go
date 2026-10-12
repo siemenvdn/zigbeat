@@ -39,3 +39,18 @@ func TestClockShortestRoundTripWins(t *testing.T) {
 		t.Errorf("best %+v: bursts older than %d are forgotten", e, keepBursts)
 	}
 }
+
+func TestClockKeepsTheLastAnswer(t *testing.T) {
+	c := &clock{}
+	c.add(0, 1_000_100, 1_000_100, 200) // offset 1_000_000, rtt 200
+	for range keepBursts + 1 {
+		c.burst() // no answers: the network stalls but the connection holds
+	}
+	if e, ok := c.best(); !ok || e.offset != 1_000_000 {
+		t.Errorf("unanswered bursts must keep the last estimate: %+v, %v", e, ok)
+	}
+	c.add(0, 2_000_050, 2_000_050, 100)
+	if e, _ := c.best(); e.offset != 2_000_000 {
+		t.Errorf("a new answer counts again: %+v", e)
+	}
+}
