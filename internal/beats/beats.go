@@ -54,6 +54,11 @@ func print(ctx context.Context, beats <-chan beat.Beat, offset time.Duration, w 
 			if !ok {
 				return
 			}
+			if b.Clear {
+				due = nil
+				t.Stop()
+				continue
+			}
 			if due = append(due, b); len(due) == 1 {
 				t.Reset(time.Until(b.At.Add(offset)))
 			}

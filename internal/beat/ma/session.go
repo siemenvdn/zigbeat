@@ -53,7 +53,7 @@ func (s *session) loop(ctx context.Context, msgs <-chan message) time.Duration {
 				return 0
 			}
 		case m := <-msgs:
-			if wait, done := s.handle(m); done {
+			if wait, done := s.handle(ctx, m); done {
 				return wait
 			}
 		}
@@ -61,7 +61,7 @@ func (s *session) loop(ctx context.Context, msgs <-chan message) time.Duration {
 }
 
 // handle reacts to one message; done means the session is over.
-func (s *session) handle(m message) (wait time.Duration, done bool) {
+func (s *session) handle(ctx context.Context, m message) (wait time.Duration, done bool) {
 	switch m.kind {
 	case kindFailed:
 		return s.n.failed(m.err), true
@@ -93,9 +93,13 @@ func (s *session) handle(m message) (wait time.Duration, done bool) {
 			s.n.say("audio but no beats after %s; is the Smart Fades provider enabled?", cli.Seconds(noBeatsHint))
 		}
 	case kindClear:
-		s.forget("new track or seek, waiting for beats")
+		if !s.forget(ctx, "new track or seek, waiting for beats") {
+			return 0, true
+		}
 	case kindEnd:
-		s.forget("music stopped")
+		if !s.forget(ctx, "music stopped") {
+			return 0, true
+		}
 		if s.src.Player == "" {
 			return cli.RedialEvery, true // MA picks whichever player plays when the source dials again
 		}
@@ -103,11 +107,22 @@ func (s *session) handle(m message) (wait time.Duration, done bool) {
 	return 0, false
 }
 
-// forget drops the track: its beats no longer apply.
-func (s *session) forget(note string) {
+// forget drops the track: its beats no longer apply, also the ones handed
+// over already. It returns false when ctx ended the wait.
+func (s *session) forget(ctx context.Context, note string) bool {
+	delivered := s.g.started
 	s.g.clear()
 	s.emit.Stop()
 	s.report.Stop()
 	s.announced, s.beatSeen, s.hinted, s.waveSince = false, false, false, time.Time{}
 	s.n.say("%s", note)
+	if !delivered {
+		return true
+	}
+	select {
+	case s.out <- beat.Beat{Clear: true}:
+		return true
+	case <-ctx.Done():
+		return false
+	}
 }

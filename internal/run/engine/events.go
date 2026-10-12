@@ -15,8 +15,13 @@ import (
 const slowFactor = 3
 
 // Beat plans b if it is a moment. Beats already past are skipped, so a
-// reconnect does not cause a burst; a pause plans nothing.
+// reconnect does not cause a burst; a pause plans nothing. A Clear drops the
+// moments planned from earlier beats.
 func (e *Engine) Beat(now time.Time, b beat.Beat) {
+	if b.Clear {
+		e.forget()
+		return
+	}
 	if e.stopping || e.bo.Level() >= flow.PauseLevel || b.At.Before(now) {
 		return
 	}

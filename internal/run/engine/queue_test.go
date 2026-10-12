@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/siemenvdn/zigbeat/internal/beat"
 	"github.com/siemenvdn/zigbeat/internal/run/flow"
 	"github.com/siemenvdn/zigbeat/internal/run/show"
 )
@@ -76,5 +77,26 @@ func TestSetOffsetMovesTheSendTime(t *testing.T) {
 	e.Beat(t0, moment(16))
 	if d := e.queue["lamp-1"][0].sendAt.Sub(before); d != 4*time.Second+120*time.Millisecond {
 		t.Errorf("8 beats and 120 ms later, got %s", d)
+	}
+}
+
+func TestClearDropsPlannedMoments(t *testing.T) {
+	e := started(t, "separate", 100)
+	e.Beat(t0, moment(8)) // kicks for lamp-1 and lamp-2, breathe for lamp-4
+	e.Beat(t0, beat.Beat{Clear: true})
+	if len(e.queue["lamp-1"])+len(e.queue["lamp-2"]) != 0 || len(e.queue["lamp-4"]) == 0 {
+		t.Errorf("a seek drops the planned kicks with their returns and keeps breathe: %v %v %v",
+			e.queue["lamp-1"], e.queue["lamp-2"], e.queue["lamp-4"])
+	}
+	if e.dropped != 0 {
+		t.Errorf("forgotten moments are not late ones, counted %d", e.dropped)
+	}
+
+	e = started(t, "separate", 100)
+	e.Beat(t0, moment(8))
+	e.Due(e.queue["lamp-1"][0].sendAt) // the kicks leave
+	e.Beat(t0, beat.Beat{Clear: true})
+	if len(e.queue["lamp-1"]) != 1 || len(e.queue["lamp-2"]) != 1 {
+		t.Errorf("a kick that left keeps its return: %v %v", e.queue["lamp-1"], e.queue["lamp-2"])
 	}
 }

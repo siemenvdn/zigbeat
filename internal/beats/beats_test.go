@@ -39,3 +39,18 @@ func TestNeedsMusicAssistant(t *testing.T) {
 		t.Errorf("a bad flag: exit code %d, want 2", code)
 	}
 }
+
+func TestClearDropsPendingLines(t *testing.T) {
+	beats := make(chan beat.Beat, 3)
+	beats <- beat.Beat{At: time.Now().Add(50 * time.Millisecond), BPM: 120, Index: 1, InBar: 1}
+	beats <- beat.Beat{Clear: true}
+	beats <- beat.Beat{At: time.Now().Add(100 * time.Millisecond), BPM: 120, Index: 0, InBar: 0}
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+	defer cancel()
+	var out bytes.Buffer
+	print(ctx, beats, 0, &out)
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if len(lines) != 1 || !strings.HasSuffix(lines[0], "bar 0 beat 1  120.0 BPM") {
+		t.Errorf("a clear drops the beats not printed yet: %q", lines)
+	}
+}

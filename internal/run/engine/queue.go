@@ -49,19 +49,30 @@ func (e *Engine) ready(now time.Time) []string {
 // dropLate removes moment units that can no longer land on time, as long as
 // none of their messages has left.
 func (e *Engine) dropLate(now time.Time) {
-	late := map[int]bool{}
+	e.dropped += e.dropUnits(func(m queued) bool { return now.Sub(m.sendAt) > lateLimit })
+}
+
+// forget drops the moments planned from beats that no longer apply, because
+// the music jumped or stopped. A unit with a message out keeps its return;
+// breathe stays.
+func (e *Engine) forget() { e.dropUnits(func(queued) bool { return true }) }
+
+// dropUnits removes every moment unit with a droppable message for which drop
+// holds, as long as none of the unit's messages has left, and counts them.
+func (e *Engine) dropUnits(drop func(queued) bool) int {
+	units := map[int]bool{}
 	for _, q := range e.queue {
 		for _, m := range q {
-			if m.Drop && !e.started[m.Unit] && now.Sub(m.sendAt) > lateLimit {
-				late[m.Unit] = true
+			if m.Drop && !e.started[m.Unit] && drop(m) {
+				units[m.Unit] = true
 			}
 		}
 	}
-	if len(late) == 0 {
-		return
+	if len(units) == 0 {
+		return 0
 	}
-	e.dropped += len(late)
 	for l, q := range e.queue {
-		e.queue[l] = slices.DeleteFunc(q, func(m queued) bool { return late[m.Unit] })
+		e.queue[l] = slices.DeleteFunc(q, func(m queued) bool { return units[m.Unit] })
 	}
+	return len(units)
 }

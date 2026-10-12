@@ -94,10 +94,26 @@ func TestClearAndEndDropTheBeats(t *testing.T) {
 	}
 	_ = c.WriteText([]byte(`{"type": "stream/end"}`))
 	notes.waitFor(t, "music stopped")
+	if b := next(t, beats); !b.Clear {
+		t.Errorf("the end clears the beat handed over: %+v", b)
+	}
 	select {
 	case b := <-beats:
 		t.Errorf("a beat after the end: %+v", b)
 	case <-time.After(400 * time.Millisecond):
+	}
+}
+
+func TestClearOnlyAfterABeat(t *testing.T) {
+	f := startMA(t)
+	beats, notes := listen(t, f, "kitchen", "good")
+	c := <-f.conns
+	notes.waitFor(t, "connected")
+	_ = c.WriteText([]byte(`{"type": "stream/clear"}`))
+	notes.waitFor(t, "new track or seek")
+	_ = c.WriteBinary(beatFrame(f.now()+600_000, true))
+	if b := next(t, beats); b.Clear {
+		t.Errorf("nothing was handed over before the first clear: %+v", b)
 	}
 }
 

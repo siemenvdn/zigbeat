@@ -18,7 +18,6 @@ Small known issues, found in the reviews of phases 1a to 2 and left for later. P
 
 ## Music Assistant
 
-- **Beats already handed over survive a seek.** Up to 1 s of beats sits in the engine when a `stream/clear` or `stream/end` comes, so one kick and its return can still land on the old grid. Inherent to the 1 s lookahead; an engine call to drop future units would fix it.
 
 ## zigbeat serve
 

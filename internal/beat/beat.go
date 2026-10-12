@@ -20,6 +20,10 @@ type Beat struct {
 	Index  int     // beats since start; Index 0 is the first beat of a bar
 	InBar  int     // 0..PerBar-1
 	Energy float64 // 0..1
+
+	// Clear marks no beat but a jump: the beats delivered before it no longer
+	// apply, after a seek, a new track or the music stopping.
+	Clear bool
 }
 
 // Period is the time between two beats.
