@@ -35,26 +35,19 @@ func TestStyleEntities(t *testing.T) {
 			t.Errorf("%s: %v, want %v", key, c, want)
 		}
 	}
-	var opts []string
-	for _, o := range cs["variant"].(map[string]any)["options"].([]any) {
-		opts = append(opts, o.(string))
-	}
-	if !slices.Equal(opts, config.Variants) {
-		t.Errorf("variant options %v", opts)
-	}
-	opts = nil
-	for _, o := range cs["pace"].(map[string]any)["options"].([]any) {
-		opts = append(opts, o.(string))
-	}
-	if want := []string{"every beat", "every 2 beats", "every bar", "every 2 bars", "every 4 bars"}; cs["pace"].(map[string]any)["platform"] != "select" || !slices.Equal(opts, want) {
-		t.Errorf("pace options %v, want %v", opts, want)
-	}
-	opts = nil
-	for _, o := range cs["breathe_variant"].(map[string]any)["options"].([]any) {
-		opts = append(opts, o.(string))
-	}
-	if !slices.Equal(opts, config.BreatheVariants) {
-		t.Errorf("breathe variant options %v", opts)
+	for key, want := range map[string][]string{
+		"variant":         config.Variants,
+		"pace":            {"every beat", "every 2 beats", "every bar", "every 2 bars", "every 4 bars"},
+		"breathe_variant": config.BreatheVariants,
+	} {
+		c := cs[key].(map[string]any)
+		var opts []string
+		for _, o := range c["options"].([]any) {
+			opts = append(opts, o.(string))
+		}
+		if c["platform"] != "select" || !slices.Equal(opts, want) {
+			t.Errorf("%s options %v, want %v", key, opts, want)
+		}
 	}
 	if stub := cs["cadence"].(map[string]any); len(stub) != 1 || stub["platform"] != "number" {
 		t.Errorf("the old pace slider is removed with its platform only: %v", stub)
