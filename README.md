@@ -22,15 +22,22 @@ It does not flash on every beat, use Zigbee groups, or switch relays and plugs. 
 
 ## How it works
 
-```
- beat source ──(beat: audible time, bpm, position in bar, energy)──▶ zigbeat engine ──MQTT──▶ Zigbee2MQTT ──▶ bulbs
-                                                                         ▲   │
-                                          on/off and status (MQTT discovery)  │ snapshot before, restore after
-                                                                         │   ▼
-                                                                  Home Assistant
+```mermaid
+flowchart LR
+  beat["beat source<br/>(metronome for now)"] -->|beats| zigbeat
+  zigbeat -->|commands, sent early| z2m[Zigbee2MQTT]
+  z2m -->|Zigbee| bulbs
+  z2m -.->|confirmations| zigbeat
+  ha[Home Assistant] -->|on / off| zigbeat
+  zigbeat -.->|status| ha
 ```
 
-A beat source says when each beat becomes audible. The engine picks a few bulbs per moment and sends each command early by the latency it measures, so the light lands on the beat. It keeps at most one command in flight per bulb and only sends to bulbs you gave a role in the config. Home Assistant only switches the show on and off and stays out of the timing path.
+1. When the show starts, zigbeat reads the state of every light in the config.
+2. A beat source says when each beat becomes audible. For now that is a metronome at a fixed BPM.
+3. On each moment zigbeat picks a few bulbs and sends their commands early by the latency it measures, so the light lands on the beat. A bulb gets its next command only after Zigbee2MQTT confirmed the previous one.
+4. When the show stops, every light goes back to the state from step 1.
+
+Home Assistant only switches the show on and off and reads its status. It stays out of the timing path.
 
 zigbeat is a single static Go binary, meant to run next to Zigbee2MQTT. Architecture, effects, roadmap and decisions: [DESIGN.md](DESIGN.md).
 
