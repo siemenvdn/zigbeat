@@ -21,12 +21,3 @@ func TestFrames(t *testing.T) {
 		}
 	}
 }
-
-func TestEchoes(t *testing.T) {
-	if !Echoes(map[string]any{"color": map[string]string{"hex": "#ff0000"}, "transition": 0.7}) {
-		t.Error("a colour change is answered with a state")
-	}
-	if Echoes(map[string]any{"brightness_move": 40}) {
-		t.Error("a brightness_move alone gets no state")
-	}
-}

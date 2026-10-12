@@ -43,7 +43,7 @@ func (e *Engine) retryAway(now time.Time) []Send {
 			continue
 		}
 		e.away[l] = now.Add(retryAway)
-		e.fl.Add(l, now, true, 1)
+		e.fl.Add(l, now, 1)
 		out = append(out, Send{Light: l, Get: true, Payload: map[string]any{"state": ""}})
 	}
 	return out

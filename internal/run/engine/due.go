@@ -58,7 +58,7 @@ func (e *Engine) Due(now time.Time) []Send {
 			break
 		}
 		e.queue[l] = q[n:]
-		e.fl.Add(l, now, z2m.Echoes(payload), frames)
+		e.fl.Add(l, now, frames)
 		e.frames += frames
 		out = append(out, Send{Light: l, Payload: payload})
 	}

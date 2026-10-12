@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/siemenvdn/zigbeat/internal/config"
 	"github.com/siemenvdn/zigbeat/internal/run/runtest"
 )
 
@@ -28,8 +29,22 @@ func started(t *testing.T, mode string, maxRate float64) *Engine {
 	t.Helper()
 	cfg := testConfig(mode)
 	cfg.Budget.MaxRate = maxRate
+	return startedWith(t, cfg)
+}
+
+// startedWith is started for any config.
+func startedWith(t *testing.T, cfg config.Config) *Engine {
+	t.Helper()
 	e := New(cfg, 0, t0)
-	for i := 0; i < 1000 && len(e.queue["lamp-4"])+len(e.queue["lamp-1"])+len(e.queue["lamp-2"])+len(e.queue["lamp-3"]) > 0; i++ {
+	queued := func() bool {
+		for _, q := range e.queue {
+			if len(q) > 0 {
+				return true
+			}
+		}
+		return false
+	}
+	for i := 0; i < 1000 && queued(); i++ {
 		now := at(i * 50)
 		for _, s := range e.Due(now) {
 			e.State(s.Light, now.Add(40*time.Millisecond))

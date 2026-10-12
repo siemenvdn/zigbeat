@@ -11,7 +11,7 @@ import (
 func TestRisingLatencyBacksOff(t *testing.T) {
 	e := New(testConfig("separate"), 0, t0)
 	confirm := func(i, latency, frames int) {
-		e.fl.Add("lamp-1", at(i*1000), true, frames)
+		e.fl.Add("lamp-1", at(i*1000), frames)
 		e.State("lamp-1", at(i*1000+latency))
 	}
 	for i := 0; i < 20; i++ {
@@ -32,7 +32,7 @@ func TestRisingLatencyBacksOff(t *testing.T) {
 func TestPauseForgetsOldLatency(t *testing.T) {
 	e := New(testConfig("separate"), 0, t0)
 	confirm := func(ms, latency int) {
-		e.fl.Add("lamp-1", at(ms), true, 1)
+		e.fl.Add("lamp-1", at(ms), 1)
 		e.State("lamp-1", at(ms+latency))
 	}
 	for i := 0; i < 40; i++ {

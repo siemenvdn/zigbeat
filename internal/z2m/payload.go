@@ -16,13 +16,3 @@ func Frames(p map[string]any) int {
 	}
 	return n
 }
-
-// Echoes reports whether Zigbee2MQTT answers this payload with a state.
-func Echoes(p map[string]any) bool {
-	for _, k := range []string{"state", "brightness", "color"} {
-		if _, ok := p[k]; ok {
-			return true
-		}
-	}
-	return false
-}

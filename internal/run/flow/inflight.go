@@ -7,7 +7,6 @@ import (
 
 const (
 	LostAfter = 5 * time.Second // no echo after this: lost
-	moveHold  = time.Second     // a brightness_move has no echo; its slot frees after this
 	samples   = 20              // latencies kept for the median
 	// minSamples is the fewest latencies whose median replaces budget.latency_ms.
 	minSamples = 3
@@ -17,7 +16,6 @@ const (
 
 type flight struct {
 	sent   time.Time
-	echo   bool // waits for a state echo
 	frames int
 }
 
@@ -34,8 +32,8 @@ func NewInFlight(initial time.Duration) *InFlight {
 	return &InFlight{open: map[string]flight{}, initial: initial}
 }
 
-func (f *InFlight) Add(light string, now time.Time, echo bool, frames int) {
-	f.open[light] = flight{sent: now, echo: echo, frames: max(1, frames)}
+func (f *InFlight) Add(light string, now time.Time, frames int) {
+	f.open[light] = flight{sent: now, frames: max(1, frames)}
 }
 
 func (f *InFlight) Busy(light string) bool {
@@ -45,17 +43,14 @@ func (f *InFlight) Busy(light string) bool {
 
 func (f *InFlight) Count() int { return len(f.open) }
 
-// Confirm frees light on its first state after the send. It returns true when
-// that confirmed an echo, whose latency per frame is then recorded.
+// Confirm frees light on its first state after the send and records its
+// latency per frame. It returns false for a state that confirms nothing.
 func (f *InFlight) Confirm(light string, at time.Time) bool {
 	fl, ok := f.open[light]
 	if !ok || !at.After(fl.sent) {
 		return false
 	}
 	delete(f.open, light)
-	if !fl.echo {
-		return false
-	}
 	f.lat = append(f.lat, at.Sub(fl.sent)/time.Duration(fl.frames))
 	if len(f.lat) > samples {
 		f.lat = f.lat[1:]
@@ -77,15 +72,11 @@ func (f *InFlight) Rising() bool {
 // before a pause cannot pause the show again after it.
 func (f *InFlight) Forget() { f.lat = nil }
 
-// Expire frees moves after moveHold and returns the lights whose echo did not
-// come within LostAfter, sorted.
+// Expire returns the lights whose confirmation did not come within LostAfter, sorted.
 func (f *InFlight) Expire(now time.Time) []string {
 	var lost []string
 	for l, fl := range f.open {
-		switch {
-		case !fl.echo && now.Sub(fl.sent) >= moveHold:
-			delete(f.open, l)
-		case fl.echo && now.Sub(fl.sent) >= LostAfter:
+		if now.Sub(fl.sent) >= LostAfter {
 			delete(f.open, l)
 			lost = append(lost, l)
 		}

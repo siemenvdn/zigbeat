@@ -5,23 +5,28 @@ import (
 	"testing"
 	"time"
 
+	"github.com/siemenvdn/zigbeat/internal/music"
 	"github.com/siemenvdn/zigbeat/internal/run/flow"
 	"github.com/siemenvdn/zigbeat/internal/run/show"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
+// TestStartPassRespectsInFlightLimits: six lights may have a message in flight,
+// one full moment; the seventh waits for a confirmation.
 func TestStartPassRespectsInFlightLimits(t *testing.T) {
-	e := New(testConfig("separate"), 0, t0)
-	if got := lightsOf(e.Due(t0)); got != "lamp-1,lamp-2,lamp-3" {
-		t.Fatalf("first sends %q, want three lights", got)
+	cfg := testConfig("separate")
+	cfg.Fixtures[1].Lights = []string{"lamp-4", "lamp-5", "lamp-6", "lamp-7"}
+	e := New(cfg, 0, t0)
+	if got := lightsOf(e.Due(t0)); got != "lamp-1,lamp-2,lamp-3,lamp-4,lamp-5,lamp-6" {
+		t.Fatalf("first sends %q, want six lights", got)
 	}
 	if got := e.Due(at(1)); len(got) != 0 {
-		t.Fatalf("a fourth message must wait for a confirmation, sent %q", lightsOf(got))
+		t.Fatalf("a seventh message must wait for a confirmation, sent %q", lightsOf(got))
 	}
 	e.enqueue([]show.Message{{Light: "lamp-1", Payload: map[string]any{"brightness": 10}, Land: t0}})
 	e.State("lamp-2", at(40))
-	if got := lightsOf(e.Due(at(41))); got != "lamp-4" {
-		t.Fatalf("after lamp-2 answered: sent %q, want lamp-4 (lamp-1 is still busy)", got)
+	if got := lightsOf(e.Due(at(41))); got != "lamp-7" {
+		t.Fatalf("after lamp-2 answered: sent %q, want lamp-7 (lamp-1 is still busy)", got)
 	}
 	e.State("lamp-1", at(50))
 	if got := lightsOf(e.Due(at(51))); got != "lamp-1" {
@@ -29,20 +34,27 @@ func TestStartPassRespectsInFlightLimits(t *testing.T) {
 	}
 }
 
-func TestMoveFreesAfterOneSecond(t *testing.T) {
-	e := started(t, "separate", 100)
-	land := at(10_000)
-	e.enqueue([]show.Message{{Light: "lamp-4", Payload: map[string]any{"brightness_move": 40}, Land: land}})
-	if got := lightsOf(e.Due(land)); got != "lamp-4" {
-		t.Fatalf("sent %q", got)
+// TestAMomentLeavesTogether: the three kicks and the two pulses of a full
+// moment are all in flight at once and leave before their beat; none waits
+// for another's confirmation.
+func TestAMomentLeavesTogether(t *testing.T) {
+	cfg := testConfig("together")
+	cfg.Fixtures[1].Lights = []string{"lamp-4", "lamp-5"}
+	e := startedWith(t, cfg)
+	b := moment(8)
+	e.Music(b.At.Add(-music.Lookahead), b) // three kicks and two pulses up, in the first phrase
+	sent := map[string]time.Time{}
+	most := 0
+	for now := b.At.Add(-music.Lookahead); !now.After(b.At); now = now.Add(time.Millisecond) {
+		for _, s := range e.Due(now) {
+			if _, ok := sent[s.Light]; !ok {
+				sent[s.Light] = now
+			}
+		}
+		most = max(most, e.InFlight())
 	}
-	e.Due(land.Add(999 * time.Millisecond))
-	if !e.fl.Busy("lamp-4") {
-		t.Fatal("a move holds its slot for 1 s")
-	}
-	e.Due(land.Add(time.Second))
-	if e.fl.Busy("lamp-4") || e.bo.Level() != 0 {
-		t.Fatalf("after 1 s the slot is free without backoff (level %d)", e.bo.Level())
+	if most != 5 || len(sent) != 5 || e.dropped != 0 {
+		t.Fatalf("in flight at most %d, sent %v, dropped %d", most, sent, e.dropped)
 	}
 }
 

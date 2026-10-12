@@ -95,13 +95,12 @@ func (e *Engine) InFlight() int {
 	return n
 }
 
-// maxInFlight is one moment's worth of messages in flight in total, or one from
-// the calm level.
+// maxInFlight is one full moment in flight in total, or one message from the calm level.
 func (e *Engine) maxInFlight() int {
 	if e.bo.Level() >= flow.CalmLevel {
 		return 1
 	}
-	return flow.MaxPerMoment
+	return flow.MaxInFlight
 }
 
 func (e *Engine) note(now time.Time, s string) {
