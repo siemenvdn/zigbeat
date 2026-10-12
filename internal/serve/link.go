@@ -19,12 +19,15 @@ type link struct {
 	broker string
 	opts   mqtt.Options
 	disc   []byte
-	cmds   chan bool // switch commands, ON is true; newest wins
+	cmds   chan bool           // switch commands, ON is true; newest wins
+	styles chan config.Effects // the style after a choice; newest wins
+	base   config.Effects      // the config's style
 	client *mqtt.Client
 
-	mu   sync.Mutex
-	last []byte        // the state to publish
-	wake chan struct{} // tells run to publish last
+	mu    sync.Mutex
+	state ha.State       // the state to publish, without the style
+	style config.Effects // the style in force
+	wake  chan struct{}  // tells run to publish the state
 }
 
 func newLink(cfg config.Config, version string) *link {
@@ -37,15 +40,19 @@ func newLink(cfg config.Config, version string) *link {
 			WillTopic:   ha.AvailTopic,
 			WillPayload: []byte("offline"),
 		},
-		disc: ha.Discovery(version),
-		cmds: make(chan bool, 1),
-		last: ha.Off.JSON(),
-		wake: make(chan struct{}, 1),
+		disc:   ha.Discovery(version),
+		cmds:   make(chan bool, 1),
+		styles: make(chan config.Effects, 1),
+		base:   cfg.Effects,
+		state:  ha.Off,
+		style:  cfg.Effects,
+		wake:   make(chan struct{}, 1),
 	}
 }
 
 // connect dials and announces zigbeat. The command topic is cleared before the
-// subscription, so a stale retained ON can never start a show.
+// subscription, so a stale retained ON can never start a show. The style
+// topics keep their retained choices, which arrive as commands.
 func (l *link) connect() error {
 	c, err := mqtt.Dial(l.broker, l.opts)
 	if err != nil {
@@ -54,6 +61,9 @@ func (l *link) connect() error {
 	err = c.PublishRetained(ha.CommandTopic, nil)
 	if err == nil {
 		err = c.Subscribe(ha.CommandTopic, l.command)
+	}
+	if err == nil {
+		err = c.Subscribe(ha.StyleFilter, l.choose)
 	}
 	if err == nil {
 		err = c.PublishRetained(ha.AvailTopic, []byte("online"))
@@ -89,7 +99,7 @@ func (l *link) command(_ string, p []byte, _ time.Time) {
 // put sets the state to publish. It never blocks, so the show loop may call it.
 func (l *link) put(st ha.State) {
 	l.mu.Lock()
-	l.last = st.JSON()
+	l.state = st
 	l.mu.Unlock()
 	l.signal()
 }
@@ -101,10 +111,13 @@ func (l *link) signal() {
 	}
 }
 
+// current is the state to publish, with the style in force.
 func (l *link) current() []byte {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	return l.last
+	st := l.state
+	st.Style = ha.StyleOf(l.style)
+	return st.JSON()
 }
 
 // run publishes each new state and dials again every cli.RedialEvery after the connection

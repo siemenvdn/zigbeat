@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/siemenvdn/zigbeat/internal/cli"
+	"github.com/siemenvdn/zigbeat/internal/config"
 	"github.com/siemenvdn/zigbeat/internal/run"
 	"github.com/siemenvdn/zigbeat/internal/run/engine"
 	"github.com/siemenvdn/zigbeat/internal/serve/ha"
@@ -13,15 +14,16 @@ import (
 
 // server switches the show on and off for Home Assistant.
 type server struct {
-	show  func(ctx context.Context, h run.Hooks) int // run.Play in production
-	cmds  chan bool                                  // switch commands, ON is true; newest wins
-	put   func(ha.State)                             // hands a state to the link; never blocks
-	total int                                        // lights in the config
+	show   func(ctx context.Context, h run.Hooks) int // run.Play in production
+	cmds   chan bool                                  // switch commands, ON is true; newest wins
+	styles <-chan config.Effects                      // the style after a choice in Home Assistant
+	put    func(ha.State)                             // hands a state to the link; never blocks
+	total  int                                        // lights in the config
 }
 
 // newest puts v in a channel of one, replacing what is waiting there.
 // Only one goroutine may send on ch.
-func newest(ch chan bool, v bool) {
+func newest[T any](ch chan T, v T) {
 	select {
 	case <-ch:
 	default:
@@ -67,7 +69,8 @@ func (s *server) play(ctx context.Context) {
 	unwatch := s.watchOff(st, cancel)
 	defer unwatch()
 	s.show(showCtx, run.Hooks{
-		Status: func(stats engine.Stats) { st.playing(ha.Playing(stats, s.total)) },
+		Effects: s.styles,
+		Status:  func(stats engine.Stats) { st.playing(ha.Playing(stats, s.total)) },
 		Stopping: func() string {
 			unwatch()
 			st.stopping()

@@ -40,10 +40,15 @@ func Run(args []string, version string) int {
 	fmt.Printf("zigbeat serve: %d lights, %v, registered in Home Assistant as zigbeat\n", len(cfg.Lights()), src)
 
 	s := &server{
-		show:  func(ctx context.Context, h run.Hooks) int { return run.Play(ctx, cfg, src, h) },
-		cmds:  l.cmds,
-		put:   l.put,
-		total: len(cfg.Lights()),
+		show: func(ctx context.Context, h run.Hooks) int {
+			c := cfg
+			c.Effects = l.effects() // the choices made while no show played
+			return run.Play(ctx, c, src, h)
+		},
+		cmds:   l.cmds,
+		styles: l.styles,
+		put:    l.put,
+		total:  len(cfg.Lights()),
 	}
 	s.loop(ctx)
 	closeLink()
