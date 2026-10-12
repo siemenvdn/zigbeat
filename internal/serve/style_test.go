@@ -25,7 +25,7 @@ func TestStyleCommands(t *testing.T) {
 		{"brightness", "", 60, false},
 	} {
 		l.choose(ha.StyleTopic(c.key), []byte(c.payload), time.Time{})
-		if got := l.effects().Brightness; got != c.brightness {
+		if got := l.config().Effects.Brightness; got != c.brightness {
 			t.Errorf("%s %q: brightness %d, want %d", c.key, c.payload, got, c.brightness)
 		}
 		select {
@@ -49,11 +49,38 @@ func TestStyleCommands(t *testing.T) {
 	}
 }
 
+// TestOffsetCommands: an audio offset from Home Assistant goes to the show as
+// an offset, not as a style, and to the next show in the config.
+func TestOffsetCommands(t *testing.T) {
+	l := newLink(runtest.Config("separate"), "test")
+	l.choose(ha.StyleTopic("audio_offset_ms"), []byte("180"), time.Time{})
+	select {
+	case d := <-l.offsets:
+		if d != 180*time.Millisecond {
+			t.Errorf("the show got offset %v", d)
+		}
+	default:
+		t.Error("the show got no offset")
+	}
+	select {
+	case e := <-l.styles:
+		t.Errorf("the show got a style: %+v", e)
+	default:
+	}
+	if got := l.config().Budget.AudioOffsetMS; got != 180 {
+		t.Errorf("the next show gets offset %d", got)
+	}
+	if s := string(l.current()); !strings.Contains(s, `"audio_offset_ms":180`) {
+		t.Errorf("state %s", s)
+	}
+}
+
 func TestShowGetsTheStyles(t *testing.T) {
 	h := serveFake(t, 0)
 	newest(h.cmds, true)
 	h.expect(t, "starting", "running")
-	if got := <-h.show.effects; got != (<-chan config.Effects)(h.styles) {
-		t.Error("the show did not get the styles from Home Assistant")
+	got := <-h.show.hooks
+	if got.Effects != (<-chan config.Effects)(h.styles) || got.Offsets != (<-chan time.Duration)(h.offsets) {
+		t.Error("the show did not get the styles and offsets from Home Assistant")
 	}
 }

@@ -10,7 +10,7 @@ mqtt:
 budget:
   max_rate: 4          # Zigbee frames per second: the budget zigbeat probe suggested
   latency_ms: 105      # p50 latency zigbeat probe reported at that load
-  audio_offset_ms: 0   # positive when the speakers play later; -500 to 2000, calibrate in zigbeat run
+  audio_offset_ms: 0   # positive when the speakers play later; -500 to 2000, calibrate in zigbeat run or Home Assistant
 
 # music_assistant:              # the beat source; without it the show runs to a metronome
 #   url: ws://127.0.0.1:8095    # Music Assistant's webserver

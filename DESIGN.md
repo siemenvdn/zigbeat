@@ -42,7 +42,7 @@ How zigbeat works and why. To use it, start with the [README](README.md).
 | The album art's colours play vivid: hue and saturation only, greys and near-black dropped, hues 30° apart | Zigbee2MQTT sends a hex colour as xy and ignores its brightness; pale or dark colours look like a tint of white on a bulb |
 | Energy is the low band of the coming bar within its track, measured and printed but not yet steering the lights | The waveform is the raw decoded audio, before volume normalisation, so levels only compare within a track. Limited masters differ between sections below 150 Hz, hardly in the full band. It needs to be seen on real music first |
 | The colour bulbs rotate through variants per 16 bars, with `build` at a track's start | One change at a time shows no motion; variants differ in how many bulbs change and how many colours the room shows |
-| The audio offset is calibrated by ear while `zigbeat run` plays | One number per speaker setup; Home Assistant stays out of it |
+| The audio offset is calibrated by ear while the show plays: typed in `zigbeat run`, or set in Home Assistant for `zigbeat serve` | One number per speaker setup. Home Assistant sets it too, so a change of speakers, such as a laptop and later the TV, needs no terminal |
 | Roles and fixtures instead of device names in code | Works in any home |
 | Measure first, then build | The budget shapes the effect design |
 | Go, with a well-maintained library wherever it makes our code smaller: `go.yaml.in/yaml/v3`, `go-colorful`, `paho.mqtt.golang`, `x/time/rate` and `gorilla/websocket` | A single static binary; YAML is friendlier than JSON to edit by hand; colour conversion is not worth own code |
@@ -73,7 +73,7 @@ Anything without a role is never touched. That is also how relays and plugs stay
 |---|---|
 | `music.Source` | One ordered stream of what plays, at least 1 s ahead: a track with its tempo and album colours, its beats with their energy, and a clear when they no longer apply. Music Assistant is the source when the config has it, else a fixed-BPM metronome. See [Beat sources](#beat-sources). |
 | Planner | Decides per moment which bulbs change and how: the variant, the colour, the brightness kick, the breathe variant, within the room the budget gives the moment. See [Effects](#effects). |
-| Scheduler | Sends each message early by its number of Zigbee frames times the measured latency per frame, plus a configurable audio offset for TV and amplifier delay, which `zigbeat run` can change while it plays. The estimate starts at `budget.latency_ms` and follows the median of the last 20 confirmations. A colour change, a white jump or a flip that cannot leave within 150 ms of its send time is dropped on its own, so a `together` fixture can miss one bulb for a moment; returns and falls are never dropped. Due messages for one bulb are merged. |
+| Scheduler | Sends each message early by its number of Zigbee frames times the measured latency per frame, plus a configurable audio offset for TV and amplifier delay, which `zigbeat run` and Home Assistant can change while it plays. The estimate starts at `budget.latency_ms` and follows the median of the last 20 confirmations. A colour change, a white jump or a flip that cannot leave within 150 ms of its send time is dropped on its own, so a `together` fixture can miss one bulb for a moment; returns and falls are never dropped. Due messages for one bulb are merged. |
 | Rate limiter | Token bucket in Zigbee frames at `budget.max_rate`, holding one full moment (9 frames: three kicks and three white messages): `golang.org/x/time/rate`, fed the loop's time. A hard ceiling, never a target. Colour plus brightness in one message is two frames. |
 | Closed loop | At most one message in flight per bulb and six in total: one moment's colour and white. A message is confirmed by the bulb's next state. Unanswered after 5 s counts as lost. |
 | Backoff | Level 0 normal, 1 no kick, breathe bulbs still and one message in flight, 2 pause: nothing is sent but canary reads. Signals: latency per frame of the queue a message joined above twice the show's own starting median, a lost message, a slow canary, a Zigbee2MQTT error. One step per 10 s at most; one step back after a quiet minute. Errors about other devices raise it to 1 at most. |
@@ -91,7 +91,7 @@ The latency signal is relative to the show itself, not to the probe: a moment se
 | `zigbeat/availability` | yes | `online` after connecting; `offline` on a clean stop and as the MQTT will |
 | `zigbeat/state` | yes | One JSON object for every entity; the numbers are `null` (unknown) while the show does not play, the style is always there |
 | `zigbeat/show/set` | no | `ON` or `OFF` from the switch |
-| `zigbeat/style/<key>/set` | yes, by Home Assistant | A choice for `effects.<key>`: `album_palette` (`ON`, `OFF`), `album_colors`, `variant`, `brightness`, `pace` (`every beat` to `every 4 bars`), `breathe_variant`, `breathe_low` or `breathe_high` (one end of `breathe_range`); empty is no choice |
+| `zigbeat/style/<key>/set` | yes, by Home Assistant | A choice for `effects.<key>`: `album_palette` (`ON`, `OFF`), `album_colors`, `variant`, `brightness`, `pace` (`every beat` to `every 4 bars`), `breathe_variant`, `breathe_low` or `breathe_high` (one end of `breathe_range`), or for `budget.audio_offset_ms` (`audio_offset_ms`); empty is no choice |
 
 - The discovery message carries `cadence`, the pace in seconds of an older zigbeat, with only its platform, which removes that slider from the device. A kept choice for a setting that is gone gets a line with the command that wipes it.
 - On every connect serve clears a retained switch command first, subscribes to the switch and to the style topics, whose retained choices arrive as commands, then publishes `online`, the discovery message and the last state. A broker restart drops the connection, so this also covers a broker that lost its retained messages; Home Assistant's birth message is not needed.
@@ -196,7 +196,7 @@ mqtt:
 budget:
   max_rate: 15          # Zigbee frames per second, from `zigbeat probe`, required
   latency_ms: 66        # p50 at that load, from `zigbeat probe`, required
-  audio_offset_ms: 0    # extra delay of TV and speakers, -500 to 2000, calibrate in zigbeat run
+  audio_offset_ms: 0    # extra delay of TV and speakers, -500 to 2000, calibrate in zigbeat run or Home Assistant
 
 music_assistant:        # optional; without it the show runs to a metronome
   url: ws://music-assistant:8095
@@ -270,7 +270,7 @@ Small known issues that are not planned yet: [BACKLOG.md](BACKLOG.md). Ideas for
 
 - **3a (built):** `zigbeat setup` with an allowlist of what may be driven, `zigbeat probe -config` writing the budget, `save` for the audio offset, and the check of every light at the start. Tested against `cmd/fake-z2m`. To do: classify the device list of a real home.
 - **3b (built):** variants of the chase that rotate per 16 bars, a palette per track from the album art, and energy from the music, measured and printed. Tested against `cmd/fake-ma` and `cmd/fake-z2m`. To do: judge the colours and variants on real lights.
-- **3c (built):** the style of the show from Home Assistant: album colours on or off and how many, the variant, the brightness and the pace, with the config as the fallback. Tempo, beats and the audio offset stay out of Home Assistant. Tested against `cmd/fake-ma`, `cmd/fake-z2m` and a throwaway Home Assistant container. To do: use it at a party.
+- **3c (built):** the style of the show from Home Assistant: album colours on or off and how many, the variant, the brightness and the pace, with the config as the fallback. Tempo and beats stay out of Home Assistant; the audio offset came later, for a change of speakers without a terminal. Tested against `cmd/fake-ma`, `cmd/fake-z2m` and a throwaway Home Assistant container. To do: use it at a party.
 
 ### Phase 4: release
 
@@ -375,7 +375,7 @@ flowchart LR
    - a state or a log line from the link: `Engine.State` or `Engine.ZigbeeError`;
    - a tick every 10 ms: `Engine.Due`, whose `engine.Send`s go out through `link.Set` and `link.Get`;
    - the status every 10 s: `Engine.Stats`, printed and handed to `Hooks.Status`;
-   - an audio offset typed in `zigbeat run`: `Engine.SetOffset`;
+   - an audio offset typed in `zigbeat run` or set in Home Assistant: `Engine.SetOffset`;
    - a style chosen in Home Assistant: `Engine.SetEffects`;
    - a dropped link: `Engine.Disconnected` and `link.Reconnect`.
 
@@ -457,7 +457,7 @@ What each package offers the others. Unexported helpers are left out; `go doc ./
 | `run` | `Run(args []string) int` |
 | | `Play(ctx, cfg, src, hooks) int`: one show, from the checks at the start to the restore. Returns 0, or 1 when the show could not start, after a panic, or when the broker is gone at the stop |
 | | `Source(cfg, bpm) music.Source`: Music Assistant from the config, or a metronome at bpm |
-| | `Hooks`: `Status(engine.Stats)` every 10 s, `Stopping() string` right before the restore, `Offsets <-chan time.Duration` with new audio offsets, `Effects <-chan config.Effects` with a new style |
+| | `Hooks`: `Status(engine.Stats)` every 10 s, `Stopping() string` right before the restore, `Offsets <-chan time.Duration` with new audio offsets, typed or set in Home Assistant, `Effects <-chan config.Effects` with a new style |
 | | `ParseOptions(name, about, args) (Options, error)`: `-config` and `-bpm` for run, serve and beats |
 | `serve/ha` | `Discovery(version) []byte`: the discovery message. `State`, `Playing(stats, lights)` and `Off`: the state payload; `Style` and `StyleOf(effects)`: the style in it. `DiscoveryTopic`, `AvailTopic`, `StateTopic`, `CommandTopic` |
 | | `Choose(effects, config, key, payload) (config.Effects, error)`: a choice from Home Assistant, checked like the config. `Value(effects, key)`: a setting as the config writes it, nil for a key that is no setting. `StyleTopic(key)`, `StyleKey(topic)`, `StyleFilter` |

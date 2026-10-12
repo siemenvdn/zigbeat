@@ -1,7 +1,10 @@
 // Package config loads and validates the zigbeat configuration file.
 package config
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 type Config struct {
 	MQTT           MQTT            `yaml:"mqtt"`
@@ -25,6 +28,9 @@ type MQTT struct {
 // that lag more than 2 s are not worth a show.
 const MinOffsetMS, MaxOffsetMS = -500, 2000
 
+// OffsetStepMS is the smallest change of the audio offset: about what an ear can tell apart.
+const OffsetStepMS = 10
+
 type Budget struct {
 	MaxRate       float64 `yaml:"max_rate"`
 	LatencyMS     int     `yaml:"latency_ms"`
@@ -33,6 +39,14 @@ type Budget struct {
 
 // AudioOffset is how much later than the beat the lights should change.
 func (b Budget) AudioOffset() time.Duration { return time.Duration(b.AudioOffsetMS) * time.Millisecond }
+
+// CheckOffset checks that the audio offset is within its limits.
+func (b Budget) CheckOffset() error {
+	if b.AudioOffsetMS < MinOffsetMS || b.AudioOffsetMS > MaxOffsetMS {
+		return fmt.Errorf("budget.audio_offset_ms must be %d to %d", MinOffsetMS, MaxOffsetMS)
+	}
+	return nil
+}
 
 type Fixture struct {
 	Name   string   `yaml:"name"`

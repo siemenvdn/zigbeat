@@ -14,8 +14,8 @@ func (c Config) validate(needBudget bool) error {
 		return errors.New("budget.max_rate is required: use the budget zigbeat probe suggested")
 	case needBudget && c.Budget.LatencyMS <= 0:
 		return errors.New("budget.latency_ms is required: the p50 zigbeat probe reported at that load")
-	case c.Budget.AudioOffsetMS < MinOffsetMS || c.Budget.AudioOffsetMS > MaxOffsetMS:
-		return fmt.Errorf("budget.audio_offset_ms must be %d to %d", MinOffsetMS, MaxOffsetMS)
+	case c.Budget.CheckOffset() != nil:
+		return c.Budget.CheckOffset()
 	case len(c.Fixtures) == 0:
 		return errors.New("fixtures: at least one is required")
 	}

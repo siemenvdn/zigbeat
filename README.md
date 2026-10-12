@@ -212,6 +212,8 @@ TVs, soundbars and amplifiers delay the sound, so the lights need to wait for it
 4. Type `save` to keep it in the config. When the show stops, zigbeat says so if the offset changed after the last `save`.
 5. Check with two tracks of another tempo, for example around 90 and 170 BPM.
 
+With `zigbeat serve`, set the offset with **Audio offset** in Home Assistant while the show plays, in steps of 10 ms. Home Assistant keeps it, so after a change of speakers you only set it again there.
+
 ## Home Assistant
 
 `zigbeat serve` keeps running next to Zigbee2MQTT and adds a **zigbeat** device to Home Assistant through MQTT discovery. No Home Assistant YAML is needed, only the MQTT integration that Zigbee2MQTT already uses.
@@ -246,6 +248,7 @@ Next to the switch you set the style of the show, before it starts or while it p
 | `select.zigbeat_breathe_variant` | How the breathe bulbs move: `rotation`, `pulse` or `flip` | `effects.breathe_variant` |
 | `number.zigbeat_breathe_low` | The low end of the breathe bulbs, 1 to 100 % | `effects.breathe_range` |
 | `number.zigbeat_breathe_high` | The high end of the breathe bulbs, 1 to 100 %, above the low end | `effects.breathe_range` |
+| `number.zigbeat_audio_offset` | How much later than the beat the lights change, for the delay of TV and speakers: -500 to 2000 ms. See [Calibrate the audio offset](#calibrate-the-audio-offset) | `budget.audio_offset_ms` |
 
 A pace that the budget cannot carry at the tempo that plays gets slower only when even the colour changes without kicks do not fit; `zigbeat run` prints a line when that happens.
 
@@ -263,7 +266,7 @@ To remove the device from Home Assistant, stop zigbeat and clear its discovery m
 
 ```bash
 mosquitto_pub -r -n -t homeassistant/device/zigbeat/config
-for k in album_palette album_colors variant brightness pace breathe_variant breathe_low breathe_high cadence; do mosquitto_pub -r -n -t zigbeat/style/$k/set; done
+for k in album_palette album_colors variant brightness pace breathe_variant breathe_low breathe_high audio_offset_ms cadence; do mosquitto_pub -r -n -t zigbeat/style/$k/set; done
 ```
 
 ## Build from source

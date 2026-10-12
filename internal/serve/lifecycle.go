@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/config"
@@ -14,11 +15,12 @@ import (
 
 // server switches the show on and off for Home Assistant.
 type server struct {
-	show   func(ctx context.Context, h run.Hooks) int // run.Play in production
-	cmds   chan bool                                  // switch commands, ON is true; newest wins
-	styles <-chan config.Effects                      // the style after a choice in Home Assistant
-	put    func(ha.State)                             // hands a state to the link; never blocks
-	total  int                                        // lights in the config
+	show    func(ctx context.Context, h run.Hooks) int // run.Play in production
+	cmds    chan bool                                  // switch commands, ON is true; newest wins
+	styles  <-chan config.Effects                      // the style after a choice in Home Assistant
+	offsets <-chan time.Duration                       // the audio offset after a choice in Home Assistant
+	put     func(ha.State)                             // hands a state to the link; never blocks
+	total   int                                        // lights in the config
 }
 
 // newest puts v in a channel of one, replacing what is waiting there.
@@ -70,6 +72,7 @@ func (s *server) play(ctx context.Context) {
 	defer unwatch()
 	s.show(showCtx, run.Hooks{
 		Effects: s.styles,
+		Offsets: s.offsets,
 		Status:  func(stats engine.Stats) { st.playing(ha.Playing(stats, s.total)) },
 		Stopping: func() string {
 			unwatch()

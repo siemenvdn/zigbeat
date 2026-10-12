@@ -15,8 +15,8 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/config"
 )
 
-// offsetStep is one + or -: about what an ear can tell apart.
-const offsetStep = 10 * time.Millisecond
+// offsetStep is one + or -.
+const offsetStep = config.OffsetStepMS * time.Millisecond
 
 // saveWord, typed during the show, writes the offset into the config.
 const saveWord = "save"

@@ -41,14 +41,13 @@ func Run(args []string, version string) int {
 
 	s := &server{
 		show: func(ctx context.Context, h run.Hooks) int {
-			c := cfg
-			c.Effects = l.effects() // the choices made while no show played
-			return run.Play(ctx, c, src, h)
+			return run.Play(ctx, l.config(), src, h) // with the choices made while no show played
 		},
-		cmds:   l.cmds,
-		styles: l.styles,
-		put:    l.put,
-		total:  len(cfg.Lights()),
+		cmds:    l.cmds,
+		styles:  l.styles,
+		offsets: l.offsets,
+		put:     l.put,
+		total:   len(cfg.Lights()),
 	}
 	s.loop(ctx)
 	closeLink()

@@ -16,18 +16,19 @@ import (
 // link is serve's own MQTT connection to Home Assistant, apart from the show's.
 // After connect, only run touches the client.
 type link struct {
-	broker string
-	opts   mqtt.Options
-	disc   []byte
-	cmds   chan bool           // switch commands, ON is true; newest wins
-	styles chan config.Effects // the style after a choice; newest wins
-	base   config.Effects      // the config's style
-	client *mqtt.Client
+	broker  string
+	opts    mqtt.Options
+	disc    []byte
+	cmds    chan bool           // switch commands, ON is true; newest wins
+	styles  chan config.Effects // the style after a choice; newest wins
+	offsets chan time.Duration  // the audio offset after a choice; newest wins
+	base    config.Config       // the config, without the choices
+	client  *mqtt.Client
 
 	mu    sync.Mutex
-	state ha.State       // the state to publish, without the style
-	style config.Effects // the style in force
-	wake  chan struct{}  // tells run to publish the state
+	state ha.State      // the state to publish, without the style
+	style config.Config // the config with the choices over it
+	wake  chan struct{} // tells run to publish the state
 }
 
 func newLink(cfg config.Config, version string) *link {
@@ -40,13 +41,14 @@ func newLink(cfg config.Config, version string) *link {
 			WillTopic:   ha.AvailTopic,
 			WillPayload: []byte("offline"),
 		},
-		disc:   ha.Discovery(version),
-		cmds:   make(chan bool, 1),
-		styles: make(chan config.Effects, 1),
-		base:   cfg.Effects,
-		state:  ha.Off,
-		style:  cfg.Effects,
-		wake:   make(chan struct{}, 1),
+		disc:    ha.Discovery(version),
+		cmds:    make(chan bool, 1),
+		styles:  make(chan config.Effects, 1),
+		offsets: make(chan time.Duration, 1),
+		base:    cfg,
+		state:   ha.Off,
+		style:   cfg,
+		wake:    make(chan struct{}, 1),
 	}
 }
 

@@ -9,15 +9,15 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/config"
 )
 
-func defaults() config.Effects {
+func defaults() config.Config {
 	e := config.DefaultEffects
 	e.Palette = config.DefaultPalette
-	return e
+	return config.Config{Effects: e}
 }
 
 func TestStyleEntities(t *testing.T) {
 	cs := decode(t, Discovery("v1"))["components"].(map[string]any)
-	for _, key := range []string{"album_palette", "album_colors", "variant", "brightness", "pace", "breathe_variant", "breathe_low", "breathe_high"} {
+	for _, key := range []string{"album_palette", "album_colors", "variant", "brightness", "pace", "breathe_variant", "breathe_low", "breathe_high", "audio_offset_ms"} {
 		c := cs[key].(map[string]any)
 		topic := StyleTopic(key)
 		if c["command_topic"] != topic || c["retain"] != true || strings.Replace(StyleFilter, "+", key, 1) != topic || StyleKey(topic) != key {
@@ -34,6 +34,10 @@ func TestStyleEntities(t *testing.T) {
 		if c["platform"] != "number" || c["min"] != want[0] || c["max"] != want[1] || c["mode"] != "slider" {
 			t.Errorf("%s: %v, want %v", key, c, want)
 		}
+	}
+	if c := cs["audio_offset_ms"].(map[string]any); c["platform"] != "number" || c["min"] != float64(config.MinOffsetMS) ||
+		c["max"] != float64(config.MaxOffsetMS) || c["step"] != float64(config.OffsetStepMS) || c["mode"] != "box" || c["unit_of_measurement"] != "ms" {
+		t.Errorf("audio_offset_ms: %v", c)
 	}
 	for key, want := range map[string][]string{
 		"variant":         config.Variants,
@@ -57,7 +61,8 @@ func TestStyleEntities(t *testing.T) {
 func TestChoose(t *testing.T) {
 	base := defaults()
 	cur := base
-	cur.Brightness = 40
+	cur.Effects.Brightness = 40
+	cur.Budget.AudioOffsetMS = 150
 	for _, c := range []struct {
 		key, payload string
 		want         string // the value in config form, or the error
@@ -82,6 +87,11 @@ func TestChoose(t *testing.T) {
 		{"breathe_high", "50", "50"},
 		{"breathe_low", "100", "effects.breathe_range must be [low, high] within 1 to 100 with low below high"},
 		{"breathe_high", "5", "effects.breathe_range must be [low, high] within 1 to 100 with low below high"},
+		{"audio_offset_ms", "180", "180"},
+		{"audio_offset_ms", "-60", "-60"},
+		{"audio_offset_ms", "2500", "budget.audio_offset_ms must be -500 to 2000"},
+		{"audio_offset_ms", "180.5", "not a whole number"},
+		{"audio_offset_ms", "", "0"},
 		{"speed", "3", "no such setting; wipe it with: mosquitto_pub -r -n -t zigbeat/style/speed/set"},
 	} {
 		got, err := Choose(cur, base, c.key, c.payload)
@@ -114,13 +124,14 @@ func TestValueOfAnUnknownKey(t *testing.T) {
 }
 
 func TestStyleInTheState(t *testing.T) {
-	e := defaults()
-	e.Pace = 4
+	c := defaults()
+	c.Effects.Pace = 4
+	c.Budget.AudioOffsetMS = 120
 	st := Off
-	st.Style = StyleOf(e)
+	st.Style = StyleOf(c)
 	m := decode(t, st.JSON())
 	want := map[string]any{"show": "OFF", "album_palette": "ON", "album_colors": 3.0, "variant": "rotation", "brightness": 60.0, "pace": "every bar",
-		"breathe_variant": "rotation", "breathe_low": 10.0, "breathe_high": 100.0}
+		"breathe_variant": "rotation", "breathe_low": 10.0, "breathe_high": 100.0, "audio_offset_ms": 120.0}
 	for k, v := range want {
 		if m[k] != v {
 			t.Errorf("%s = %v, want %v", k, m[k], v)

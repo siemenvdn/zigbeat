@@ -16,8 +16,9 @@ import (
 func (l *link) choose(topic string, p []byte, _ time.Time) {
 	key := ha.StyleKey(topic)
 	l.mu.Lock()
-	next, err := ha.Choose(l.style, l.base, key, string(p))
-	changed := err == nil && ha.StyleOf(next) != ha.StyleOf(l.style)
+	prev := l.style
+	next, err := ha.Choose(prev, l.base, key, string(p))
+	changed := err == nil && ha.StyleOf(next) != ha.StyleOf(prev)
 	if changed {
 		l.style = next
 	}
@@ -31,13 +32,17 @@ func (l *link) choose(topic string, p []byte, _ time.Time) {
 			how = "from the config again"
 		}
 		fmt.Printf("%s  %s %v, %s\n", cli.Stamp(), key, ha.Value(next, key), how)
-		newest(l.styles, next)
+		if next.Budget.AudioOffsetMS != prev.Budget.AudioOffsetMS {
+			newest(l.offsets, next.Budget.AudioOffset())
+		} else {
+			newest(l.styles, next.Effects)
+		}
 	}
 	l.signal()
 }
 
-// effects is the style in force: the config's, with the choices over it.
-func (l *link) effects() config.Effects {
+// config is the config in force: the file's, with the choices over it.
+func (l *link) config() config.Config {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	return l.style

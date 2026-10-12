@@ -16,19 +16,19 @@ import (
 // fakeShow plays until ctx is done, then holds its restore until release gets a token.
 type fakeShow struct {
 	release chan struct{}
-	hints   chan string                  // what the Stopping hook returned
-	start   chan struct{}                // when set, the start waits for it to close
-	status  chan struct{}                // when set, the first status waits for it to close, also after OFF
-	ends    chan struct{}                // when set, the show also ends when it closes, like after a panic
-	code    int                          // when not 0, returned at once, like a show that could not start
-	effects chan (<-chan config.Effects) // the styles each start got
+	hints   chan string    // what the Stopping hook returned
+	start   chan struct{}  // when set, the start waits for it to close
+	status  chan struct{}  // when set, the first status waits for it to close, also after OFF
+	ends    chan struct{}  // when set, the show also ends when it closes, like after a panic
+	code    int            // when not 0, returned at once, like a show that could not start
+	hooks   chan run.Hooks // the hooks each start got
 }
 
 func (f *fakeShow) run(ctx context.Context, h run.Hooks) int {
 	if f.code != 0 {
 		return f.code
 	}
-	f.effects <- h.Effects
+	f.hooks <- h
 	if f.start != nil {
 		<-f.start
 	}
@@ -49,18 +49,19 @@ func (f *fakeShow) run(ctx context.Context, h run.Hooks) int {
 }
 
 type harness struct {
-	cmds   chan bool
-	styles chan config.Effects
-	got    chan string
-	show   *fakeShow
-	cancel context.CancelFunc
-	done   chan struct{}
+	cmds    chan bool
+	styles  chan config.Effects
+	offsets chan time.Duration
+	got     chan string
+	show    *fakeShow
+	cancel  context.CancelFunc
+	done    chan struct{}
 }
 
 func serveFake(t *testing.T, code int) *harness {
 	t.Helper()
-	h := &harness{cmds: make(chan bool, 1), styles: make(chan config.Effects, 1), got: make(chan string, 64), done: make(chan struct{}),
-		show: &fakeShow{release: make(chan struct{}, 4), hints: make(chan string, 4), code: code, effects: make(chan (<-chan config.Effects), 4)}}
+	h := &harness{cmds: make(chan bool, 1), styles: make(chan config.Effects, 1), offsets: make(chan time.Duration, 1), got: make(chan string, 64), done: make(chan struct{}),
+		show: &fakeShow{release: make(chan struct{}, 4), hints: make(chan string, 4), code: code, hooks: make(chan run.Hooks, 4)}}
 	var mu sync.Mutex
 	last := ""
 	put := func(st ha.State) { // called from several goroutines, like link.put
@@ -71,7 +72,7 @@ func serveFake(t *testing.T, code int) *harness {
 		}
 		last = st.Status
 	}
-	s := &server{show: h.show.run, cmds: h.cmds, styles: h.styles, put: put, total: 2}
+	s := &server{show: h.show.run, cmds: h.cmds, styles: h.styles, offsets: h.offsets, put: put, total: 2}
 	ctx, cancel := context.WithCancel(context.Background())
 	h.cancel = cancel
 	go func() { s.loop(ctx); close(h.done) }()

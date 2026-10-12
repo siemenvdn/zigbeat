@@ -82,8 +82,8 @@ func TestDiscovery(t *testing.T) {
 			t.Errorf("%s: value_template %v names no state key", name, c["value_template"])
 		}
 	}
-	if len(ids) != 15 {
-		t.Errorf("want 15 entities, got %d", len(ids))
+	if len(ids) != 16 {
+		t.Errorf("want 16 entities, got %d", len(ids))
 	}
 	status := m["components"].(map[string]any)["status"].(map[string]any)
 	var opts []string
