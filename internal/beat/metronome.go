@@ -2,6 +2,7 @@ package beat
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -10,6 +11,8 @@ type Metronome struct {
 	BPM       float64
 	Lookahead time.Duration // how long before At each beat is delivered
 }
+
+func (m Metronome) String() string { return fmt.Sprintf("metronome at %g BPM", m.BPM) }
 
 func (m Metronome) beat(start time.Time, i int) Beat {
 	period := time.Duration(float64(time.Minute) / m.BPM)

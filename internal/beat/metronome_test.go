@@ -16,6 +16,9 @@ func TestMetronomeGrid(t *testing.T) {
 	if b.Period() != 500*time.Millisecond {
 		t.Errorf("period %s", b.Period())
 	}
+	if s := m.String(); s != "metronome at 120 BPM" {
+		t.Errorf("String() = %q", s)
+	}
 }
 
 func TestMetronomeDeliversAhead(t *testing.T) {
