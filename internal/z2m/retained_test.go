@@ -13,7 +13,8 @@ import (
 )
 
 // tinyBroker answers a CONNECT, answers every SUBSCRIBE with a SUBACK and a
-// retained message, and sends the filter of every UNSUBSCRIBE to unsubs.
+// retained message, and answers every UNSUBSCRIBE after sending its filter to
+// unsubs.
 // Packets must be shorter than 128 bytes.
 func tinyBroker(t *testing.T, retained string) (addr string, unsubs chan string) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -51,6 +52,7 @@ func tinyBroker(t *testing.T, retained string) (addr string, unsubs chan string)
 				_, _ = conn.Write(append([]byte{0x31, byte(len(pub))}, pub...)) // PUBLISH, retained
 			case 10: // UNSUBSCRIBE
 				unsubs <- filter()
+				_, _ = conn.Write([]byte{0xb0, 2, body[0], body[1]}) // UNSUBACK
 			}
 		}
 	}()

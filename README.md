@@ -47,7 +47,7 @@ zigbeat is a single static Go binary, meant to run next to Zigbee2MQTT. Architec
 
 ### Install
 
-With Go 1.24 or later:
+With Go 1.26 or later:
 
 ```bash
 go install github.com/siemenvdn/zigbeat/cmd/zigbeat@latest

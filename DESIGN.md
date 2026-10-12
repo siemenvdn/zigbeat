@@ -42,11 +42,12 @@ How zigbeat works and why. To use it, start with the [README](README.md).
 | The album art's colours play vivid: hue and saturation only, greys and near-black dropped, hues 30° apart | Zigbee2MQTT sends a hex colour as xy and ignores its brightness; pale or dark colours look like a tint of white on a bulb |
 | Energy is the low band of the coming bar within its track, measured and printed but not yet steering the lights | The waveform is the raw decoded audio, before volume normalisation, so levels only compare within a track. Limited masters differ between sections below 150 Hz, hardly in the full band. It needs to be seen on real music first |
 | The colour bulbs rotate through variants per 16 bars, with `build` at a track's start | At one change every 2 to 5 s no motion is seen; variants differ in how many bulbs change and how many colours the room shows |
-| Own WebSocket client, no dependency | The relay needs no extensions, compression or TLS; about 200 lines, like the MQTT client |
+| Own WebSocket client, no dependency | The relay needs no extensions, compression or TLS; about 200 lines |
 | The audio offset is calibrated by ear while `zigbeat run` plays | One number per speaker setup; Home Assistant stays out of it |
 | Roles and fixtures instead of device names in code | Works in any home |
 | Measure first, then build | The budget shapes the effect design |
-| Go, standard library plus `go.yaml.in/yaml/v3` and `go-colorful` | A single static binary; YAML is friendlier than JSON to edit by hand; colour conversion is not worth own code |
+| Go, with a well-maintained library wherever it makes our code smaller: `go.yaml.in/yaml/v3`, `go-colorful` and `paho.mqtt.golang` | A single static binary; YAML is friendlier than JSON to edit by hand; colour conversion is not worth own code |
+| MQTT through `eclipse/paho.mqtt.golang` (under EDL-1.0), behind `internal/mqtt`'s own small API | About 300 fewer own lines. The adapter turns off paho's reconnect (the commands dial again themselves) and keeps every handler in order on one goroutine |
 
 ## Roles and fixtures
 
@@ -517,7 +518,7 @@ What each package offers the others. Unexported helpers are left out; `go doc ./
 
 | Package | Offers |
 |---|---|
-| `mqtt` | `Dial(addr, Options) (*Client, error)`. `Client`: `Publish`, `PublishRetained`, `Subscribe`, `SubscribeLive` (no retained messages), `Unsubscribe`, `Done`, `Err`, `Closed`, `Close`. `Match(filter, topic)` |
+| `mqtt` | `Dial(addr, Options) (*Client, error)`. `Client`: `Publish`, `PublishRetained`, `Subscribe`, `SubscribeLive` (no retained messages), `Unsubscribe`, `Done`, `Err`, `Closed`, `Close` |
 | `ws` | `Dial(url, timeout)`, `Upgrade(w, r)` for the server side. `Conn`: `Read`, `WriteText`, `WriteBinary`, `Ping`, `Close`, `CloseWith`, `SetIdleTimeout`, `SetReadDeadline`. `Message{Binary, Data}` |
 | `cli` | `StopContext`, `QuitOnInterrupt`, `QuitHint`; `NewFlagSet`, `Parse`, `Exit`, `Names`; `Redial`, `RedialEvery`; `Stamp`, `Clock`, `ClockMS`, `Seconds` |
 
@@ -532,7 +533,7 @@ cmd/
   fake-ma/        simulated Music Assistant relay: tracks, analysis delay, seeks, gaps, its own clock, palettes, music
 internal/
   cli/            what the subcommands share: stop signals, flag errors, the time stamp, the 5 s redial
-  mqtt/           minimal MQTT 3.1.1 client (QoS 0, retained publish and will, live-only subscribe, keepalive, wildcards)
+  mqtt/           thin adapter over paho.mqtt.golang: MQTT 3.1.1, QoS 0, retained publish and will, live-only subscribe, keepalive
   ws/             minimal WebSocket client, and the server side for tests and fake-ma
   z2m/            Zigbee2MQTT topics, groups, the device list and which lights may be driven, frame count, the canary limit
   lights/         snapshot and restore of lights, shared by probe and run

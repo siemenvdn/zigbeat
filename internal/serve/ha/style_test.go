@@ -3,11 +3,11 @@ package ha
 import (
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/config"
-	"github.com/siemenvdn/zigbeat/internal/mqtt"
 )
 
 func defaults() config.Effects {
@@ -21,7 +21,7 @@ func TestStyleEntities(t *testing.T) {
 	for _, key := range []string{"album_palette", "album_colors", "variant", "brightness", "cadence"} {
 		c := cs[key].(map[string]any)
 		topic := StyleTopic(key)
-		if c["command_topic"] != topic || c["retain"] != true || !mqtt.Match(StyleFilter, topic) || StyleKey(topic) != key {
+		if c["command_topic"] != topic || c["retain"] != true || strings.Replace(StyleFilter, "+", key, 1) != topic || StyleKey(topic) != key {
 			t.Errorf("%s: %v", key, c)
 		}
 	}

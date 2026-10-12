@@ -1,8 +1,15 @@
 module github.com/siemenvdn/zigbeat
 
-go 1.24.7
+go 1.26.0
 
 require (
+	github.com/eclipse/paho.mqtt.golang v1.5.1
 	github.com/lucasb-eyer/go-colorful v1.4.1
 	go.yaml.in/yaml/v3 v3.0.5
+)
+
+require (
+	github.com/gorilla/websocket v1.5.3 // indirect
+	golang.org/x/net v0.61.0 // indirect
+	golang.org/x/sync v0.17.0 // indirect
 )
