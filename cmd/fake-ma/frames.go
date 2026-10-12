@@ -36,19 +36,24 @@ func waveFrame(ts int64, samples []byte) []byte {
 // frameTime is the timestamp of a frame, in µs on the fake's clock.
 func frameTime(f []byte) int64 { return int64(binary.BigEndian.Uint64(f[1:headerLen])) }
 
-// waveform sends silent waveform frames waveRate times a second while a track plays.
+// waveform sends the track's music while it plays, as MA's tap does: windows
+// of waveSamples one after the other, each stamped at its end, up to waveLead ahead.
 func (tl *timeline) waveform() {
-	silent := make([]byte, waveSamples)
-	for i := range silent {
-		silent[i] = silentSample
-	}
 	for range time.Tick(time.Second / waveRate) {
 		tl.mu.Lock()
-		playing := tl.playing
+		var frames [][]byte
+		for tl.playing {
+			end := tl.next + waveSamples
+			ts := tl.anchor + end*time.Second.Microseconds()/sampleRate
+			if ts > tl.now()+waveLead.Microseconds() {
+				break
+			}
+			frames = append(frames, waveFrame(ts, synth(tl.cur, tl.pickup, tl.next, tl.noise)))
+			tl.next = end
+		}
 		tl.mu.Unlock()
-		if playing {
-			ts := tl.now() + waveLead.Microseconds()
-			tl.fan(waveFrame(ts, silent), false)
+		for _, f := range frames {
+			tl.fan(f, false)
 		}
 	}
 }

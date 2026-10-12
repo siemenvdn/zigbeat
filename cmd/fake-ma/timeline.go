@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math/rand/v2"
 	"sync"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 )
 
 const (
+	noiseSeed  = 1                      // the hi-hats sound the same every run
 	firstAt    = 250 * time.Millisecond // media time of a track's first beat
 	startDelay = 2 * time.Second        // a client can connect before the first track
 	seekJump   = 10 * time.Second       // far enough to show in the beat numbering
@@ -28,10 +30,18 @@ type timeline struct {
 	viewers map[*viewer]bool
 	// lastColor is the last colour message, sent again to a viewer that joins.
 	lastColor []byte
+	// The music of the current track: its media time zero on the fake's clock,
+	// and the first sample of the next waveform frame.
+	cur    track
+	pickup int
+	anchor int64
+	next   int64
+	noise  *rand.Rand
 }
 
 func newTimeline(offset time.Duration, log, colors bool, art time.Duration) *timeline {
-	return &timeline{t0: time.Now(), offset: offset.Microseconds(), log: log, colors: colors, art: art, viewers: map[*viewer]bool{}}
+	return &timeline{t0: time.Now(), offset: offset.Microseconds(), log: log, colors: colors, art: art, viewers: map[*viewer]bool{},
+		noise: rand.New(rand.NewPCG(noiseSeed, noiseSeed))}
 }
 
 // now is the fake's clock in µs, like MA's time.monotonic().
@@ -55,6 +65,7 @@ func (tl *timeline) play(tracks []track, loop bool, analysis time.Duration, pick
 			if tl.colors {
 				tl.cover(palettes[(round*len(tracks)+i)%len(palettes)], tl.art)
 			}
+			tl.music(tr, pickup, anchor)
 			tl.clear(true, fmt.Sprintf("track %d, %g BPM", i+1, tr.bpm))
 			if first {
 				tl.sleepUntil(anchor + analysis.Microseconds())
@@ -64,6 +75,7 @@ func (tl *timeline) play(tracks []track, loop bool, analysis time.Duration, pick
 				tl.sleepUntil(anchor + seek.Microseconds())
 				anchor -= seekJump.Microseconds()
 				end -= seekJump.Microseconds()
+				tl.music(tr, pickup, anchor)
 				tl.clear(true, "seek "+cli.Seconds(seekJump)+" ahead")
 				tl.publish(tr, anchor, pickup)
 			}
@@ -75,6 +87,15 @@ func (tl *timeline) play(tracks []track, loop bool, analysis time.Duration, pick
 		}
 	}
 	tl.end()
+}
+
+// music starts the waveform of tr with its media time zero at anchor, from
+// where it is now: at a track's start that is 0, so the first waveLead goes at once.
+func (tl *timeline) music(tr track, pickup int, anchor int64) {
+	tl.mu.Lock()
+	defer tl.mu.Unlock()
+	tl.cur, tl.pickup, tl.anchor = tr, pickup, anchor
+	tl.next = max(0, (tl.now()-anchor)*sampleRate/time.Second.Microseconds())
 }
 
 // publish sends the beats of tr still ahead, with the track's media time zero at anchor.
