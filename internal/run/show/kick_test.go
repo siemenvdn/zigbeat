@@ -67,3 +67,18 @@ func TestKicksAllOrNone(t *testing.T) {
 		t.Errorf("colour %q, pulses %d", changed(ps), pulses)
 	}
 }
+
+// TestTwoMissedChangesOfOneLight: the engine hands a light's dropped colour
+// changes over in queue order; neither went, so the light shows its colour
+// from before the first.
+func TestTwoMissedChangesOfOneLight(t *testing.T) {
+	p := NewPlanner(testConfig("separate"))
+	p.Start(t0)
+	shown := p.current["lamp-1"]
+	first := p.paint([]string{"lamp-1"}, "#111111", stroke{at: at(1000)})
+	second := p.paint([]string{"lamp-1"}, "#222222", stroke{at: at(1500)})
+	p.Missed(first[0], second[0])
+	if p.current["lamp-1"] != shown {
+		t.Errorf("lamp-1 counts as showing %s, want %s", p.current["lamp-1"], shown)
+	}
+}

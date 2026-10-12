@@ -1,6 +1,9 @@
 package show
 
-import "time"
+import (
+	"slices"
+	"time"
+)
 
 const (
 	kickPoints = 30  // percentage points above the base brightness
@@ -70,10 +73,13 @@ func (p *Planner) returnPayload() map[string]any {
 	return map[string]any{"brightness": p.base, "transition": kickFall}
 }
 
-// Missed takes back the colour of a message the engine dropped, while it is
-// still the light's latest: the light counts as showing its colour from before.
-func (p *Planner) Missed(m Message) {
-	if c, ok := m.Payload["color"].(map[string]string); ok && p.current[m.Light] == c["hex"] {
-		p.current[m.Light] = m.before
+// Missed takes back the colours of messages the engine dropped, given in queue
+// order, newest first: while it is still the light's latest, the light counts
+// as showing its colour from before.
+func (p *Planner) Missed(ms ...Message) {
+	for _, m := range slices.Backward(ms) {
+		if c, ok := m.Payload["color"].(map[string]string); ok && p.current[m.Light] == c["hex"] {
+			p.current[m.Light] = m.before
+		}
 	}
 }

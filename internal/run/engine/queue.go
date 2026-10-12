@@ -57,18 +57,21 @@ func (e *Engine) dropLate(now time.Time) {
 func (e *Engine) forget() { e.drop(func(queued) bool { return true }) }
 
 // drop removes every droppable message for which late holds, tells the
-// planner, and returns how many it removed.
+// planner, and returns how many it removed. A light's messages go to the
+// planner together, in queue order, so it can take back the newest first.
 func (e *Engine) drop(late func(queued) bool) int {
 	n := 0
 	for l, q := range e.queue {
+		var missed []show.Message
 		e.queue[l] = slices.DeleteFunc(q, func(m queued) bool {
 			gone := m.Drop && late(m)
 			if gone {
-				e.plan.Missed(m.Message)
+				missed = append(missed, m.Message)
 			}
 			return gone
 		})
-		n += len(q) - len(e.queue[l])
+		e.plan.Missed(missed...)
+		n += len(missed)
 	}
 	return n
 }
@@ -76,16 +79,11 @@ func (e *Engine) drop(late func(queued) bool) int {
 // clearQueue empties the queue of every light for which gone holds; the
 // planner hears of each colour change that will not go.
 func (e *Engine) clearQueue(gone func(light string) bool) {
-	for l, q := range e.queue {
-		if !gone(l) {
-			continue
+	e.drop(func(m queued) bool { return gone(m.Light) })
+	for l := range e.queue {
+		if gone(l) {
+			delete(e.queue, l)
 		}
-		for _, m := range q {
-			if m.Drop {
-				e.plan.Missed(m.Message)
-			}
-		}
-		delete(e.queue, l)
 	}
 }
 
