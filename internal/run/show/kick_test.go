@@ -82,3 +82,19 @@ func TestTwoMissedChangesOfOneLight(t *testing.T) {
 		t.Errorf("lamp-1 counts as showing %s, want %s", p.current["lamp-1"], shown)
 	}
 }
+
+// TestBlendFitsTheMoment: at most half a moment, so a together fixture, whose
+// bulbs land one after another, shows each colour together; at 120 BPM.
+func TestBlendFitsTheMoment(t *testing.T) {
+	c := testConfig("together")
+	for pace, want := range map[int]float64{1: 0.25, 2: 0.5, 4: colorBlend} {
+		c.Effects.Pace = pace
+		p := NewPlanner(c)
+		p.Start(t0)
+		for _, m := range p.Beat(moment(0), 0) {
+			if m.Payload["color"] != nil && m.Payload["transition"] != want {
+				t.Errorf("pace %d: %s blends %v s, want %v", pace, m.Light, m.Payload["transition"], want)
+			}
+		}
+	}
+}

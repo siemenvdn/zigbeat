@@ -10,7 +10,7 @@ func (p *Planner) fits(lights int, room float64) bool {
 // changeFrames is what one light's colour change costs, counted as the rate
 // limiter counts it: with its kick, also the return.
 func (p *Planner) changeFrames(kick bool) int {
-	n := z2m.Frames(p.changePayload("", kick))
+	n := z2m.Frames(p.changePayload("", stroke{blend: colorBlend, kick: kick}))
 	if kick {
 		n += z2m.Frames(p.returnPayload())
 	}

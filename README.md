@@ -164,7 +164,7 @@ The show plays in **moments**: one every `pace` beats (every 2 by default), alwa
 
 | Part | What you see | Set with |
 |---|---|---|
-| Colour change | A colour bulb blends to its next colour in 0.7 s: the album's colours, or `palette` | `album_palette`, `album_colors`, `palette` |
+| Colour change | A colour bulb blends to its next colour in 0.7 s, or in half a moment when that is shorter: the album's colours, or `palette` | `album_palette`, `album_colors`, `palette` |
 | Kick | With its colour change the bulb jumps 30 % brighter on the beat, and falls back half a moment later | `brightness` (the level it falls back to) |
 | `build` | One bulb per moment takes a shared colour until every bulb shows it, then the next colour | `variant` |
 | `walk` | About half the bulbs change, walking through the room in the order of the config | `variant` |

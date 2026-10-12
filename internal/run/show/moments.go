@@ -46,6 +46,13 @@ func (p *Planner) fall(n int) time.Duration {
 	return min(p.period(), time.Duration(n)*p.period()/2)
 }
 
+// blend is how long a colour change blends: colorBlend, at most half the
+// interval. The bulbs of a fixture get their messages one after another, so
+// they show the colour together only once the last one has blended.
+func (p *Planner) blend(n int) float64 {
+	return min(colorBlend, (time.Duration(n) * p.period() / 2).Seconds())
+}
+
 // noteStretch tells the operator when the budget stretches the pace, and when it no longer does.
 func (p *Planner) noteStretch(n int) {
 	pace := p.paceNow()

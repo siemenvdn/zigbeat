@@ -7,15 +7,17 @@ import (
 
 const (
 	kickPoints = 30  // percentage points above the base brightness
-	colorBlend = 0.7 // seconds
+	colorBlend = 0.7 // seconds, at most: see blend
 	kickFall   = 0.3 // seconds
 )
 
-// stroke is how a moment paints: when it lands, when its kicks fall back, and whether it kicks.
+// stroke is how a moment paints: when it lands, when its kicks fall back, how
+// long its colours blend, and whether it kicks.
 type stroke struct {
-	at   time.Time
-	fall time.Duration
-	kick bool
+	at    time.Time
+	fall  time.Duration
+	blend float64 // seconds
+	kick  bool
 }
 
 // colour plans the colour lights' part of a moment: the rest of a unit that was
@@ -51,7 +53,7 @@ func (p *Planner) paint(lights []string, c string, st stroke) []Message {
 	for _, l := range lights {
 		before := p.current[l]
 		p.current[l] = c
-		out = append(out, Message{Light: l, Land: st.at, Drop: true, before: before, Payload: p.changePayload(c, st.kick)})
+		out = append(out, Message{Light: l, Land: st.at, Drop: true, before: before, Payload: p.changePayload(c, st)})
 		if st.kick {
 			out = append(out, Message{Light: l, Land: st.at.Add(st.fall), Payload: p.returnPayload()})
 		}
@@ -60,9 +62,9 @@ func (p *Planner) paint(lights []string, c string, st stroke) []Message {
 }
 
 // changePayload is a colour change, with the kick's brightness when it kicks.
-func (p *Planner) changePayload(c string, kick bool) map[string]any {
-	pl := map[string]any{"color": map[string]string{"hex": c}, "transition": colorBlend}
-	if kick {
+func (p *Planner) changePayload(c string, st stroke) map[string]any {
+	pl := map[string]any{"color": map[string]string{"hex": c}, "transition": st.blend}
+	if st.kick {
 		pl["brightness"] = p.kick
 	}
 	return pl

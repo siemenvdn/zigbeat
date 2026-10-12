@@ -104,7 +104,7 @@ func (p *Planner) Beat(b music.Beat, backoff int) []Message {
 	p.noteVariants(b)
 	calm := backoff >= flow.CalmLevel || p.quiet
 	room := p.room(n)
-	st := stroke{at: b.At, fall: p.fall(n)}
+	st := stroke{at: b.At, fall: p.fall(n), blend: p.blend(n)}
 	out := p.colour(st, calm, room)
 	out = append(out, p.white(st, calm, room-float64(framesOf(out)))...)
 	p.moments++
