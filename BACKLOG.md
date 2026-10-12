@@ -1,6 +1,6 @@
 # Backlog
 
-Small known issues, found in the reviews of phases 1a to 3b and left for later. Plans and decisions live in [DESIGN.md](DESIGN.md).
+Small known issues, found in the reviews of phases 1a to 3c and left for later. Plans and decisions live in [DESIGN.md](DESIGN.md).
 
 ## zigbeat run
 
@@ -9,6 +9,7 @@ Small known issues, found in the reviews of phases 1a to 3b and left for later. 
 - **Five album colours for six.** `AlbumColors` (`internal/run/show/album.go`) fills up with the dominant hue ±30°, ±60° and ±90°. A cover with hues between those steps blocks two of them each: red, amber and pink (0°, 45°, 315°) with `album_colors: 6` give five colours. Add ±120°, ±150° and 180° to `fillSteps`; then six always fit.
 - **No test that a dropped part leaves the rest.** Each part of a large unit is its own moment unit (`internal/run/show/parts.go`), but only the separate unit ids are tested. An engine test that drops the first part as late and still sends the second would pin it.
 - **Build counts a dropped unit as changed.** A moment dropped as late still sets its colour in `Planner.current` (`internal/run/show/kick.go`), so `build` takes that light for done and skips it until the target moves on; the light keeps its old colour for a round.
+- **A pickup beat can be a moment just before the downbeat's.** `spacing` (`internal/run/show/moments.go`) keeps the interval in force until a moment of both grids, so the pickup beats of a new track (negative indexes) are moments on the old grid. After a 120 BPM track, a 128 BPM one can play moments at beat -4 and 0, 1.9 s apart at a cadence of 2 s; after a track below 60 BPM, closer still. The budget still caps it. Idea: after a `Track`, a negative index is a moment only when it is on the wanted grid too.
 
 ## Music Assistant source and fake-ma
 
@@ -19,4 +20,10 @@ Small known issues, found in the reviews of phases 1a to 3b and left for later. 
 ## zigbeat serve
 
 - **PID 1 in a container.** The kernel ignores default-action signals for PID 1, so a second signal does not quit there. The phase 4 image needs an init (`docker run --init`, `init: true`).
+- **`ha.Value` panics on an unknown key.** `find` (`internal/serve/ha/style.go`) returns an empty setting and `Value` calls its nil `value`. serve calls it only after `Choose` accepted the key; return nil when the key is unknown.
+- **serve prints on the MQTT reader.** `choose` (`internal/serve/style.go`) prints its lines on the reader goroutine, whose handlers must not block, so a stalled stdout pipe would stall the Home Assistant link. Idea: hand the line to `link.run`.
+- **`TestStyleOutlivesTheEngine` never panics.** It (`internal/run/loop_test.go`) pins that the loop keeps the style in `r.cfg`, from which the engine after a panic is built, but restarts no engine. Rename it, or panic an engine as `TestPanicReasonCarriesTheStack` does.
 
+## zigbeat setup
+
+- **The commented `effects` block misses the 3b keys.** `internal/setup/write.go` writes `cadence`, `brightness` and `breathe_range` as comments, not `album_palette`, `album_colors` and `variant`.
