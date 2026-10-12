@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/siemenvdn/zigbeat/internal/beat"
 	"github.com/siemenvdn/zigbeat/internal/cli"
+	"github.com/siemenvdn/zigbeat/internal/music"
 	"github.com/siemenvdn/zigbeat/internal/ws"
 )
 
@@ -19,7 +19,7 @@ const (
 type session struct {
 	src  Source
 	conn *ws.Conn
-	out  chan<- beat.Beat
+	out  chan<- music.Event
 	n    *notes
 	clk  *clock
 	g    grid
@@ -29,6 +29,7 @@ type session struct {
 	waveSince          time.Time // first audio since the last clear without a beat
 	beatSeen, hinted   bool
 	emit, ping, report *time.Timer
+	sent               *music.Track // the last Track sent for this timeline
 }
 
 func (s *session) loop(ctx context.Context, msgs <-chan message) time.Duration {
@@ -47,6 +48,9 @@ func (s *session) loop(ctx context.Context, msgs <-chan message) time.Duration {
 			beats, downs := s.g.ahead()
 			s.n.say("%d beats ahead, %.1f BPM, %d downbeats", beats, s.g.bpm(), downs)
 			s.announced = true
+			if !s.track(ctx) {
+				return 0
+			}
 			s.arm() // the burst is complete, so the first beat can be numbered from its downbeat
 		case <-s.emit.C:
 			if !s.deliver(ctx) {
@@ -81,6 +85,8 @@ func (s *session) handle(ctx context.Context, m message) (wait time.Duration, do
 		if s.g.add(m.f) {
 			if !s.announced {
 				s.report.Reset(reportAfter)
+			} else if !s.track(ctx) {
+				return 0, true
 			}
 			s.arm()
 		}
@@ -114,13 +120,13 @@ func (s *session) forget(ctx context.Context, note string) bool {
 	s.g.clear()
 	s.emit.Stop()
 	s.report.Stop()
-	s.announced, s.beatSeen, s.hinted, s.waveSince = false, false, false, time.Time{}
+	s.announced, s.beatSeen, s.hinted, s.waveSince, s.sent = false, false, false, time.Time{}, nil
 	s.n.say("%s", note)
 	if !delivered {
 		return true
 	}
 	select {
-	case s.out <- beat.Beat{Clear: true}:
+	case s.out <- music.Clear{}:
 		return true
 	case <-ctx.Done():
 		return false

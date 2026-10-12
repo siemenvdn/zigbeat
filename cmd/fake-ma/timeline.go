@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/siemenvdn/zigbeat/internal/beat"
 	"github.com/siemenvdn/zigbeat/internal/cli"
+	"github.com/siemenvdn/zigbeat/internal/music"
 )
 
 const (
@@ -83,7 +83,7 @@ func (tl *timeline) publish(tr track, anchor int64, pickup int) {
 		if ts <= now {
 			continue
 		}
-		down := k >= pickup && (k-pickup)%beat.PerBar == 0
+		down := k >= pickup && (k-pickup)%music.PerBar == 0
 		frame := beatFrame(ts, down)
 		if tl.log {
 			mark := ""

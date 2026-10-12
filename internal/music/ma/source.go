@@ -1,5 +1,5 @@
-// Package ma is the Music Assistant beat source: it reads the beats of what MA
-// plays from the visualizer relay on MA's webserver.
+// Package ma is the Music Assistant source: it reads what MA plays, its beats
+// and their tracks, from the visualizer relay on MA's webserver.
 package ma
 
 import (
@@ -8,7 +8,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/siemenvdn/zigbeat/internal/beat"
+	"github.com/siemenvdn/zigbeat/internal/music"
 )
 
 const (
@@ -19,12 +19,12 @@ const (
 	msgBuffer = 64
 )
 
-// Source delivers the beats that Music Assistant's analysis found in what it plays.
+// Source delivers the tracks and beats that Music Assistant's analysis found in what it plays.
 type Source struct {
 	URL       string        // ws://host:port of MA's webserver
 	Token     string        // a long-lived MA token
 	Player    string        // MA player id; empty follows whichever player is playing
-	Lookahead time.Duration // how long before At each beat is delivered; 0 means beat.Lookahead
+	Lookahead time.Duration // how long before At each beat is delivered; 0 means music.Lookahead
 	Notes     io.Writer     // where changes are reported; nil means stdout
 }
 
@@ -40,12 +40,12 @@ func (s Source) lead() time.Duration {
 	if s.Lookahead > 0 {
 		return s.Lookahead
 	}
-	return beat.Lookahead
+	return music.Lookahead
 }
 
-// Beats connects to MA and keeps connecting until ctx is done; only then is the channel closed.
-func (s Source) Beats(ctx context.Context) <-chan beat.Beat {
-	out := make(chan beat.Beat)
+// Events connects to MA and keeps connecting until ctx is done; only then is the channel closed.
+func (s Source) Events(ctx context.Context) <-chan music.Event {
+	out := make(chan music.Event)
 	go func() {
 		defer close(out)
 		n := newNotes(s.Notes)
@@ -66,7 +66,7 @@ func (s Source) Beats(ctx context.Context) <-chan beat.Beat {
 
 // session runs one connection until it fails or ctx is done, and returns how
 // long to wait before dialling again.
-func (s Source) session(ctx context.Context, out chan<- beat.Beat, n *notes) time.Duration {
+func (s Source) session(ctx context.Context, out chan<- music.Event, n *notes) time.Duration {
 	clk := newClock()
 	conn, err := s.dial()
 	if err != nil {

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/siemenvdn/zigbeat/internal/beat"
+	"github.com/siemenvdn/zigbeat/internal/music"
 	"github.com/siemenvdn/zigbeat/internal/run/engine"
 )
 
@@ -21,7 +21,7 @@ func TestPanicReasonCarriesTheStack(t *testing.T) {
 	r.eng = &engine.Engine{}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	why, panicked := r.play(ctx, beat.Metronome{BPM: 120, Lookahead: time.Second})
+	why, panicked := r.play(ctx, music.Metronome{BPM: 120, Lookahead: time.Second})
 	if !panicked || !strings.Contains(why, "goroutine ") {
 		t.Errorf("panicked %v, reason %q", panicked, why)
 	}

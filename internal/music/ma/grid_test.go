@@ -4,6 +4,8 @@ import (
 	"slices"
 	"testing"
 	"time"
+
+	"github.com/siemenvdn/zigbeat/internal/music"
 )
 
 // track returns n beats 500 ms apart, with downbeats at the given beat numbers.
@@ -54,16 +56,16 @@ func TestInBarAndTempo(t *testing.T) {
 		g.add(f)
 	}
 	g.add(frame{ts: 9*500_000 + 400_000}) // one odd interval does not move the tempo
-	if b := g.deliver(time.Time{}); b.Index != -2 || b.InBar != 2 || b.BPM != 120 || b.Energy != 1 {
-		t.Errorf("first beat %+v", b)
+	if b := g.deliver(time.Time{}); b.Index != -2 || b.InBar != 2 || g.bpm() != 120 || b.Energy != music.UnknownEnergy {
+		t.Errorf("first beat %+v at %g BPM", b, g.bpm())
 	}
 	if beats, downs := g.ahead(); beats != 9 || downs != 2 {
 		t.Errorf("ahead %d beats, %d downbeats", beats, downs)
 	}
 	g.clear()
 	g.add(frame{ts: 1})
-	if b := g.deliver(time.Time{}); b.BPM != 120 || b.Index != 0 {
-		t.Errorf("a single beat keeps the previous tempo and counts from 0: %+v", b)
+	if b := g.deliver(time.Time{}); g.bpm() != 120 || b.Index != 0 {
+		t.Errorf("a single beat keeps the previous tempo and counts from 0: %+v at %g BPM", b, g.bpm())
 	}
 }
 

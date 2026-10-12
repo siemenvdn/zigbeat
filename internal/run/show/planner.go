@@ -5,8 +5,8 @@ import (
 	"math"
 	"time"
 
-	"github.com/siemenvdn/zigbeat/internal/beat"
 	"github.com/siemenvdn/zigbeat/internal/config"
+	"github.com/siemenvdn/zigbeat/internal/music"
 	"github.com/siemenvdn/zigbeat/internal/run/flow"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
@@ -33,7 +33,8 @@ type Planner struct {
 	moments   int
 	units     int
 	cadence   time.Duration
-	base      int // Zigbee2MQTT brightness 0..z2m.MaxBrightness
+	bpm       float64 // the tempo of the current track
+	base      int     // Zigbee2MQTT brightness 0..z2m.MaxBrightness
 	kick      int
 	low, high int
 	up        bool
@@ -49,6 +50,7 @@ func NewPlanner(c config.Config) *Planner {
 		palette:   c.Effects.Palette,
 		current:   map[string]string{},
 		cadence:   c.Effects.Cadence,
+		bpm:       music.DefaultBPM,
 		base:      level(c.Effects.Brightness),
 		kick:      level(min(c.Effects.Brightness+kickPoints, config.MaxPercent)),
 		low:       level(c.Effects.BreatheRange[0]),
@@ -74,13 +76,19 @@ func level(percent int) int {
 	return int(math.Round(float64(percent) * z2m.MaxBrightness / 100))
 }
 
+// Track takes the properties of the track that plays now.
+func (p *Planner) Track(t music.Track) { p.bpm = t.BPM }
+
+// period is the time between two beats of the current track.
+func (p *Planner) period() time.Duration { return music.Track{BPM: p.bpm}.Period() }
+
 // Moments counts the moments planned so far.
 func (p *Planner) Moments() int { return p.moments }
 
 // Beat returns the messages for b, or nothing when b is not a moment.
-func (p *Planner) Beat(b beat.Beat, backoff int) []Message {
-	p.lastBeat, p.lastPeriod, p.settled = b.At, b.Period(), false
-	n := interval(b.BPM, p.cadence)
+func (p *Planner) Beat(b music.Beat, backoff int) []Message {
+	p.lastBeat, p.lastPeriod, p.settled = b.At, p.period(), false
+	n := interval(p.bpm, p.cadence)
 	if backoff >= flow.SparseLevel {
 		n *= 2
 	}

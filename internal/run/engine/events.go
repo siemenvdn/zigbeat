@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/siemenvdn/zigbeat/internal/beat"
 	"github.com/siemenvdn/zigbeat/internal/cli"
+	"github.com/siemenvdn/zigbeat/internal/music"
 	"github.com/siemenvdn/zigbeat/internal/run/flow"
 )
 
@@ -14,18 +14,22 @@ import (
 // figure no longer fits the network.
 const slowFactor = 3
 
-// Beat plans b if it is a moment. Beats already past are skipped, so a
-// reconnect does not cause a burst; a pause plans nothing. A Clear drops the
-// moments planned from earlier beats.
-func (e *Engine) Beat(now time.Time, b beat.Beat) {
-	if b.Clear {
+// Music handles one event from the source. A Clear drops the moments planned
+// from earlier beats; a Track goes to the planner; a Beat is planned when it is
+// a moment. Beats already past are skipped, so a reconnect does not cause a
+// burst; a pause plans nothing.
+func (e *Engine) Music(now time.Time, ev music.Event) {
+	switch ev := ev.(type) {
+	case music.Clear:
 		e.forget()
-		return
+	case music.Track:
+		e.plan.Track(ev)
+	case music.Beat:
+		if e.stopping || e.bo.Level() >= flow.PauseLevel || ev.At.Before(now) {
+			return
+		}
+		e.enqueue(e.plan.Beat(ev, e.bo.Level()))
 	}
-	if e.stopping || e.bo.Level() >= flow.PauseLevel || b.At.Before(now) {
-		return
-	}
-	e.enqueue(e.plan.Beat(b, e.bo.Level()))
 }
 
 // State handles a state message from a light or the canary.

@@ -1,4 +1,4 @@
-package beat
+package music
 
 import (
 	"context"
@@ -15,14 +15,20 @@ type Metronome struct {
 func (m Metronome) String() string { return fmt.Sprintf("metronome at %g BPM", m.BPM) }
 
 func (m Metronome) beat(start time.Time, i int) Beat {
-	period := time.Duration(float64(time.Minute) / m.BPM)
-	return Beat{At: start.Add(time.Duration(i) * period), BPM: m.BPM, Index: i, InBar: i % PerBar, Energy: 1}
+	period := Track{BPM: m.BPM}.Period()
+	return Beat{At: start.Add(time.Duration(i) * period), Index: i, InBar: i % PerBar, Energy: UnknownEnergy}
 }
 
-func (m Metronome) Beats(ctx context.Context) <-chan Beat {
-	out := make(chan Beat)
+// Events sends one Track, then a beat every period.
+func (m Metronome) Events(ctx context.Context) <-chan Event {
+	out := make(chan Event)
 	go func() {
 		defer close(out)
+		select {
+		case out <- Track{BPM: m.BPM}:
+		case <-ctx.Done():
+			return
+		}
 		start := time.Now().Add(m.Lookahead)
 		for i := 0; ; i++ {
 			b := m.beat(start, i)

@@ -71,7 +71,7 @@ func TestHalt(t *testing.T) {
 	e := New(testConfig("separate"), 0, t0)
 	e.Due(t0)
 	e.Halt()
-	e.Beat(t0, moment(8))
+	e.Music(t0, moment(8))
 	if e.Due(at(5_000)) != nil {
 		t.Fatal("a halted engine sends nothing")
 	}

@@ -1,6 +1,6 @@
 package show
 
-import "github.com/siemenvdn/zigbeat/internal/beat"
+import "github.com/siemenvdn/zigbeat/internal/music"
 
 const (
 	kickPoints = 30  // percentage points above the base brightness
@@ -10,7 +10,7 @@ const (
 
 // change gives unit u its next colour, with a brightness kick that falls back
 // one beat later; calm leaves out the kick.
-func (p *Planner) change(u []string, b beat.Beat, calm bool) []Message {
+func (p *Planner) change(u []string, b music.Beat, calm bool) []Message {
 	p.units++
 	c := p.colorFor(u)
 	var out []Message
@@ -26,7 +26,7 @@ func (p *Planner) change(u []string, b beat.Beat, calm bool) []Message {
 		out = append(out,
 			Message{Light: l, Land: b.At, Unit: p.units, Drop: true,
 				Payload: map[string]any{"color": hex, "brightness": p.kick, "transition": colorBlend}},
-			Message{Light: l, Land: b.At.Add(b.Period()), Unit: p.units,
+			Message{Light: l, Land: b.At.Add(p.period()), Unit: p.units,
 				Payload: map[string]any{"brightness": p.base, "transition": kickFall}})
 	}
 	return out

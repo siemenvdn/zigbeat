@@ -2,6 +2,7 @@ package ma
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"encoding/json"
 	"net/http"
@@ -12,10 +13,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/siemenvdn/zigbeat/internal/music"
 	"github.com/siemenvdn/zigbeat/internal/ws"
 )
 
 const offset = 37 * time.Second // the fake's clock runs this far ahead
+
+const lead = 300 * time.Millisecond
 
 // fakeMA is a relay with its own clock. Every authenticated connection is handed to the test.
 type fakeMA struct {
@@ -109,4 +113,42 @@ func (s *syncBuf) waitFor(t *testing.T, want string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	t.Fatalf("notes %q lack %q", s.b.String(), want)
+}
+
+// listen starts a source; the test's cleanup waits until it stopped.
+func listen(t *testing.T, f *fakeMA, player, token string) (<-chan music.Event, *syncBuf) {
+	ctx, cancel := context.WithCancel(context.Background())
+	notes := &syncBuf{}
+	src := Source{URL: f.url, Token: token, Player: player, Lookahead: lead, Notes: notes}
+	events := src.Events(ctx)
+	t.Cleanup(func() {
+		cancel()
+		for range events {
+		}
+	})
+	return events, notes
+}
+
+func nextEvent(t *testing.T, events <-chan music.Event) music.Event {
+	t.Helper()
+	select {
+	case ev := <-events:
+		return ev
+	case <-time.After(2 * time.Second):
+		t.Fatal("no event")
+	}
+	return nil
+}
+
+// next is the next beat; tracks are skipped, a clear fails the test.
+func next(t *testing.T, events <-chan music.Event) music.Beat {
+	t.Helper()
+	for {
+		switch ev := nextEvent(t, events).(type) {
+		case music.Beat:
+			return ev
+		case music.Clear:
+			t.Fatal("a clear instead of a beat")
+		}
+	}
 }

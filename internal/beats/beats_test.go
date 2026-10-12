@@ -9,19 +9,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/siemenvdn/zigbeat/internal/beat"
+	"github.com/siemenvdn/zigbeat/internal/music"
 )
 
 func TestPrintAtTheBeat(t *testing.T) {
-	beats := make(chan beat.Beat, 2)
-	beats <- beat.Beat{At: time.Now().Add(50 * time.Millisecond), BPM: 120, Index: -1, InBar: 3}
-	beats <- beat.Beat{At: time.Now().Add(100 * time.Millisecond), BPM: 120, Index: 0, InBar: 0}
+	events := make(chan music.Event, 3)
+	events <- music.Track{BPM: 124}
+	events <- music.Beat{At: time.Now().Add(50 * time.Millisecond), Index: -1, InBar: 3}
+	events <- music.Beat{At: time.Now().Add(100 * time.Millisecond), Index: 0, InBar: 0}
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
 	defer cancel()
 	var out bytes.Buffer
-	print(ctx, beats, 20*time.Millisecond, &out)
+	print(ctx, events, 20*time.Millisecond, &out)
 	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
-	if len(lines) != 2 || !strings.HasSuffix(lines[0], "bar -1 beat 4  120.0 BPM") || !strings.HasSuffix(lines[1], "bar 0 beat 1  120.0 BPM") {
+	if len(lines) != 2 || !strings.HasSuffix(lines[0], "bar -1 beat 4  124.0 BPM") || !strings.HasSuffix(lines[1], "bar 0 beat 1  124.0 BPM") {
 		t.Errorf("lines %q", lines)
 	}
 }
@@ -41,14 +42,14 @@ func TestNeedsMusicAssistant(t *testing.T) {
 }
 
 func TestClearDropsPendingLines(t *testing.T) {
-	beats := make(chan beat.Beat, 3)
-	beats <- beat.Beat{At: time.Now().Add(50 * time.Millisecond), BPM: 120, Index: 1, InBar: 1}
-	beats <- beat.Beat{Clear: true}
-	beats <- beat.Beat{At: time.Now().Add(100 * time.Millisecond), BPM: 120, Index: 0, InBar: 0}
+	events := make(chan music.Event, 3)
+	events <- music.Beat{At: time.Now().Add(50 * time.Millisecond), Index: 1, InBar: 1}
+	events <- music.Clear{}
+	events <- music.Beat{At: time.Now().Add(100 * time.Millisecond), Index: 0, InBar: 0}
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
 	defer cancel()
 	var out bytes.Buffer
-	print(ctx, beats, 0, &out)
+	print(ctx, events, 0, &out)
 	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
 	if len(lines) != 1 || !strings.HasSuffix(lines[0], "bar 0 beat 1  120.0 BPM") {
 		t.Errorf("a clear drops the beats not printed yet: %q", lines)

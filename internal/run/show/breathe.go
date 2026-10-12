@@ -4,18 +4,18 @@ import (
 	"math"
 	"time"
 
-	"github.com/siemenvdn/zigbeat/internal/beat"
+	"github.com/siemenvdn/zigbeat/internal/music"
 )
 
 const anchorEvery = 4 // moments between absolute breathe brightness
 
 // breath flips every breathe light; every anchorEvery moments it also sets the
 // turning point as an absolute level against drift.
-func (p *Planner) breath(b beat.Beat, n int) []Message {
+func (p *Planner) breath(b music.Beat, n int) []Message {
 	if len(p.breathe) == 0 {
 		return nil
 	}
-	until := time.Duration(n) * b.Period()
+	until := time.Duration(n) * p.period()
 	rate := max(1, int(math.Round(float64(p.high-p.low)/until.Seconds())))
 	move, bound := rate, p.low
 	if !p.up {

@@ -20,7 +20,7 @@ type MQTT struct {
 	Password    string `yaml:"-"` // read from PasswordEnv
 }
 
-// Limits of budget.audio_offset_ms. Beats arrive beat.Lookahead ahead, so a much
+// Limits of budget.audio_offset_ms. Beats arrive music.Lookahead ahead, so a much
 // earlier offset would ask for messages before their beat is known; speakers
 // that lag more than 2 s are not worth a show.
 const MinOffsetMS, MaxOffsetMS = -500, 2000

@@ -6,8 +6,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/siemenvdn/zigbeat/internal/beat"
 	"github.com/siemenvdn/zigbeat/internal/config"
+	"github.com/siemenvdn/zigbeat/internal/music"
 	"github.com/siemenvdn/zigbeat/internal/run/engine"
 )
 
@@ -21,7 +21,7 @@ type Hooks struct {
 // Play runs one show to the beats of src until ctx is done, then restores every
 // light. It returns 0, or 1 when the show could not start, after maxPanics panics,
 // or when the broker is gone at stop.
-func Play(ctx context.Context, cfg config.Config, src beat.Source, h Hooks) int {
+func Play(ctx context.Context, cfg config.Config, src music.Source, h Hooks) int {
 	r, err := connect(ctx, cfg)
 	if err != nil {
 		if ctx.Err() != nil {

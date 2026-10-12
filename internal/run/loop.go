@@ -7,8 +7,8 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/siemenvdn/zigbeat/internal/beat"
 	"github.com/siemenvdn/zigbeat/internal/cli"
+	"github.com/siemenvdn/zigbeat/internal/music"
 	"github.com/siemenvdn/zigbeat/internal/run/engine"
 )
 
@@ -20,7 +20,7 @@ const (
 // play runs the show until ctx is done or the source ends. Network trouble never
 // ends it: backoff pauses, a lost connection is dialled again. A panic returns
 // with panicked set, so Run can start a fresh engine.
-func (r *runner) play(ctx context.Context, src beat.Source) (reason string, panicked bool) {
+func (r *runner) play(ctx context.Context, src music.Source) (reason string, panicked bool) {
 	defer func() {
 		if p := recover(); p != nil {
 			reason, panicked = fmt.Sprintf("panic: %v\n%s", p, debug.Stack()), true
@@ -28,7 +28,7 @@ func (r *runner) play(ctx context.Context, src beat.Source) (reason string, pani
 	}()
 	srcCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	beats := src.Beats(srcCtx)
+	events := src.Events(srcCtx)
 	tick := time.NewTicker(tickEvery)
 	defer tick.Stop()
 	status := time.NewTicker(statusEvery)
@@ -45,11 +45,11 @@ func (r *runner) play(ctx context.Context, src beat.Source) (reason string, pani
 				return "interrupted", false
 			}
 			fmt.Printf("%s  reconnected\n", cli.Stamp())
-		case b, ok := <-beats:
+		case ev, ok := <-events:
 			if !ok {
 				return "the beat source ended", false
 			}
-			r.eng.Beat(time.Now(), b)
+			r.eng.Music(time.Now(), ev)
 		case ev := <-r.events:
 			r.handle(ev)
 		case <-tick.C:

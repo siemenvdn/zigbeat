@@ -4,8 +4,8 @@ package runtest
 import (
 	"time"
 
-	"github.com/siemenvdn/zigbeat/internal/beat"
 	"github.com/siemenvdn/zigbeat/internal/config"
+	"github.com/siemenvdn/zigbeat/internal/music"
 )
 
 // T0 is the start of every test clock.
@@ -30,9 +30,8 @@ func Config(mode string) config.Config {
 	}
 }
 
-// Beat is beat i at beat.DefaultBPM; with the default cadence every bar starts a moment.
-func Beat(i int) beat.Beat {
-	b := beat.Beat{BPM: beat.DefaultBPM, Index: i, InBar: i % beat.PerBar, Energy: 1}
-	b.At = T0.Add(time.Duration(i) * b.Period())
-	return b
+// Beat is beat i at music.DefaultBPM; with the default cadence every bar starts a moment.
+func Beat(i int) music.Beat {
+	period := music.Track{BPM: music.DefaultBPM}.Period()
+	return music.Beat{At: T0.Add(time.Duration(i) * period), Index: i, InBar: i % music.PerBar, Energy: music.UnknownEnergy}
 }

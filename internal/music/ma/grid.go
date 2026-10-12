@@ -5,7 +5,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/siemenvdn/zigbeat/internal/beat"
+	"github.com/siemenvdn/zigbeat/internal/music"
 )
 
 const sameBeat = 1000 // µs: a beat this close to a known one is a replay
@@ -49,16 +49,16 @@ func (g *grid) peek() (frame, bool) {
 }
 
 // deliver numbers the next beat, landing at at, and moves past it. A downbeat
-// gets the next multiple of beat.PerBar, so moments stay on the first beat of a bar; the
+// gets the next multiple of music.PerBar, so moments stay on the first beat of a bar; the
 // first beat of a track counts back from the first downbeat.
-func (g *grid) deliver(at time.Time) beat.Beat {
+func (g *grid) deliver(at time.Time) music.Beat {
 	f := g.known[g.next]
 	var idx int
 	switch {
 	case f.down && !g.started:
 		idx = 0
 	case f.down:
-		idx = floorDiv(g.last, beat.PerBar)*beat.PerBar + beat.PerBar
+		idx = floorDiv(g.last, music.PerBar)*music.PerBar + music.PerBar
 	case g.started:
 		idx = g.last + 1
 	default:
@@ -71,7 +71,7 @@ func (g *grid) deliver(at time.Time) beat.Beat {
 	}
 	g.last, g.started = idx, true
 	g.next++
-	return beat.Beat{At: at, BPM: g.bpm(), Index: idx, InBar: (idx%beat.PerBar + beat.PerBar) % beat.PerBar, Energy: 1}
+	return music.Beat{At: at, Index: idx, InBar: (idx%music.PerBar + music.PerBar) % music.PerBar, Energy: music.UnknownEnergy}
 }
 
 // bpm is the tempo of the track: a minute over the median interval of its beats.
@@ -88,7 +88,7 @@ func (g *grid) bpm() float64 {
 		case g.prev > 0:
 			g.tempo = g.prev
 		default:
-			g.tempo = beat.DefaultBPM
+			g.tempo = music.DefaultBPM
 		}
 	}
 	return g.tempo

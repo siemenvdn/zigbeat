@@ -24,7 +24,7 @@ func TestUnreachableLightIsLeftAlone(t *testing.T) {
 	if _, gone := e.away["lamp-3"]; !gone || e.bo.Level() != 1 {
 		t.Fatalf("second loss in a row: away %v, level %d", e.away, e.bo.Level())
 	}
-	e.Beat(at(36_000), moment(80))
+	e.Music(at(36_000), moment(80))
 	if len(e.queue["lamp-3"]) != 0 {
 		t.Fatal("nothing is planned for a light that is left alone")
 	}

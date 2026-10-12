@@ -8,9 +8,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/siemenvdn/zigbeat/internal/beat"
 	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/config"
+	"github.com/siemenvdn/zigbeat/internal/music"
 	"github.com/siemenvdn/zigbeat/internal/run"
 )
 
@@ -36,35 +36,39 @@ func Run(args []string) int {
 	defer stop()
 	src := run.Source(cfg, 0)
 	fmt.Printf("zigbeat beats: %v; Ctrl-C to stop\n", src)
-	print(ctx, src.Beats(ctx), cfg.Budget.AudioOffset(), os.Stdout)
+	print(ctx, src.Events(ctx), cfg.Budget.AudioOffset(), os.Stdout)
 	return 0
 }
 
 // print writes one line per beat at the moment it should sound, beats arriving
 // ahead, until ctx is done or the source ends.
-func print(ctx context.Context, beats <-chan beat.Beat, offset time.Duration, w io.Writer) {
-	var due []beat.Beat
+func print(ctx context.Context, events <-chan music.Event, offset time.Duration, w io.Writer) {
+	var due []music.Beat
+	bpm := float64(music.DefaultBPM)
 	t := time.NewTimer(time.Hour) // stopped at once; any duration works
 	t.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case b, ok := <-beats:
+		case ev, ok := <-events:
 			if !ok {
 				return
 			}
-			if b.Clear {
+			switch ev := ev.(type) {
+			case music.Clear:
 				due = nil
 				t.Stop()
-				continue
-			}
-			if due = append(due, b); len(due) == 1 {
-				t.Reset(time.Until(b.At.Add(offset)))
+			case music.Track:
+				bpm = ev.BPM
+			case music.Beat:
+				if due = append(due, ev); len(due) == 1 {
+					t.Reset(time.Until(ev.At.Add(offset)))
+				}
 			}
 		case <-t.C:
 			b := due[0]
-			fmt.Fprintf(w, "%s  bar %d beat %d  %.1f BPM\n", b.At.Add(offset).Format(cli.ClockMS), (b.Index-b.InBar)/beat.PerBar, b.InBar+1, b.BPM)
+			fmt.Fprintf(w, "%s  bar %d beat %d  %.1f BPM\n", b.At.Add(offset).Format(cli.ClockMS), (b.Index-b.InBar)/music.PerBar, b.InBar+1, bpm)
 			if due = due[1:]; len(due) > 0 {
 				t.Reset(time.Until(due[0].At.Add(offset)))
 			}

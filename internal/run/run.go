@@ -9,9 +9,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/siemenvdn/zigbeat/internal/beat"
 	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/config"
+	"github.com/siemenvdn/zigbeat/internal/music"
 	"github.com/siemenvdn/zigbeat/internal/run/engine"
 	"github.com/siemenvdn/zigbeat/internal/run/flow"
 )
@@ -59,7 +59,7 @@ func quitOnInterrupt() string {
 
 // show plays until ctx is done or the source ends. A panic starts a fresh
 // engine; panic number maxPanics ends the show with exit code 1.
-func (r *runner) show(ctx context.Context, src beat.Source, limit time.Duration) (reason string, code int) {
+func (r *runner) show(ctx context.Context, src music.Source, limit time.Duration) (reason string, code int) {
 	for panics := 0; ; {
 		r.eng = engine.New(r.cfg, limit, time.Now())
 		r.eng.SetOffset(r.offset)

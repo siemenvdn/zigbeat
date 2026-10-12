@@ -115,7 +115,7 @@ func TestPauseSendsOnlyCanaryAndResumes(t *testing.T) {
 	e := New(cfg, time.Second, t0)
 	e.bo.Pause(t0)
 	e.paused(t0, "test")
-	e.Beat(t0, moment(8))
+	e.Music(t0, moment(8))
 	got := e.Due(t0)
 	if lightsOf(got) != "far-lamp" {
 		t.Fatalf("a pause only reads the canary, sent %q", lightsOf(got))
@@ -124,7 +124,7 @@ func TestPauseSendsOnlyCanaryAndResumes(t *testing.T) {
 	if !e.bo.Tick(at(60_000)) || e.bo.Level() != 2 {
 		t.Fatalf("a quiet minute resumes at level 2, level %d", e.bo.Level())
 	}
-	e.Beat(at(60_000), moment(240)) // 120 s; level 2 moments fall on every 8th beat
+	e.Music(at(60_000), moment(240)) // 120 s; level 2 moments fall on every 8th beat
 	if len(e.queue["lamp-1"])+len(e.queue["lamp-3"]) == 0 {
 		t.Fatal("after the pause the show plans moments again")
 	}

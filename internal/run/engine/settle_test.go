@@ -4,8 +4,8 @@ import "testing"
 
 // gap plays one moment and its next beat, then lets the music stop.
 func gap(e *Engine) {
-	e.Beat(at(1000), moment(4))
-	e.Beat(at(1500), moment(5))
+	e.Music(at(1000), moment(4))
+	e.Music(at(1500), moment(5))
 }
 
 // isSettle is the low end for a breathe light that a gap sends: a brightness without a move.
