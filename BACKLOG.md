@@ -14,7 +14,6 @@ Small known issues, found in the reviews of phases 1a to 2 and left for later. P
 - **Snapshot pacing undercounts.** A snapshot read asks for 4 attributes, about 3 ZCL reads, but is paced as 1 frame.
 - **Retained states after a re-subscribe** briefly bring lights that were left alone back into the show. They are left alone again after two misses.
 - **The show's connect ignores ctx.** `Dial` and the subscriptions in `connect` (up to 5 s per step) do not watch ctx, so an `OFF` or Ctrl-C during a slow connect waits for it.
-- **`+20` is absolute.** In the offset line `+` moves 10 ms later, but `+20` sets 20 ms, as the spec says. At 180 ms, `+20` jumps 160 ms earlier. Reject a signed number, or make it relative.
 
 ## zigbeat serve
 

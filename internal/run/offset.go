@@ -16,10 +16,11 @@ import (
 // offsetStep is one + or -: about what an ear can tell apart.
 const offsetStep = 10 * time.Millisecond
 
-var offsetHelp = fmt.Sprintf("type + or - and Enter to move the lights %d ms later or earlier, or a number in ms", offsetStep.Milliseconds())
+var offsetHelp = fmt.Sprintf("type + or - and Enter to move the lights %d ms later or earlier, +N or -N to move them N ms, or a number in ms to set the offset", offsetStep.Milliseconds())
 
 // nextOffset is the audio offset after a line typed during the show: each +
-// or - moves it offsetStep, a number sets it, an empty line keeps it.
+// or - moves it offsetStep, a signed number moves it that many ms, a number
+// sets it, an empty line keeps it.
 func nextOffset(line string, cur time.Duration) (time.Duration, error) {
 	line = strings.TrimSpace(line)
 	next := cur
@@ -32,7 +33,11 @@ func nextOffset(line string, cur time.Duration) (time.Duration, error) {
 		if err != nil {
 			return cur, errors.New(offsetHelp)
 		}
-		next = time.Duration(ms) * time.Millisecond
+		if line[0] == '+' || line[0] == '-' {
+			next += time.Duration(ms) * time.Millisecond
+		} else {
+			next = time.Duration(ms) * time.Millisecond
+		}
 	}
 	if ms := next.Milliseconds(); ms < config.MinOffsetMS || ms > config.MaxOffsetMS {
 		return cur, fmt.Errorf("audio offset must be %d to %d ms", config.MinOffsetMS, config.MaxOffsetMS)

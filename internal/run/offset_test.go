@@ -14,8 +14,8 @@ func TestNextOffset(t *testing.T) {
 		ok   bool
 	}{
 		{"+", 110 * ms, true}, {"+++", 130 * ms, true}, {"-", 90 * ms, true}, {" +-+ ", 110 * ms, true},
-		{"180", 180 * ms, true}, {"-40", -40 * ms, true}, {"+20", 20 * ms, true}, {"", 100 * ms, true},
-		{"2001", 100 * ms, false}, {"-501", 100 * ms, false}, {"later", 100 * ms, false},
+		{"180", 180 * ms, true}, {"-40", 60 * ms, true}, {"+20", 120 * ms, true}, {"", 100 * ms, true},
+		{"2001", 100 * ms, false}, {"-601", 100 * ms, false}, {"+1901", 100 * ms, false}, {"later", 100 * ms, false},
 	}
 	for _, c := range cases {
 		got, err := nextOffset(c.line, 100*ms)

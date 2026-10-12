@@ -182,6 +182,7 @@ TVs, soundbars and amplifiers delay the sound, so the lights need to wait for it
 | Line | Effect |
 |---|---|
 | `+` or `-` | The lights 10 ms later or earlier, per character: `+++` is 30 ms later |
+| `+30` or `-30` | The lights that many ms later or earlier |
 | A number such as `180` | Sets the offset in ms, -500 to 2000 |
 | Empty | Prints the current offset |
 
