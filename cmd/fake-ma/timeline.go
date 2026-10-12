@@ -100,7 +100,7 @@ func (tl *timeline) music(tr track, pickup int, anchor int64) {
 
 // publish sends the beats of tr still ahead, with the track's media time zero at anchor.
 func (tl *timeline) publish(tr track, anchor int64, pickup int) {
-	period := time.Duration(float64(time.Minute) / tr.bpm)
+	period := tr.period()
 	now := tl.now()
 	for k := 0; ; k++ {
 		pos := firstAt + time.Duration(k)*period

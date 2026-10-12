@@ -3,7 +3,6 @@ package main
 import (
 	"math"
 	"math/rand/v2"
-	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/music"
 )
@@ -40,7 +39,7 @@ const (
 
 // sectionAt finds the section of media time t; the pickup before the first downbeat is intro.
 func sectionAt(tr track, pickup int, t float64) section {
-	period := time.Duration(float64(time.Minute) / tr.bpm).Seconds()
+	period := tr.period().Seconds()
 	firstDown := firstAt.Seconds() + float64(pickup)*period
 	bar := int(math.Floor((t - firstDown) / (music.PerBar * period)))
 	switch {
@@ -57,7 +56,7 @@ func sectionAt(tr track, pickup int, t float64) section {
 // synth makes the waveSamples samples of tr from media sample first on, as MA's tap
 // sends them: mono, unsigned 8-bit.
 func synth(tr track, pickup int, first int64, noise *rand.Rand) []byte {
-	period := time.Duration(float64(time.Minute) / tr.bpm).Seconds()
+	period := tr.period().Seconds()
 	out := make([]byte, waveSamples)
 	for i := range out {
 		t := float64(first+int64(i)) / sampleRate

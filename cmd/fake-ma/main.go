@@ -32,6 +32,9 @@ type track struct {
 	length time.Duration
 }
 
+// period is the time between two beats of tr.
+func (tr track) period() time.Duration { return time.Duration(float64(time.Minute) / tr.bpm) }
+
 func main() {
 	listen := flag.String("listen", defaultListen, "address of the webserver")
 	token := flag.String("token", "fake-token", "the token it accepts")
