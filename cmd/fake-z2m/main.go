@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/mqtt"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
@@ -25,23 +26,23 @@ const (
 
 const topicParts = 3 // base/device/set or base/device/get
 
-// initialState is each device before the show: on in a warm white at about
-// 70 %, like a light that was on.
-func initialState() map[string]any {
-	return map[string]any{"state": "ON", "brightness": 180, "color_mode": "xy", "color": map[string]any{"x": 0.47, "y": 0.39}, "linkquality": 120}
-}
-
 func main() {
 	broker := flag.String("broker", mqtt.DefaultBroker, "MQTT broker")
 	base := flag.String("base", z2m.DefaultBaseTopic, "base topic")
-	devices := flag.String("devices", "lamp-1,lamp-2,lamp-3,lamp-4,far-lamp", "simulated devices")
+	devices := flag.String("devices", defaultDevices, "simulated devices, each with an optional :kind (color, ct, white, hs, relay, plug, dimmer, tuya or sensor; default color)")
 	service := flag.Duration("service", defaultService, "air time per Zigbee frame")
 	jitter := flag.Duration("jitter", defaultJitter, "random extra delay per command")
 	queue := flag.Int("queue", defaultQueue, "coordinator queue depth before commands fail")
 	loss := flag.Float64("loss", 0, "share of commands that never get an answer, 0 to 1")
 	groups := flag.String("groups", "", "simulated Zigbee2MQTT groups, published retained on bridge/groups")
 	logLand := flag.Bool("log", false, "print every set command when the simulated light applies it")
+	retainDevices := flag.Bool("bridge-devices", true, "publish bridge/devices retained; false clears it, like Zigbee2MQTT without retain")
 	flag.Parse()
+	names, kindOf, err := parseDevices(*devices)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(cli.ExitUsage)
+	}
 
 	c, err := mqtt.Dial(*broker, mqtt.Options{ClientID: "fake-z2m", Username: os.Getenv("MQTT_USER"), Password: os.Getenv("MQTT_PASSWORD")})
 	if err != nil {
@@ -50,10 +51,15 @@ func main() {
 	}
 	state := map[string]map[string]any{}
 	known := map[string]bool{}
-	for _, d := range strings.Split(*devices, ",") {
+	for _, d := range names {
 		known[d] = true
-		state[d] = initialState()
+		state[d] = initialState(kindOf[d])
 	}
+	var devs []byte // empty clears the retained message
+	if *retainDevices {
+		devs = bridgeDevices(names, kindOf)
+	}
+	_ = c.PublishRetained(*base+"/bridge/devices", devs)
 	gs := []map[string]any{}
 	for i, g := range strings.Split(*groups, ",") {
 		if g != "" {
