@@ -6,14 +6,11 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"math/rand"
 	"os"
 	"os/signal"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/mqtt"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
@@ -34,12 +31,6 @@ func initialState() map[string]any {
 	return map[string]any{"state": "ON", "brightness": 180, "color_mode": "xy", "color": map[string]any{"x": 0.47, "y": 0.39}, "linkquality": 120}
 }
 
-type job struct {
-	device string
-	kind   string
-	body   map[string]any
-}
-
 func main() {
 	broker := flag.String("broker", mqtt.DefaultBroker, "MQTT broker")
 	base := flag.String("base", z2m.DefaultBaseTopic, "base topic")
@@ -57,7 +48,6 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	var mu sync.Mutex
 	state := map[string]map[string]any{}
 	known := map[string]bool{}
 	for _, d := range strings.Split(*devices, ",") {
@@ -78,46 +68,8 @@ func main() {
 		b, _ := json.Marshal(map[string]string{"level": level, "message": msg, "namespace": "z2m"})
 		_ = c.Publish(*base+"/bridge/logging", b)
 	}
-	go func() {
-		for j := range jobs {
-			frames := 1
-			if j.kind == "set" {
-				frames = max(1, z2m.Frames(j.body))
-			}
-			time.Sleep(time.Duration(frames) * (*service + time.Duration(rand.Int63n(int64(*jitter)+1))))
-			if rand.Float64() < *loss {
-				continue
-			}
-			mu.Lock()
-			st := state[j.device]
-			echo := j.kind == "get"
-			if j.kind == "set" {
-				for k, v := range j.body {
-					// Like Zigbee2MQTT: a brightness_move alone publishes no state.
-					if k == "transition" || k == "brightness_move" {
-						continue
-					}
-					echo = true
-					st[k] = v
-					if k == "color" {
-						st["color_mode"] = "xy"
-					}
-					if k == "color_temp" {
-						st["color_mode"] = "color_temp"
-					}
-				}
-			}
-			b, _ := json.Marshal(st)
-			mu.Unlock()
-			if *logLand && j.kind == "set" {
-				body, _ := json.Marshal(j.body)
-				fmt.Printf("land %s %s %s\n", time.Now().Format(cli.ClockMS), j.device, body)
-			}
-			if echo {
-				_ = c.Publish(*base+"/"+j.device, b)
-			}
-		}
-	}()
+	co := &coordinator{c: c, base: *base, service: *service, jitter: *jitter, loss: *loss, logLand: *logLand, state: state}
+	go co.run(jobs)
 
 	handle := func(kind string) mqtt.Handler {
 		return func(topic string, payload []byte, _ time.Time) {
