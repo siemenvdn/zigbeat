@@ -1,30 +1,16 @@
 package show
 
 import (
-	"slices"
-	"strings"
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/music"
 )
 
 // Track takes the properties of the track that plays now: its tempo, and its
-// album colours when the config wants them.
+// album colours when the style wants them.
 func (p *Planner) Track(t music.Track) {
-	p.bpm = t.BPM
-	if !p.album {
-		return
-	}
-	pal := AlbumColors(t.Palette, p.albumColors)
-	note := "album colours " + strings.Join(pal, " ")
-	if pal == nil {
-		pal, note = p.fallback, "no album colours; the palette plays"
-	}
-	if slices.Equal(pal, p.palette) {
-		return
-	}
-	p.palette, p.pi = pal, 0
-	p.notes = append(p.notes, note)
+	p.bpm, p.art = t.BPM, t.Palette
+	p.choose()
 }
 
 // period is the time between two beats of the current track.

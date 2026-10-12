@@ -28,10 +28,11 @@ type Planner struct {
 	fixtureOf    map[string][]string
 	nColor       int
 	breathe      []string
-	palette      []string // the colours that play
-	fallback     []string // effects.palette, without album colours
-	album        bool     // effects.album_palette
-	albumColors  int      // effects.album_colors
+	palette      []string    // the colours that play
+	fallback     []string    // effects.palette, without album colours
+	album        bool        // effects.album_palette
+	albumColors  int         // effects.album_colors
+	art          []music.RGB // the last track's album colours, as the source sent them
 	notes        []string
 	pi           int
 	current      map[string]string // colour each light was last given
@@ -58,22 +59,16 @@ type Planner struct {
 
 func NewPlanner(c config.Config) *Planner {
 	p := &Planner{
-		fixtureOf:   map[string][]string{},
-		palette:     c.Effects.Palette,
-		fallback:    c.Effects.Palette,
-		album:       c.Effects.AlbumPalette,
-		albumColors: c.Effects.AlbumColors,
-		current:     map[string]string{},
-		cadence:     c.Effects.Cadence,
-		setting:     c.Effects.Variant,
-		rng:         rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64())),
-		bpm:         music.DefaultBPM,
-		base:        level(c.Effects.Brightness),
-		kick:        level(min(c.Effects.Brightness+kickPoints, config.MaxPercent)),
-		low:         level(c.Effects.BreatheRange[0]),
-		high:        level(c.Effects.BreatheRange[1]),
-		up:          true,
+		fixtureOf: map[string][]string{},
+		palette:   c.Effects.Palette,
+		current:   map[string]string{},
+		rng:       rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64())),
+		bpm:       music.DefaultBPM,
+		low:       level(c.Effects.BreatheRange[0]),
+		high:      level(c.Effects.BreatheRange[1]),
+		up:        true,
 	}
+	p.SetEffects(c.Effects)
 	for _, f := range c.Fixtures {
 		if f.Role == "breathe" {
 			p.breathe = append(p.breathe, f.Lights...)

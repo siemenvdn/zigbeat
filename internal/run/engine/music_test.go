@@ -24,3 +24,15 @@ func TestPlannerNotesAreStamped(t *testing.T) {
 		t.Errorf("notes %q", n)
 	}
 }
+
+func TestSetEffectsNotesAreStamped(t *testing.T) {
+	e := started(t, "separate", 100)
+	e.Music(at(1000), music.Track{BPM: 120, Palette: []music.RGB{{180, 30, 40}}})
+	e.TakeNotes()
+	eff := testConfig("separate").Effects
+	eff.AlbumPalette = false
+	e.SetEffects(at(2000), eff)
+	if n := e.TakeNotes(); len(n) != 1 || n[0] != "21:00:02  album colours off; the palette plays" {
+		t.Errorf("notes %q", n)
+	}
+}

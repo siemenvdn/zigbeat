@@ -67,6 +67,13 @@ func New(c config.Config, canaryLim time.Duration, now time.Time) *Engine {
 // SetOffset sets the audio offset for every message planned from now on.
 func (e *Engine) SetOffset(d time.Duration) { e.offset = d }
 
+// SetEffects takes the style of the show from the next moment on; it sends
+// nothing itself.
+func (e *Engine) SetEffects(now time.Time, eff config.Effects) {
+	e.plan.SetEffects(eff)
+	e.planNotes(now)
+}
+
 // Halt stops planning and sending; messages in flight can still be confirmed.
 func (e *Engine) Halt() {
 	e.stopping = true

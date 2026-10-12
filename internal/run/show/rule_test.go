@@ -7,12 +7,17 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/run/flow"
 )
 
-// moments covers more than three phrases at the default cadence.
-const moments = 200
+const (
+	// moments covers more than three phrases at the default cadence.
+	moments = 200
+	// styleEvery: moments between style changes, as Home Assistant may send them.
+	styleEvery = 10
+)
 
 // TestNoMomentSendsMoreThanThree is the hard rule: at most flow.MaxPerMoment
 // colour messages per moment, whatever the variant, the fixtures, the mode or
-// the backoff, and no kick from the calm level on.
+// the backoff, also when the style changes along the way, and no kick from the
+// calm level on.
 func TestNoMomentSendsMoreThanThree(t *testing.T) {
 	var configs []config.Config
 	for _, mode := range []string{"separate", "together", "alternate"} {
@@ -40,6 +45,12 @@ func noMoreThanThree(t *testing.T, c config.Config, backoff int) {
 	p := NewPlanner(c)
 	p.Start(t0)
 	for i := 0; i < moments; i++ {
+		if i%styleEvery == styleEvery-1 {
+			e := c.Effects
+			e.Variant = config.Variants[i/styleEvery%len(config.Variants)]
+			e.AlbumColors = config.MinAlbumColors + i/styleEvery%2
+			p.SetEffects(e)
+		}
 		b := moment(4 * i)
 		colour := 0
 		for _, m := range p.Beat(b, backoff) {

@@ -30,6 +30,11 @@ func (e *Engine) Music(now time.Time, ev music.Event) {
 		}
 		e.enqueue(e.plan.Beat(ev, e.bo.Level()))
 	}
+	e.planNotes(now)
+}
+
+// planNotes stamps the planner's notes, such as the album colours and the variant.
+func (e *Engine) planNotes(now time.Time) {
 	for _, n := range e.plan.TakeNotes() {
 		e.note(now, n)
 	}
