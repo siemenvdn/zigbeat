@@ -52,6 +52,11 @@ func TestDoneOnCloseAndOnADrop(t *testing.T) {
 	if c.Err() == nil {
 		t.Error("no error after the broker dropped the connection")
 	}
+	_ = b.ln.SetDeadline(time.Now().Add(300 * time.Millisecond)) // paho's own reconnect would dial at once
+	if again, err := b.ln.Accept(); err == nil {
+		again.Close()
+		t.Error("the client dialled again by itself; the commands do that")
+	}
 }
 
 // TestDialIgnoresAllProxy: the broker is dialled directly, also with ALL_PROXY

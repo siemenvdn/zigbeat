@@ -16,6 +16,7 @@ const testWait = 2 * time.Second
 // (refusing filters under refused/) and UNSUBSCRIBE, and hands every packet it
 // reads to pkts: the first byte, then the body.
 type broker struct {
+	ln   *net.TCPListener
 	addr string
 	pkts chan []byte
 	conn chan net.Conn
@@ -28,7 +29,7 @@ func startBroker(t *testing.T) *broker {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { ln.Close() })
-	b := &broker{addr: ln.Addr().String(), pkts: make(chan []byte, 64), conn: make(chan net.Conn, 1)}
+	b := &broker{ln: ln.(*net.TCPListener), addr: ln.Addr().String(), pkts: make(chan []byte, 64), conn: make(chan net.Conn, 1)}
 	go func() {
 		c, err := ln.Accept()
 		if err != nil {
