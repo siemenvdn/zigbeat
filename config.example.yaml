@@ -29,7 +29,7 @@ fixtures:
     lights: [lamp-4]
 
 effects:
-  cadence: 2s                # minimum time between moments
+  cadence: 2s                # minimum time between moments, 1s to 16s
   brightness: 60             # percent, base level of color lights
   breathe_range: [30, 80]    # percent
   album_palette: true        # the colours of the album art when Music Assistant has them; false keeps the palette
