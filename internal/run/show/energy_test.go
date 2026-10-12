@@ -84,3 +84,19 @@ func TestSwitchOffInAQuietPart(t *testing.T) {
 		t.Error("the switch did not end the quiet part")
 	}
 }
+
+// TestQuietPartHolds: energy between the thresholds keeps what plays, as in a
+// build-up after a breakdown measured on real music: 0.38, 0.31, 0.21, 0.30.
+func TestQuietPartHolds(t *testing.T) {
+	p := NewPlanner(testConfig("separate"))
+	p.Start(t0)
+	for i, x := range []struct {
+		energy float64
+		quiet  bool
+	}{{0.9, false}, {0.4, false}, {0, true}, {0.38, true}, {0.31, true}, {0.21, true}, {0.3, true}, {0.5, false}, {0.35, false}} {
+		p.Beat(beatWith(i*4, x.energy), 0)
+		if p.quiet != x.quiet {
+			t.Errorf("bar %d at energy %.2f: quiet %v, want %v", i, x.energy, p.quiet, x.quiet)
+		}
+	}
+}

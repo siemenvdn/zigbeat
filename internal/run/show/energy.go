@@ -8,24 +8,33 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/music"
 )
 
-// quietEnergy: a bar below it is a quiet part. On real music a breakdown
-// measured 0, a verse 0.15 to 0.2, a pre-chorus 0.77 and a drop above 0.9.
-const quietEnergy = 0.3
+// A bar below quietEnergy starts a quiet part, a bar from fullEnergy on ends
+// it. On real music a breakdown measured 0, a verse 0.15 to 0.2, a pre-chorus
+// 0.77 and a drop above 0.9; a build-up after a breakdown wavered between 0.2
+// and 0.4, which one threshold turned into a flicker between quiet and full.
+const (
+	quietEnergy = 0.3
+	fullEnergy  = music.UnknownEnergy
+)
 
 // energyState is what the show keeps of the music's energy.
 type energyState struct {
-	follow bool // effects.follow_energy
-	lowBar bool // the bar that plays is below quietEnergy
-	quiet  bool // the show plays a quiet part: no kicks, the white low, one pace slower
+	follow  bool // effects.follow_energy
+	lowPart bool // the music plays a low part: since a bar below quietEnergy, until one from fullEnergy
+	quiet   bool // the show plays a quiet part: no kicks, the white low, one pace slower
 }
 
-// hear follows the energy of b: at each bar line the bar's energy decides
-// whether the show plays a quiet part, and a change is noted.
+// hear follows the energy of b: at each bar line the bar's energy may start or
+// end a quiet part, and a change is noted.
 func (p *Planner) hear(b music.Beat) {
-	if b.InBar == 0 {
-		p.lowBar = b.Energy < quietEnergy
+	switch {
+	case b.InBar != 0:
+	case b.Energy < quietEnergy:
+		p.lowPart = true
+	case b.Energy >= fullEnergy:
+		p.lowPart = false
 	}
-	quiet := p.follow && p.lowBar
+	quiet := p.follow && p.lowPart
 	if quiet == p.quiet {
 		return
 	}

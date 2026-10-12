@@ -191,7 +191,7 @@ zigbeat follows the beats that Music Assistant's own analysis finds. It works fo
    zigbeat beats -config config.yaml
    ```
 
-   Play a track through Music Assistant. After a line such as `412 beats ahead, 124.0 BPM, 103 downbeats` it prints the track with the colours the show would play, such as `track 124.0 BPM, album colours #406cff #ff943d #7340ff (Music Assistant sent 6)`, then one line per beat when it should sound, such as `21:14:10.500  bar 3 beat 1  energy 0.82`. Energy is how loud the coming bar is within the track: 0.50 until the track has had a louder or a quieter part. Below 0.30 the show plays a quiet part. The first time a track plays, its beats arrive 5 to 10 seconds after it starts; the analysis is kept for the next time.
+   Play a track through Music Assistant. After a line such as `412 beats ahead, 124.0 BPM, 103 downbeats` it prints the track with the colours the show would play, such as `track 124.0 BPM, album colours #406cff #ff943d #7340ff (Music Assistant sent 6)`, then one line per beat when it should sound, such as `21:14:10.500  bar 3 beat 1  energy 0.82`. Energy is how loud the coming bar is within the track: 0.50 until the track has had a louder or a quieter part. A bar below 0.30 starts a quiet part of the show, a bar of 0.50 or more ends it. The first time a track plays, its beats arrive 5 to 10 seconds after it starts; the analysis is kept for the next time.
 
 `zigbeat run` and `zigbeat serve` then use the same block. Lines starting with `music assistant:` tell what the source does: a new track, the music stopping, a lost connection, a refused token. During the show, lines such as `album colours #406cff #ff943d #7340ff` and `variant walk from bar 16` say what the lights do.
 
