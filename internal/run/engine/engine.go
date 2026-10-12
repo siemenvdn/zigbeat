@@ -11,7 +11,7 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/run/show"
 )
 
-const inFlightLimit = 3 // messages in flight in total, one moment's worth
+const inFlightLimit = flow.MaxPerMoment // messages in flight in total, one moment's worth
 
 // Send is one message for the loop to publish.
 type Send struct {
@@ -89,7 +89,7 @@ func (e *Engine) InFlight() int {
 }
 
 func (e *Engine) maxInFlight() int {
-	if e.bo.Level() >= 1 {
+	if e.bo.Level() >= flow.CalmLevel {
 		return 1
 	}
 	return inFlightLimit

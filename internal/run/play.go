@@ -13,13 +13,13 @@ import (
 
 // Hooks let a caller follow and steer one show. All are optional.
 type Hooks struct {
-	Status   func(engine.Stats)   // when play starts and every 10 s, from the show loop; must not block
+	Status   func(engine.Stats)   // when play starts and every statusEvery, from the show loop; must not block
 	Stopping func()               // once, right before the restore
 	Offsets  <-chan time.Duration // new audio offsets, typed during the show
 }
 
 // Play runs one show to the beats of src until ctx is done, then restores every
-// light. It returns 0, or 1 when the show could not start, after the third panic,
+// light. It returns 0, or 1 when the show could not start, after maxPanics panics,
 // or when the broker is gone at stop.
 func Play(ctx context.Context, cfg config.Config, src beat.Source, h Hooks) int {
 	r, err := connect(cfg)

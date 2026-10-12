@@ -12,6 +12,11 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/run/engine"
 )
 
+const (
+	tickEvery   = 10 * time.Millisecond // how late a message may leave: far below the engine's late limit
+	statusEvery = 10 * time.Second      // a status line often enough to follow, seldom enough to read
+)
+
 // play runs the show until ctx is done or the source ends. Network trouble never
 // ends it: backoff pauses, a lost connection is dialled again. A panic returns
 // with panicked set, so Run can start a fresh engine.
@@ -24,9 +29,9 @@ func (r *runner) play(ctx context.Context, src beat.Source) (reason string, pani
 	srcCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	beats := src.Beats(srcCtx)
-	tick := time.NewTicker(10 * time.Millisecond)
+	tick := time.NewTicker(tickEvery)
 	defer tick.Stop()
-	status := time.NewTicker(10 * time.Second)
+	status := time.NewTicker(statusEvery)
 	defer status.Stop()
 	r.report(r.eng.Stats(time.Now()))
 	for {
@@ -34,7 +39,7 @@ func (r *runner) play(ctx context.Context, src beat.Source) (reason string, pani
 		case <-ctx.Done():
 			return "interrupted", false
 		case <-r.link.Lost():
-			fmt.Printf("%s  mqtt connection lost (%v); reconnecting every 5 s\n", cli.Stamp(), r.link.Err())
+			fmt.Printf("%s  mqtt connection lost (%v); reconnecting every %s\n", cli.Stamp(), r.link.Err(), cli.Seconds(cli.RedialEvery))
 			r.eng.Disconnected()
 			if !r.link.Reconnect(ctx) {
 				return "interrupted", false
@@ -93,7 +98,7 @@ func (r *runner) drain(d time.Duration) {
 	}()
 	r.eng.Halt()
 	deadline := time.After(d)
-	tick := time.NewTicker(10 * time.Millisecond)
+	tick := time.NewTicker(tickEvery)
 	defer tick.Stop()
 	for r.eng.InFlight() > 0 {
 		select {

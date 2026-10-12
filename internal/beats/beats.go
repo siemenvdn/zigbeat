@@ -17,9 +17,9 @@ import (
 // Run executes `zigbeat beats` and returns an exit code.
 func Run(args []string) int {
 	var path string
-	fs := cli.NewFlagSet("beats", "usage: zigbeat beats [-config config.yaml]",
+	fs := cli.NewFlagSet("beats", "usage: zigbeat beats [-config "+config.DefaultPath+"]",
 		"Prints every beat from Music Assistant when it should sound, without touching a light. See the README.")
-	fs.StringVar(&path, "config", "config.yaml", "configuration file")
+	fs.StringVar(&path, "config", config.DefaultPath, "configuration file")
 	if code, stop := cli.Exit(cli.Parse(fs, args)); stop {
 		return code
 	}
@@ -44,7 +44,7 @@ func Run(args []string) int {
 // ahead, until ctx is done or the source ends.
 func print(ctx context.Context, beats <-chan beat.Beat, offset time.Duration, w io.Writer) {
 	var due []beat.Beat
-	t := time.NewTimer(time.Hour)
+	t := time.NewTimer(time.Hour) // stopped at once; any duration works
 	t.Stop()
 	for {
 		select {
@@ -59,7 +59,7 @@ func print(ctx context.Context, beats <-chan beat.Beat, offset time.Duration, w 
 			}
 		case <-t.C:
 			b := due[0]
-			fmt.Fprintf(w, "%s  bar %d beat %d  %.1f BPM\n", b.At.Add(offset).Format("15:04:05.000"), (b.Index-b.InBar)/4, b.InBar+1, b.BPM)
+			fmt.Fprintf(w, "%s  bar %d beat %d  %.1f BPM\n", b.At.Add(offset).Format(cli.ClockMS), (b.Index-b.InBar)/beat.PerBar, b.InBar+1, b.BPM)
 			if due = due[1:]; len(due) > 0 {
 				t.Reset(time.Until(due[0].At.Add(offset)))
 			}

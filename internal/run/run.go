@@ -13,6 +13,13 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/run/engine"
 )
 
+const (
+	// maxPanics ends the show: one panic can be a fluke, this many are a bug.
+	maxPanics = 3
+	// drainWait lets the messages in flight land, far above a normal latency.
+	drainWait = 2 * time.Second
+)
+
 // Run executes `zigbeat run` and returns an exit code.
 func Run(args []string) int {
 	o, err := ParseOptions("run", "Runs the light show to the beat source in the config, or a metronome, until Ctrl-C, then restores every light. See the README.", args)
@@ -33,7 +40,7 @@ func Run(args []string) int {
 }
 
 // show plays until ctx is done or the source ends. A panic starts a fresh
-// engine; the third one ends the show with exit code 1.
+// engine; panic number maxPanics ends the show with exit code 1.
 func (r *runner) show(ctx context.Context, src beat.Source, limit time.Duration) (reason string, code int) {
 	for panics := 0; ; {
 		r.eng = engine.New(r.cfg, limit, time.Now())
@@ -43,10 +50,10 @@ func (r *runner) show(ctx context.Context, src beat.Source, limit time.Duration)
 			return why, 0
 		}
 		fmt.Fprintf(os.Stderr, "%s  %s\n", cli.Stamp(), why)
-		if panics++; panics == 3 {
-			return "the third panic; this is a bug, please report it", 1
+		if panics++; panics == maxPanics {
+			return fmt.Sprintf("%d panics; this is a bug, please report it", maxPanics), 1
 		}
-		r.drain(2 * time.Second)
+		r.drain(drainWait)
 		fmt.Println("restarting the show")
 	}
 }
@@ -54,7 +61,7 @@ func (r *runner) show(ctx context.Context, src beat.Source, limit time.Duration)
 // stop lets the messages in flight land and puts every light back. It returns
 // 1 when the broker stayed away, else code.
 func (r *runner) stop(code int) int {
-	r.drain(2 * time.Second)
+	r.drain(drainWait)
 	if !r.restore() {
 		return 1
 	}

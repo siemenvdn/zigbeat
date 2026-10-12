@@ -70,6 +70,9 @@ var DefaultEffects = Effects{
 // DefaultPalette is used when effects.palette is empty.
 var DefaultPalette = []string{"#ff2a6d", "#ff7b00", "#ffd400", "#00e5ff", "#2962ff", "#aa00ff"}
 
+// DefaultPath is the configuration file the commands read without -config.
+const DefaultPath = "config.yaml"
+
 // Load reads and validates the configuration at path.
 func Load(path string) (Config, error) {
 	data, err := os.ReadFile(path)

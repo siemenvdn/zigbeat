@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/siemenvdn/zigbeat/internal/beats"
+	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/probe"
 	"github.com/siemenvdn/zigbeat/internal/run"
 	"github.com/siemenvdn/zigbeat/internal/serve"
@@ -30,7 +31,7 @@ Run "zigbeat <command> -h" for the flags of a command.
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Fprint(os.Stderr, usage)
-		os.Exit(2)
+		os.Exit(cli.ExitUsage)
 	}
 	switch os.Args[1] {
 	case "probe":
@@ -47,6 +48,6 @@ func main() {
 		fmt.Print(usage)
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command %q\n\n%s", os.Args[1], usage)
-		os.Exit(2)
+		os.Exit(cli.ExitUsage)
 	}
 }

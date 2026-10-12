@@ -5,6 +5,7 @@ import (
 
 	"github.com/siemenvdn/zigbeat/internal/beat"
 	"github.com/siemenvdn/zigbeat/internal/cli"
+	"github.com/siemenvdn/zigbeat/internal/config"
 )
 
 // The tempos -bpm takes: the range of music, halved or doubled by a count.
@@ -19,8 +20,8 @@ type Options struct {
 // ParseOptions parses -config and -bpm for the command name; about goes in -h.
 func ParseOptions(name, about string, args []string) (Options, error) {
 	var o Options
-	fs := cli.NewFlagSet(name, fmt.Sprintf("usage: zigbeat %s [-config config.yaml] [-bpm %d]", name, beat.DefaultBPM), about)
-	fs.StringVar(&o.Config, "config", "config.yaml", "configuration file")
+	fs := cli.NewFlagSet(name, fmt.Sprintf("usage: zigbeat %s [-config %s] [-bpm %d]", name, config.DefaultPath, beat.DefaultBPM), about)
+	fs.StringVar(&o.Config, "config", config.DefaultPath, "configuration file")
 	fs.Float64Var(&o.BPM, "bpm", 0, fmt.Sprintf("play to a metronome at this tempo, %d to %d, instead of the beat source in the config", minBPM, maxBPM))
 	if err := cli.Parse(fs, args); err != nil {
 		return o, err

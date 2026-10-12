@@ -28,8 +28,11 @@ type runner struct {
 	snapJSON []byte
 }
 
+// eventBuffer holds seconds of state messages at any budget; push drops beyond it.
+const eventBuffer = 1024
+
 func connect(cfg config.Config) (*runner, error) {
-	r := &runner{cfg: cfg, events: make(chan event, 1024)}
+	r := &runner{cfg: cfg, events: make(chan event, eventBuffer)}
 	l, err := dialLink(cfg.MQTT, r.watched, r.push)
 	if err != nil {
 		return nil, err

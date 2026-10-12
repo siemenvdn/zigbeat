@@ -13,17 +13,20 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/config"
 )
 
-const offsetHelp = "type + or - and Enter to move the lights 10 ms later or earlier, or a number in ms"
+// offsetStep is one + or -: about what an ear can tell apart.
+const offsetStep = 10 * time.Millisecond
+
+var offsetHelp = fmt.Sprintf("type + or - and Enter to move the lights %d ms later or earlier, or a number in ms", offsetStep.Milliseconds())
 
 // nextOffset is the audio offset after a line typed during the show: each +
-// or - moves it 10 ms, a number sets it, an empty line keeps it.
+// or - moves it offsetStep, a number sets it, an empty line keeps it.
 func nextOffset(line string, cur time.Duration) (time.Duration, error) {
 	line = strings.TrimSpace(line)
 	next := cur
 	switch {
 	case line == "":
 	case strings.Trim(line, "+-") == "":
-		next += time.Duration(strings.Count(line, "+")-strings.Count(line, "-")) * 10 * time.Millisecond
+		next += time.Duration(strings.Count(line, "+")-strings.Count(line, "-")) * offsetStep
 	default:
 		ms, err := strconv.Atoi(line)
 		if err != nil {
