@@ -74,7 +74,7 @@ func valid() Config {
 }
 
 func TestValidate(t *testing.T) {
-	if err := valid().validate(); err != nil {
+	if err := valid().validate(true); err != nil {
 		t.Fatalf("valid config rejected: %v", err)
 	}
 	cases := map[string]func(*Config){
@@ -105,7 +105,7 @@ func TestValidate(t *testing.T) {
 		c := valid()
 		c.Fixtures = append([]Fixture(nil), c.Fixtures...)
 		mutate(&c)
-		if err := c.validate(); err == nil {
+		if err := c.validate(true); err == nil {
 			t.Errorf("%s: expected an error", name)
 		}
 	}

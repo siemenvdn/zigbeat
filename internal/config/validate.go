@@ -17,13 +17,14 @@ const (
 	minPalette = 2 // alternating needs two colours
 )
 
-func (c Config) validate() error {
+// validate checks c; without needBudget a missing budget passes.
+func (c Config) validate(needBudget bool) error {
 	switch {
 	case c.MQTT.Broker == "":
 		return errors.New("mqtt.broker is empty")
-	case c.Budget.MaxRate <= 0:
+	case needBudget && c.Budget.MaxRate <= 0:
 		return errors.New("budget.max_rate is required: use the budget zigbeat probe suggested")
-	case c.Budget.LatencyMS <= 0:
+	case needBudget && c.Budget.LatencyMS <= 0:
 		return errors.New("budget.latency_ms is required: the p50 zigbeat probe reported at that load")
 	case c.Budget.AudioOffsetMS < MinOffsetMS || c.Budget.AudioOffsetMS > MaxOffsetMS:
 		return fmt.Errorf("budget.audio_offset_ms must be %d to %d", MinOffsetMS, MaxOffsetMS)

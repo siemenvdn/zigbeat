@@ -42,10 +42,10 @@ func TestMusicAssistantRejects(t *testing.T) {
 func TestWithoutMQTT(t *testing.T) {
 	cfg := []byte("mqtt: {password_env: NOPE}\n" + minimal + "music_assistant: {url: 'ws://ma:8095', token_env: MA}")
 	getenv := env(map[string]string{"MA": "tok"})
-	if _, err := parse(cfg, getenv, true); err == nil || !strings.Contains(err.Error(), "$NOPE is not set") {
+	if _, err := parse(cfg, getenv, rules{password: true, budget: true}); err == nil || !strings.Contains(err.Error(), "$NOPE is not set") {
 		t.Errorf("run and serve need the MQTT password: %v", err)
 	}
-	if c, err := parse(cfg, getenv, false); err != nil || c.MusicAssistant.Token != "tok" {
+	if c, err := parse(cfg, getenv, rules{budget: true}); err != nil || c.MusicAssistant.Token != "tok" {
 		t.Errorf("zigbeat beats never connects to MQTT: %+v, %v", c.MusicAssistant, err)
 	}
 }
