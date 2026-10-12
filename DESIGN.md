@@ -142,7 +142,7 @@ Only when the colour changes without kicks do not fit does the interval double, 
 
 ### `breathe` bulbs
 
-- **Variants** (`breathe_variant`): `pulse` jumps to the top of `breathe_range` on the moment and falls back to the bottom with the kick's return; `flip` sets every other breathe bulb, in config order, to the top and the rest to the bottom, and swaps them at each moment. `rotation` (the default) plays `pulse` in a track's first 16 bars, then `flip` and `pulse` per 16 bars.
+- **Variants** (`breathe_variant`): `pulse` jumps to the top of `breathe_range` on the moment and falls back to the bottom with the kick's return; `flip` sets every other breathe bulb, in config order, to the top and the rest to the bottom, and swaps them at each moment; when the room holds only some of the flips, the others wait for the next moment, so two bulbs can be level for a moment. `rotation` (the default) plays `pulse` in a track's first 16 bars, then `flip` and `pulse` per 16 bars.
 - Only absolute brightness: every message is confirmed, so its slot frees on the confirmation, and nothing drifts.
 - At most three breathe bulbs per moment; more take turns, as they do when the room is short.
 - From backoff level 1 they hold still: a bulb that is high gets its low end once.
