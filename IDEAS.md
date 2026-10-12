@@ -18,8 +18,7 @@ Ideas for later, grouped by topic. Nothing here is planned yet; plans live in th
 
 ## Effects
 
-- **Energy that steers the effects:** how many bulbs change, how high the kick goes, which variant plays, how deep the breathe bulbs go, and a burst at a drop (energy rising by 0.5 or more between bars). Never more than three messages per moment. First see energy on real music: `zigbeat beats` prints it.
-- **Breathe as a pulse on the beat.** On real lights the slow `brightness_move` swell follows the tempo less than the colour bulbs and looks dull. A kick on the beat instead, as the colour bulbs get but in white: jump up, fall back, perhaps off and on. An absolute brightness is echoed, so the bulb's in-flight slot frees on the confirmation, not after a fixed second as a move does.
+- **Energy that steers the effects,** within the room of a moment and the breathe range: how full a moment is (no white and no kick in a breakdown, everything at a drop), how high the kick goes, which variant plays, how deep the breathe bulbs go, and a burst at a drop (energy rising by 0.5 or more between bars). First see energy on real music: `zigbeat beats` prints it. The next project once Music Assistant runs on the Pi.
 - **A random variant per phrase**, never the same twice in a row, in place of the fixed rotation (`rotation` in `internal/run/show/rotation.go`).
 - **Pale fill-ins:** when a cover has fewer hues than `album_colors`, pale versions of its hues instead of other hues, as Music Assistant's Hue plugin does.
 - **A section event** for a detected drop or breakdown, next to `Track` and `Beat` in the music stream.
@@ -30,8 +29,7 @@ Ideas for later, grouped by topic. Nothing here is planned yet; plans live in th
 ## Home Assistant
 
 - **A button "back to the config"** that wipes every kept choice: an empty retained message on each style topic.
-- **A sensor with the real time between moments,** because the pace moves in steps of 1, 2, 4, 8 or 16 beats: the interval in force times the beat period.
 - **The phase 1b sensors as diagnostic entities** (`entity_category: diagnostic`), so the switch and the style stand alone at the top of the device page.
-- **The palette, the breathe range or the fixture mode from Home Assistant.**
+- **The palette or the fixture mode from Home Assistant.**
 - **A sensor with the variant that plays now,** from the planner's variant note.
 - **Presets per kind of party,** such as "dinner" and "dance": a select that sets several choices at once.

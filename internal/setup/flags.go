@@ -76,7 +76,7 @@ func (o *options) load() error {
 		return nil
 	}
 	if o.mqtt.Password = os.Getenv(o.mqtt.PasswordEnv); o.mqtt.Password == "" {
-		return fmt.Errorf("$%s is not set: read -rs %s && export %s", o.mqtt.PasswordEnv, o.mqtt.PasswordEnv, o.mqtt.PasswordEnv)
+		return fmt.Errorf("$%s is not set: read -rsp '%s: ' %s && echo && export %s", o.mqtt.PasswordEnv, o.mqtt.PasswordEnv, o.mqtt.PasswordEnv, o.mqtt.PasswordEnv)
 	}
 	return nil
 }

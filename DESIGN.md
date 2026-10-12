@@ -23,7 +23,7 @@ How zigbeat works and why. To use it, start with the [README](README.md).
 | Decision | Reason |
 |---|---|
 | Existing Zigbee bulbs only; no Hue Bridge, WLED, microphone or other hardware | The point of the project |
-| One change every 2 to 5 s on the beat, never a flash on every beat | Zigbee cannot keep up with every beat reliably. Hitting the beat matters more than speed |
+| The pace is a number of beats, 2 by default; each moment is filled within the budget | One change per bar looked too slow on real lights. In beats, faster music never makes the lights slower, which any rounding of seconds to beats does at some tempo. The budget decides how full a moment is: colour first, then the kick, then white |
 | Relays and smart plugs are never driven | Mechanical relays wear out within a few evenings, click audibly and stress LED drivers with inrush current |
 | An allowlist decides what may be driven: `zigbeat setup` offers a device only when every rule holds, and run, serve and the probe check every light against the same rules | Some relay inserts, dimming plugs and dimmer modules present themselves as a light with brightness. A bulb refused wrongly is an inconvenience; a relay driven is what must never happen |
 | `zigbeat setup` asks two questions and writes a file to edit; on an existing file it replaces only the lights and the canary | Picking a few lights from a list is quick; the budget, the offset and the effects stay |
@@ -41,7 +41,7 @@ How zigbeat works and why. To use it, start with the [README](README.md).
 | The source reports what plays as one ordered stream: tracks, with their tempo and album colours, and their beats, with their energy | A beat should not carry the properties of its track. One stream keeps the order a show relies on: a clear, then the next track, then its first beat |
 | The album art's colours play vivid: hue and saturation only, greys and near-black dropped, hues 30° apart | Zigbee2MQTT sends a hex colour as xy and ignores its brightness; pale or dark colours look like a tint of white on a bulb |
 | Energy is the low band of the coming bar within its track, measured and printed but not yet steering the lights | The waveform is the raw decoded audio, before volume normalisation, so levels only compare within a track. Limited masters differ between sections below 150 Hz, hardly in the full band. It needs to be seen on real music first |
-| The colour bulbs rotate through variants per 16 bars, with `build` at a track's start | At one change every 2 to 5 s no motion is seen; variants differ in how many bulbs change and how many colours the room shows |
+| The colour bulbs rotate through variants per 16 bars, with `build` at a track's start | One change at a time shows no motion; variants differ in how many bulbs change and how many colours the room shows |
 | The audio offset is calibrated by ear while `zigbeat run` plays | One number per speaker setup; Home Assistant stays out of it |
 | Roles and fixtures instead of device names in code | Works in any home |
 | Measure first, then build | The budget shapes the effect design |
@@ -59,7 +59,7 @@ zigbeat never needs to know what your lamps are called or where they hang. Two i
 | Role | Needs | Does |
 |---|---|---|
 | `color` | Colour bulb (xy colour) | Changes colour on the beat, with a short brightness kick |
-| `breathe` | Dimmable bulb | Brightness slowly rises and falls with the music |
+| `breathe` | Dimmable bulb | Pulses on the beat or flips between high and low |
 
 Anything without a role is never touched. That is also how relays and plugs stay safe.
 
@@ -72,27 +72,28 @@ Anything without a role is never touched. That is also how relays and plugs stay
 | Part | Job |
 |---|---|
 | `music.Source` | One ordered stream of what plays, at least 1 s ahead: a track with its tempo and album colours, its beats with their energy, and a clear when they no longer apply. Music Assistant is the source when the config has it, else a fixed-BPM metronome. See [Beat sources](#beat-sources). |
-| Planner | Decides per moment which bulbs change and how: the variant, the colour, the brightness kick, the breathing direction. See [Effects](#effects). |
-| Scheduler | Sends each message early by its number of Zigbee frames times the measured latency per frame, plus a configurable audio offset for TV and amplifier delay, which `zigbeat run` can change while it plays. The estimate starts at `budget.latency_ms` and follows the median of the last 20 confirmations. A colour change that cannot leave within 150 ms of its send time is dropped on its own, so a `together` fixture can miss one bulb for a moment; returns and breathe are never dropped. Due messages for one bulb are merged. |
-| Rate limiter | Token bucket in Zigbee frames at `budget.max_rate`, holding one moment (6 frames): `golang.org/x/time/rate`, fed the loop's time. A hard ceiling, never a target. Colour plus brightness in one message is two frames. |
-| Closed loop | At most one message in flight per bulb and three in total. A message is confirmed by the bulb's next state; a `brightness_move` publishes none, so it frees its slot after 1 s. Unanswered after 5 s counts as lost. |
-| Backoff | Level 0 normal, 1 no kick and one message in flight, 2 pause: nothing is sent but canary reads. Signals: latency per frame above twice the show's own starting median, a lost message, a slow canary, a Zigbee2MQTT error. One step per 10 s at most; one step back after a quiet minute. Errors about other devices raise it to 1 at most. |
+| Planner | Decides per moment which bulbs change and how: the variant, the colour, the brightness kick, the breathe variant, within the room the budget gives the moment. See [Effects](#effects). |
+| Scheduler | Sends each message early by its number of Zigbee frames times the measured latency per frame, plus a configurable audio offset for TV and amplifier delay, which `zigbeat run` can change while it plays. The estimate starts at `budget.latency_ms` and follows the median of the last 20 confirmations. A colour change, a white jump or a flip that cannot leave within 150 ms of its send time is dropped on its own, so a `together` fixture can miss one bulb for a moment; returns and falls are never dropped. Due messages for one bulb are merged. |
+| Rate limiter | Token bucket in Zigbee frames at `budget.max_rate`, holding one full moment (9 frames: three kicks and three white messages): `golang.org/x/time/rate`, fed the loop's time. A hard ceiling, never a target. Colour plus brightness in one message is two frames. |
+| Closed loop | At most one message in flight per bulb and six in total: one moment's colour and white. A message is confirmed by the bulb's next state. Unanswered after 5 s counts as lost. |
+| Backoff | Level 0 normal, 1 no kick, breathe bulbs still and one message in flight, 2 pause: nothing is sent but canary reads. Signals: latency per frame of the queue a message joined above twice the show's own starting median, a lost message, a slow canary, a Zigbee2MQTT error. One step per 10 s at most; one step back after a quiet minute. Errors about other devices raise it to 1 at most. |
 | Robustness | A bulb that misses twice in a row is left alone and read once a minute until it answers. A lost broker connection is dialled again every 5 s. Bulbs that do not answer at the start are left out, and a Zigbee2MQTT group name in the config is refused. A panic stops the show and restores every light. |
 | Snapshot | Reads the state of every configured bulb at start and restores it at stop, one bulb at a time within the budget. A bulb that was off first gets its level and colour back, then goes off, so it does not come on in the show's colour next time. A broker that drops during the restore is dialled again for 30 s. |
 | Home Assistant | `zigbeat serve`: MQTT device discovery with a switch, the style of the show and sensors, availability through a will. See [Home Assistant](#home-assistant). |
 
-The latency signal is relative to the show itself, not to the probe: a moment sends up to three messages at once, they queue at the coordinator, and the show settles at about twice the probe's evenly spaced latency.
+The latency signal is relative to the show itself, not to the probe: a moment sends up to six messages at once, they queue at the coordinator, and the show settles at about twice the probe's evenly spaced latency. How many leave together changes per phrase, so the signal divides each latency by the frames in flight when the message left, its own included: a busier moment is not a slower network. The send-early estimate and the status line keep the latency per frame of the message itself.
 
 ### Home Assistant
 
 | Topic | Retained | Payload |
 |---|---|---|
-| `homeassistant/device/zigbeat/config` | yes | Device discovery: the switch, five style entities and six sensors in one message |
+| `homeassistant/device/zigbeat/config` | yes | Device discovery: the switch, eight style entities and six sensors in one message |
 | `zigbeat/availability` | yes | `online` after connecting; `offline` on a clean stop and as the MQTT will |
 | `zigbeat/state` | yes | One JSON object for every entity; the numbers are `null` (unknown) while the show does not play, the style is always there |
 | `zigbeat/show/set` | no | `ON` or `OFF` from the switch |
-| `zigbeat/style/<key>/set` | yes, by Home Assistant | A choice for `effects.<key>`: `album_palette` (`ON`, `OFF`), `album_colors`, `variant`, `brightness` or `cadence` (seconds); empty is no choice |
+| `zigbeat/style/<key>/set` | yes, by Home Assistant | A choice for `effects.<key>`: `album_palette` (`ON`, `OFF`), `album_colors`, `variant`, `brightness`, `pace` (`every beat` to `every 4 bars`), `breathe_variant`, `breathe_low` or `breathe_high` (one end of `breathe_range`); empty is no choice |
 
+- The discovery message carries `cadence`, the pace in seconds of an older zigbeat, with only its platform, which removes that slider from the device. A kept choice for a setting that is gone gets a line with the command that wipes it.
 - On every connect serve clears a retained switch command first, subscribes to the switch and to the style topics, whose retained choices arrive as commands, then publishes `online`, the discovery message and the last state. A broker restart drops the connection, so this also covers a broker that lost its retained messages; Home Assistant's birth message is not needed.
 - Each show calls back every 10 s with its numbers. The callback only stores the newest state; a separate goroutine publishes it, so Home Assistant stays out of the timing path.
 - `OFF` cancels the show, which restores every light exactly as on Ctrl-C. An `ON` that arrives during the restore starts the next show right after it.
@@ -100,19 +101,26 @@ The latency signal is relative to the show itself, not to the probe: a moment se
 
 ## Effects
 
-### Cadence
+### Pace
 
-A moment falls every 1, 2, 4, 8 or 16 beats: the shortest that lasts at least `effects.cadence` (2 s by default). From 4 beats on that is the first beat of a bar:
+A moment falls every `effects.pace` beats: 1, 2, 4, 8 or 16, every 2 by default. From 4 beats on that is the first beat of a bar. A beat is a moment when its number is a multiple of the interval, so moments stay on the grid when the pace or the tempo changes, and a pickup beat before a new track's first downbeat is a moment only on that track's grid.
 
-| Tempo | Moment |
+| Tempo | Every 2 beats |
 |---|---|
-| 30 BPM | Every beat |
-| 31 to 60 BPM | Every 2 beats |
-| 61 to 120 BPM | Every bar |
-| 121 to 240 BPM | Every 2 bars |
-| 241 to 300 BPM | Every 4 bars |
+| 90 BPM | 1.33 s |
+| 120 BPM | 1.00 s |
+| 124 BPM | 0.97 s |
+| 174 BPM | 0.69 s |
 
-`effects.cadence` is 1 to 16 s; 16 beats last 16 s at 60 BPM. A new interval, from the pace or the tempo, starts on a moment of both the old and the new one, so a breathe fade always ends on a moment. A pickup beat before a new track's first downbeat is a moment only on that track's grid too.
+Faster music never makes the lights slower. A pace in seconds, rounded to powers of two beats, would: at some tempo the next power always lasts longer.
+
+**The room of a moment** is `budget.max_rate`, less the canary's reads, times the interval, in Zigbee frames counted like the rate limiter counts them. A moment is filled in this order until the room is used, and what does not fit is not planned:
+
+1. the colour changes the variant picks, at most three, 1 frame each;
+2. their kicks, all or none: 2 more frames each, for the brightness and the return;
+3. white: a pulse 2 frames, a flip 1, for at most three breathe bulbs, taking turns.
+
+Only when the colour changes without kicks do not fit does the interval double, with a note, up to 16 beats. The kick's return and the pulse's fall land half the interval later, at most a beat.
 
 ### `color` bulbs
 
@@ -129,27 +137,26 @@ A moment falls every 1, 2, 4, 8 or 16 beats: the shortest that lasts at least `e
 - **Fixture mode:** `separate` changes one bulb at a time, `together` the whole fixture at once in one colour, `alternate` switches between the two every 4 moments (the default). A fixture of more than three bulbs changes in parts of three, one part per moment, in one colour; the variant waits for it.
 - **Colour:** in `walk` and `shuffle` the next palette colour that no bulb of the same fixture shows, in `swap` one that neither the group nor the other groups show (else one the group does not show), in `build` the target. Zigbee2MQTT gets it as hex and converts it per bulb.
 - **Album colours** (`album_palette`, the default): from the colours Music Assistant sends per cover. Greys (saturation below 0.25) and near-black (value below 0.15) are dropped, hues stay at least 30° apart, saturation is lifted to 0.75, and there are `album_colors` of them (3 by default), filled up with the most dominant hue ±30°, ±60°, ±90°. Without usable colours `palette` plays. A new palette applies from the next colour a bulb gets.
-- **Kick:** on the moment, colour (blending over 0.7 s) and brightness 30 points above the base in one message; one beat later back to the base. From backoff level 1 the kick is left out.
+- **Kick:** on the moment, colour (blending over 0.7 s) and brightness 30 points above the base in one message; half the interval later, at most a beat, back to the base. When the kicks of a moment do not all fit its room, none kicks. From backoff level 1 the kick is left out.
 - **Start:** every bulb is switched on at the base brightness with a first colour.
 
 ### `breathe` bulbs
 
-- Brightness moves with Zigbee's `brightness_move`: one message starts a smooth fade that the bulb performs itself, at a rate that reaches the other end of `breathe_range` exactly at the next moment.
-- Each moment flips the direction: one message per bulb.
-- Every 4th moment also sets the low end as an absolute brightness, against drift.
-- When the beats stop (a pause, a new track, a first play waiting for its analysis), each bulb gets its low end once, a beat after the last beat; otherwise its fade would run on to the bulb's own limit.
-- Later: bulbs in the same fixture breathing in counter-phase.
+- **Variants** (`breathe_variant`): `pulse` jumps to the top of `breathe_range` on the moment and falls back to the bottom with the kick's return; `flip` sets every other breathe bulb, in config order, to the top and the rest to the bottom, and swaps them at each moment. `rotation` (the default) plays `pulse` in a track's first 16 bars, then `flip` and `pulse` per 16 bars.
+- Only absolute brightness: every message is confirmed, so its slot frees on the confirmation, and nothing drifts.
+- At most three breathe bulbs per moment; more take turns, as they do when the room is short.
+- From backoff level 1 they hold still: a bulb that is high gets its low end once.
+- When the beats stop (a pause, a new track, a first play waiting for its analysis), each gets its low end once, a beat after the last beat.
 
 ## Budget
 
-Zigbee frames per second for a typical room. A colour change with its kick and return is 3 frames; three bulbs change per moment. A breathe bulb takes 1 frame per moment, 2 every 4th:
+Zigbee frames per second at 120 BPM, every 2 beats: a moment per second. A colour change with its kick and return is 3 frames, and at most three change per moment; a pulse is 2 frames, a flip 1:
 
-| Moment every | 6 `color` bulbs | 2 `breathe` bulbs | Total |
-|---|---|---|---|
-| 2 s | 4.5 frames/s | 1.25 frames/s | about 6 frames/s |
-| 4 s | 2.25 frames/s | 0.6 frames/s | about 3 frames/s |
+| Per moment | 3 `color` bulbs | 6 `color` bulbs | 2 `breathe` bulbs, pulse | Total |
+|---|---|---|---|---|
+| Frames | 6 to 9 | 9 | 4 | 10 to 13 |
 
-The budget is half of the highest clean rate the probe measured, so this room wants a network that handles about 12 frames/s cleanly. With less, moments are dropped, and backoff leaves out the kick (1 frame per change instead of 3) before it pauses.
+The budget is half of the highest clean rate the probe measured. At 174 BPM the same room wants about 19 frames/s; with a budget of 15 the white takes turns or waits. With less, the kick goes, and only then does the interval grow.
 
 ## Beat sources
 
@@ -171,7 +178,7 @@ The relay anchors a track's beats on the position the player reports. A constant
 **Rejected:**
 
 - **Sendspin visualizer.** It only gets data inside a Sendspin group; a Chromecast joins only through MA's experimental Sendspin over Cast, which is rarely in sync without a delay set by hand per speaker. Sendspin 1.0 also requires Noise encryption and pairing. A later upgrade behind the same `music.Source`.
-- **Tempo database plus playback position.** No free database gives the time of the first beat; Home Assistant's Spotify integration reports the position in whole seconds every 30 s; databases disagree by 0.1 to 0.2 BPM. A change every 2 to 5 s is judged like a single flash and beep (noticed from about 45 ms late or 125 ms early, ITU-R BT.1359), so a random phase misses most of the time and a rounded tempo drifts off within half a minute.
+- **Tempo database plus playback position.** No free database gives the time of the first beat; Home Assistant's Spotify integration reports the position in whole seconds every 30 s; databases disagree by 0.1 to 0.2 BPM. A change on the beat is judged like a single flash and beep (noticed from about 45 ms late or 125 ms early, ITU-R BT.1359), so a random phase misses most of the time and a rounded tempo drifts off within half a minute.
 - **Music Assistant's `audio_analysis/wave_form`** for energy: the RMS of a whole track in 1800 bins, but through the main API, and without a mapping from media time to the relay's clock.
 - Microphones and other extra hardware; Spotify's audio analysis API (closed in November 2024).
 
@@ -208,16 +215,17 @@ fixtures:
     lights: [floor-lamp]
 
 effects:
-  cadence: 2s                 # minimum time between moments, 1s to 16s, default 2s
+  pace: 2                     # beats between moments: 1, 2, 4, 8 or 16, default 2
   brightness: 60              # percent, base of color bulbs, default 60
   palette: ["#ff2a6d", "#ff7b00", "#ffd400", "#00e5ff", "#2962ff", "#aa00ff"]  # the default
-  breathe_range: [30, 80]     # percent, default [30, 80]
+  breathe_range: [10, 100]    # percent, default [10, 100]
+  breathe_variant: rotation   # rotation (default: pulse, then flip and pulse per 16 bars), pulse or flip
   album_palette: true         # the album art's colours when Music Assistant has them, default true
   album_colors: 3             # colours made from the album art, 2 to 6, default 3
   variant: rotation           # rotation (default), walk, shuffle, swap or build
 ```
 
-Unknown keys are an error, so typos do not pass silently. Every light belongs to exactly one fixture, and the canary is not one of the lights.
+Unknown keys are an error, so typos do not pass silently; `effects.cadence`, the pace in seconds of an older zigbeat, gets a message that says what to set instead. Every light belongs to exactly one fixture, and the canary is not one of the lights.
 
 Light names are Zigbee2MQTT friendly names. `zigbeat setup` writes the file with a budget of zeros; `zigbeat probe -config` fills in `max_rate` and `latency_ms`, with the date and the measured rate in the comment, and typing `save` in `zigbeat run` writes `audio_offset_ms`. Each of them changes only those values: comments, blank lines and alignment stay byte for byte. A value they cannot change safely, such as a quoted one, is left alone with a message naming the value to set by hand.
 
@@ -280,8 +288,6 @@ Small known issues that are not planned yet: [BACKLOG.md](BACKLOG.md). Ideas for
 | Does Zigbee2MQTT confirm a command only after the bulb answered, or earlier? | Trusting the probe's latency |
 | Does the colour still blend when colour and brightness arrive in one message (IKEA)? | The kick |
 | Is the 50 to 70 ms ripple across a `together` fixture visible? | Fixture mode |
-| Does an absolute brightness end a running `brightness_move` on every bulb? | Restore after breathe |
-| Does breathe stay within its range over an hour? | Re-anchoring every 4th moment |
 | How much does the budget differ between coordinator types (EmberZNet, Z-Stack, deCONZ)? | Defaults for other users |
 | Should ZHA (Home Assistant's own Zigbee stack) be supported later? | Reach |
 | Does the allowlist offer every bulb in a real home, and nothing else? | What setup offers, and the start check |
@@ -293,7 +299,9 @@ Small known issues that are not planned yet: [BACKLOG.md](BACKLOG.md). Ideas for
 | Does a fixture of more than three bulbs look good when it changes three at a time? | Large fixtures |
 | Does the user's broker keep retained messages over its restart? | Choices surviving a broker and zigbeat restart together |
 | Is a new brightness, which each bulb takes at its next change, seen fast enough, also in `build`? | The brightness from Home Assistant |
-| Is a pace slider that moves in steps clear enough at a party? | A sensor with the real time between moments |
+| Do six messages in flight at once slow the coordinator or spread the landing of a moment visibly? | The in-flight cap |
+| Does a pulse up and down within a beat look like a pulse on bulbs whose brightness jumps? | The pulse |
+| How much does a probe on 6 colour bulbs raise the budget? | White at fast tempos |
 
 ## Why Zigbee needs care
 
@@ -309,7 +317,6 @@ Bulb behaviour that zigbeat relies on (seen on IKEA bulbs, to be verified on oth
 
 - A brightness transition is ignored by the firmware: brightness jumps immediately. Good for a crisp kick.
 - Colour transitions do work, so a colour change can blend.
-- A smooth brightness fade is possible with `brightness_move`.
 
 ## Architecture
 
@@ -339,7 +346,7 @@ What each package imports from zigbeat, from `go list`:
 | `run/engine` | `cli`, `config`, `music`, `run/flow`, `run/show`, `z2m` |
 | `run/show` | `config`, `music`, `run/flow`, `z2m` |
 | `run/flow` | nothing |
-| `serve/ha` | `config`, `run/engine` |
+| `serve/ha` | `config`, `music`, `run/engine` |
 | `music/ma` | `cli`, `music`, `ws` |
 | `music` | nothing |
 | `lights` | `run/flow`, `z2m` |
@@ -453,7 +460,7 @@ What each package offers the others. Unexported helpers are left out; `go doc ./
 | | `Hooks`: `Status(engine.Stats)` every 10 s, `Stopping() string` right before the restore, `Offsets <-chan time.Duration` with new audio offsets, `Effects <-chan config.Effects` with a new style |
 | | `ParseOptions(name, about, args) (Options, error)`: `-config` and `-bpm` for run, serve and beats |
 | `serve/ha` | `Discovery(version) []byte`: the discovery message. `State`, `Playing(stats, lights)` and `Off`: the state payload; `Style` and `StyleOf(effects)`: the style in it. `DiscoveryTopic`, `AvailTopic`, `StateTopic`, `CommandTopic` |
-| | `Choose(effects, config, key, payload) (config.Effects, error)`: a choice from Home Assistant, checked like the config. `Value(effects, key)`: a setting as the config writes it. `StyleTopic(key)`, `StyleKey(topic)`, `StyleFilter` |
+| | `Choose(effects, config, key, payload) (config.Effects, error)`: a choice from Home Assistant, checked like the config. `Value(effects, key)`: a setting as the config writes it, nil for a key that is no setting. `StyleTopic(key)`, `StyleKey(topic)`, `StyleFilter` |
 
 #### The show
 
@@ -476,8 +483,8 @@ What each package offers the others. Unexported helpers are left out; `go doc ./
 | `NewPlanner(cfg) *Planner` | The planner of one show |
 | `Start(now) []Message` | Every light on: colour lights at the base brightness with a first colour, breathe lights at their low end |
 | `Track(music.Track)` | Takes the tempo, and the album colours when `effects.album_palette` is on |
-| `SetEffects(config.Effects)` | Takes the style from the next moment: album colours from the last track, the variant, the brightness, the pace |
-| `Beat(b, backoff) []Message` | The messages of a moment, or nil when b is no moment: the variant, colours, kick and return, breathe |
+| `SetEffects(config.Effects)` | Takes the style from the next moment: album colours from the last track, the variants, the brightness, the breathe range, the pace |
+| `Beat(b, backoff) []Message` | The messages of a moment within its room, or nil when b is no moment: the variant, colours, kick and return, then the breathe variant |
 | `Settle(now) []Message` | Breathe lights to their low end when the beats stop |
 | `Missed(Message)` | A colour change the engine dropped no longer counts as shown: the light keeps its colour from before, and `build` gives it the colour again |
 | `TakeNotes() []string`, `Moments() int` | Notes since the last call; moments planned so far |
@@ -489,7 +496,7 @@ What each package offers the others. Unexported helpers are left out; `go doc ./
 | `InFlight`: `Add`, `Confirm`, `Busy`, `Expire`, `Count`, `Estimate`, `Median`, `Rising`, `Base`, `Clear`, `Forget` | One message in flight per light, and the latency per frame |
 | `Backoff`: `Level`, `Signal`, `Pause`, `Tick` | The ladder from 0 to `PauseLevel` |
 | `Canary`: `NewCanary`, `Due`, `Sent`, `Answer`, `Expire`, `Waiting`, `Last`, `Name`, `Forget` | Reads of the far-away device |
-| Constants | `MaxPerMoment`, `Burst`, `LostAfter`, `RecoverAfter`, `CalmLevel`, `PauseLevel` |
+| Constants | `MaxPerMoment`, `MaxInFlight`, `Burst`, `CanaryEvery`, `LostAfter`, `RecoverAfter`, `CalmLevel`, `PauseLevel` |
 
 `run/runtest` holds the test fixtures that the show's packages share: `Config`, `Beat`, `At`, `T0`.
 
@@ -497,7 +504,7 @@ What each package offers the others. Unexported helpers are left out; `go doc ./
 
 | Package | Offers |
 |---|---|
-| `music` | `Source`, `Event`, `Clear`, `Track`, `Beat`, `RGB`; `Metronome{BPM, Lookahead}`; `PerBar`, `DefaultBPM`, `Lookahead`, `UnknownEnergy` |
+| `music` | `Source`, `Event`, `Clear`, `Track`, `Beat`, `RGB`; `Metronome{BPM, Lookahead}`; `PerBar`, `DefaultBPM`, `Lookahead`, `UnknownEnergy`; `Span(beats)`: beat, 2 beats, bar, 2 bars |
 | `music/ma` | `Source{URL, Token, Player, Lookahead, Notes}` with `Events(ctx)`; its notes, such as `music assistant: connected`, go to `Notes` |
 
 #### Lights, Zigbee2MQTT and the config
@@ -507,11 +514,11 @@ What each package offers the others. Unexported helpers are left out; `go doc ./
 | `lights` | `Snapshot(ctx, conn, lights, rate) map[string]z2m.State`, `Restore(conn, snaps, lights, rate) (left []string)`, both one light at a time within rate frames per second; `Conn` |
 | `z2m` | `New(client, baseTopic) *Bridge` with `Set`, `Get`, `OnState`, `OnLog`, `Devices`, `Groups` |
 | | `Classify(device) (role, why)`: whether a device may be driven and in which role. `Check(devices, name, role) error`: the same for a light in the config. `Find`, `CanaryCandidate`, `CanaryLimit` |
-| | `Frames(payload) int`: the Zigbee frames of a payload. `Echoes(payload) bool`: whether Zigbee2MQTT answers it with a state |
+| | `Frames(payload) int`: the Zigbee frames of a payload |
 | | `State`, `Device`, `LogEntry`, `MaxBrightness`, `ErrNoRetained` |
 | `config` | `Load`, `LoadDraft` (no budget yet), `LoadWithoutMQTT` (no password needed), `Parse`, `ParseDraft` |
 | | `Config.Lights`, `Config.Keep`, `Config.RejectGroups`, `Budget.AudioOffset`; `DefaultEffects`, `DefaultPalette` |
-| | `Effects.Validate`: the effects block's rules, which Home Assistant's choices meet too. Their bounds: `MinCadence`, `MaxCadence`, `MinPercent`, `MaxPercent`, `MinAlbumColors`, `MaxAlbumColors`, `Variants` |
+| | `Effects.Validate`: the effects block's rules, which Home Assistant's choices meet too. Their bounds: `Paces`, `BreatheVariants`, `MinPercent`, `MaxPercent`, `MinAlbumColors`, `MaxAlbumColors`, `Variants` |
 | | `File`, which edits the config in place: `OpenFile`, `NewFile`, `Set(key, value, comment)`, `SetBlock(key, text)`, `Bytes`, `Save(check)` |
 
 #### Transport and shared

@@ -6,21 +6,21 @@ Ordinary Zigbee bulbs on [Zigbee2MQTT](https://www.zigbee2mqtt.io/) have no good
 
 ## Status
 
-- **Works today:** `zigbeat setup` finds your lights in Zigbee2MQTT and writes the configuration. `zigbeat probe` measures how many light commands per second your network handles and writes that budget into it. `zigbeat run` drives your lights within that budget to the beats of the music that [Music Assistant](https://www.music-assistant.io/) plays, or to a fixed-BPM metronome. `zigbeat serve` does the same as a service that Home Assistant switches on and off, and whose style it sets: the album colours, the way the bulbs change, the brightness and the pace.
+- **Works today:** `zigbeat setup` finds your lights in Zigbee2MQTT and writes the configuration. `zigbeat probe` measures how many light commands per second your network handles and writes that budget into it. `zigbeat run` drives your lights within that budget to the beats of the music that [Music Assistant](https://www.music-assistant.io/) plays, or to a fixed-BPM metronome. `zigbeat serve` does the same as a service that Home Assistant switches on and off, and whose style it sets: the album colours, the way the bulbs change, the brightness, the pace and the breathe bulbs.
 - **In progress:** checking on real speakers that the lights land on the beat by ear.
 - **Later:** effects that follow the energy of the music, a container image.
 
 ## What it does
 
 - It follows the beats Music Assistant finds in what it plays, from any of its music sources and on any speaker it plays to.
-- Colour bulbs change colour on the beat, a few at a time, with a short brightness kick. With Music Assistant they take the colours of the album that plays.
+- Colour bulbs change colour on the beat, every 2 beats by default, a few at a time, with a short brightness kick. With Music Assistant they take the colours of the album that plays.
 - Every 16 bars the colour bulbs change in another way: at the start of a track they fill the room with one colour bulb by bulb, then the colour walks through the room, shuffles, and two groups take turns with a new colour.
-- Dimmable bulbs breathe slowly up and down.
-- It stays below the budget the probe found, backs off when the network gets busy and pauses when it keeps struggling. Network trouble never ends the show.
+- Dimmable bulbs pulse on the beat or flip between high and low in turns, changing between the two every 16 bars.
+- It stays below the budget the probe found: when a moment holds more than the budget, the white goes first, then the kick, so faster music never makes the lights slower. It backs off when the network gets busy and pauses when it keeps struggling. Network trouble never ends the show.
 - Every light goes back to how it was when you stop the show, with Ctrl-C or the switch in Home Assistant.
 - Home Assistant gets a switch, controls for the style of the show and sensors through MQTT discovery, without any YAML.
 
-It does not flash on every beat, use Zigbee groups, or switch relays and plugs. [DESIGN.md](DESIGN.md) explains why.
+It does not use Zigbee groups or switch relays and plugs. [DESIGN.md](DESIGN.md) explains why.
 
 ## How it works
 
@@ -60,7 +60,7 @@ To build for a Raspberry Pi or another machine, see [Build from source](#build-f
 Create an MQTT user for zigbeat on your broker. Then, ideally on the same host as the broker:
 
 ```bash
-read -rs ZIGBEAT_MQTT_PASSWORD && export ZIGBEAT_MQTT_PASSWORD
+read -rsp 'MQTT password for zigbeat: ' ZIGBEAT_MQTT_PASSWORD && echo && export ZIGBEAT_MQTT_PASSWORD
 zigbeat setup -broker 127.0.0.1:1883
 ```
 
@@ -87,7 +87,7 @@ Without colour lights in the config, it measures the other lights with brightnes
 
 ```bash
 export MQTT_USER=zigbeat
-read -rs MQTT_PASSWORD && export MQTT_PASSWORD
+read -rsp 'MQTT password: ' MQTT_PASSWORD && echo && export MQTT_PASSWORD
 zigbeat probe -broker 127.0.0.1:1883 -targets pendant-1,pendant-2,pendant-3 -canary hallway-ceiling
 ```
 
@@ -128,7 +128,7 @@ If `p50` stays below about 20 ms everywhere, Zigbee2MQTT confirmed before the bu
   - `color` for colour bulbs. `mode` decides how a fixture changes: `separate` (one bulb at a time), `together` (the whole fixture at once) or `alternate` (switches between the two every few moments, the default). A fixture of more than three bulbs changes three at a time.
   - `breathe` for dimmable bulbs.
 - `canary` (optional): a far-away mains-powered device, as for the probe. The show reads it every 5 seconds to watch the rest of the network.
-- `effects` (optional): the time between changes, the base brightness, the colour palette, the breathe range, whether the album art's colours play and how many (`album_palette`, `album_colors`), and how the colour bulbs change (`variant`: `rotation`, or always `walk`, `shuffle`, `swap` or `build`). A config without these keys plays the album colours and the rotation, also one from before they existed: `album_palette: false` keeps your own `palette`, and `variant: walk` brings back the earlier chase.
+- `effects` (optional): how many beats between changes (`pace`, 2 by default), the base brightness, the colour palette, the breathe range and how the breathe bulbs move (`breathe_variant`: `rotation`, or always `pulse` or `flip`), whether the album art's colours play and how many (`album_palette`, `album_colors`), and how the colour bulbs change (`variant`: `rotation`, or always `walk`, `shuffle`, `swap` or `build`). A config without these keys plays the album colours and the rotation, also one from before they existed: `album_palette: false` keeps your own `palette`, and `variant: walk` brings back the earlier chase.
 - `music_assistant` (optional): where the beats come from, see [Play to the music](#play-to-the-music). Without it the show runs to a metronome.
 
 Lights that are not in the config are never touched. List lights one by one: a Zigbee2MQTT group name is refused, because group commands are broadcasts. At the start, the show also refuses a light that `zigbeat setup` would not offer, such as a plug, and a `color` light without xy colour. The MQTT password comes from the environment variable named in `password_env`.
@@ -136,7 +136,7 @@ Lights that are not in the config are never touched. List lights one by one: a Z
 ### Start it
 
 ```bash
-read -rs ZIGBEAT_MQTT_PASSWORD && export ZIGBEAT_MQTT_PASSWORD
+read -rsp 'MQTT password for zigbeat: ' ZIGBEAT_MQTT_PASSWORD && echo && export ZIGBEAT_MQTT_PASSWORD
 zigbeat run -config config.yaml
 ```
 
@@ -186,7 +186,7 @@ zigbeat follows the beats that Music Assistant's own analysis finds. It works fo
 5. Check that beats arrive, without touching a light:
 
    ```bash
-   read -rs ZIGBEAT_MA_TOKEN && export ZIGBEAT_MA_TOKEN
+   read -rsp 'Music Assistant token: ' ZIGBEAT_MA_TOKEN && echo && export ZIGBEAT_MA_TOKEN
    zigbeat beats -config config.yaml
    ```
 
@@ -217,7 +217,7 @@ TVs, soundbars and amplifiers delay the sound, so the lights need to wait for it
 `zigbeat serve` keeps running next to Zigbee2MQTT and adds a **zigbeat** device to Home Assistant through MQTT discovery. No Home Assistant YAML is needed, only the MQTT integration that Zigbee2MQTT already uses.
 
 ```bash
-read -rs ZIGBEAT_MQTT_PASSWORD && export ZIGBEAT_MQTT_PASSWORD
+read -rsp 'MQTT password for zigbeat: ' ZIGBEAT_MQTT_PASSWORD && echo && export ZIGBEAT_MQTT_PASSWORD
 zigbeat serve -config config.yaml
 ```
 
@@ -242,7 +242,12 @@ Next to the switch you set the style of the show, before it starts or while it p
 | `number.zigbeat_album_colour_count` | How many colours, 2 to 6 | `effects.album_colors` |
 | `select.zigbeat_variant` | How the colour bulbs change: `rotation`, `walk`, `shuffle`, `swap` or `build` | `effects.variant` |
 | `number.zigbeat_brightness` | The base brightness of the colour bulbs, 1 to 100 % | `effects.brightness` |
-| `number.zigbeat_pace` | The least time between moments, 1 to 16 s. A moment still falls on 1, 2, 4, 8 or 16 beats, so the pace moves in steps | `effects.cadence` |
+| `select.zigbeat_pace` | How often the bulbs change: every beat, every 2 beats, every bar, every 2 bars or every 4 bars | `effects.pace` |
+| `select.zigbeat_breathe_variant` | How the breathe bulbs move: `rotation`, `pulse` or `flip` | `effects.breathe_variant` |
+| `number.zigbeat_breathe_low` | The low end of the breathe bulbs, 1 to 100 % | `effects.breathe_range` |
+| `number.zigbeat_breathe_high` | The high end of the breathe bulbs, 1 to 100 %, above the low end | `effects.breathe_range` |
+
+A pace that the budget cannot carry at the tempo that plays gets slower only when even the colour changes without kicks do not fit; `zigbeat run` prints a line when that happens.
 
 A choice stays until you change it in Home Assistant, also when zigbeat or Home Assistant restarts: the broker keeps it, and over its own restart too when it has persistence, as Home Assistant's Mosquitto add-on does. What you never chose comes from `config.yaml`; editing a key there that you chose in Home Assistant changes nothing until you wipe the choice. `zigbeat run` uses only `config.yaml`. To give one setting back to the config, wipe its choice, for example the brightness:
 
@@ -250,13 +255,15 @@ A choice stays until you change it in Home Assistant, also when zigbeat or Home 
 mosquitto_pub -r -n -t zigbeat/style/brightness/set
 ```
 
+An older zigbeat kept the pace in seconds on `zigbeat/style/cadence/set`; serve prints the command that wipes it. A config with `effects.cadence` is refused with what to set instead.
+
 Next to the Zigbee2MQTT topics, the MQTT user for zigbeat needs write access to `homeassistant/device/zigbeat/config` and `zigbeat/#`, and read access to `zigbeat/show/set` and `zigbeat/style/+/set`. Run one `zigbeat serve` per broker, and no `zigbeat run` while its show is on.
 
-To remove the device from Home Assistant, stop zigbeat and clear its discovery message and the choices:
+To remove the device from Home Assistant, stop zigbeat and clear its discovery message and the choices (`cadence` is the pace of an older zigbeat):
 
 ```bash
 mosquitto_pub -r -n -t homeassistant/device/zigbeat/config
-for k in album_palette album_colors variant brightness cadence; do mosquitto_pub -r -n -t zigbeat/style/$k/set; done
+for k in album_palette album_colors variant brightness pace breathe_variant breathe_low breathe_high cadence; do mosquitto_pub -r -n -t zigbeat/style/$k/set; done
 ```
 
 ## Build from source
@@ -290,7 +297,7 @@ sed 's/1883$/18830/' config.example.yaml > config.yaml
 ZIGBEAT_MQTT_PASSWORD=x go run ./cmd/zigbeat run -config config.yaml
 ```
 
-It should stay at backoff 0 at about 4 frames/s. Restart `fake-z2m` with `-loss 0.1` to watch backoff and lights being left alone, or stop and start `mosquitto` to watch it reconnect.
+It should stay at backoff 0 at about 3 frames/s: with a budget of 4 the colour bulbs change mostly without their kick, and the breathe bulb flips now and then. Restart `fake-z2m` with `-loss 0.1` to watch backoff and lights being left alone, or stop and start `mosquitto` to watch it reconnect.
 
 `zigbeat serve` against the same simulation, with `mosquitto_pub` playing the Home Assistant switch:
 
