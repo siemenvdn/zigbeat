@@ -6,6 +6,7 @@ require (
 	github.com/eclipse/paho.mqtt.golang v1.5.1
 	github.com/lucasb-eyer/go-colorful v1.4.1
 	go.yaml.in/yaml/v3 v3.0.5
+	golang.org/x/time v0.16.0
 )
 
 require (

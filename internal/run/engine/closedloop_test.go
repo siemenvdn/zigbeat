@@ -5,7 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/siemenvdn/zigbeat/internal/run/flow"
 	"github.com/siemenvdn/zigbeat/internal/run/show"
+	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
 func TestStartPassRespectsInFlightLimits(t *testing.T) {
@@ -78,5 +80,30 @@ func TestHalt(t *testing.T) {
 	e.State("lamp-1", at(40))
 	if e.fl.Busy("lamp-1") {
 		t.Fatal("messages in flight can still be confirmed after halt")
+	}
+}
+
+// TestFramesStayWithinTheBudget: with more to send than max_rate allows, the
+// engine never sends more than one moment's burst plus max_rate frames per
+// second, and does use the budget.
+func TestFramesStayWithinTheBudget(t *testing.T) {
+	const rate = 2
+	e := started(t, "together", rate)
+	from := at(2_000)
+	frames, beat := 0, 4
+	for now := from; now.Before(at(42_000)); now = now.Add(10 * time.Millisecond) {
+		for ; moment(beat).At.Sub(now) <= time.Second; beat++ {
+			e.Music(now, moment(beat))
+		}
+		for _, s := range e.Due(now) {
+			frames += z2m.Frames(s.Payload)
+			e.State(s.Light, now.Add(time.Millisecond))
+		}
+		if limit := flow.Burst + rate*now.Sub(from).Seconds(); float64(frames) > limit {
+			t.Fatalf("%d frames by %s, more than %g", frames, now.Sub(from), limit)
+		}
+	}
+	if frames < rate*40/2 {
+		t.Errorf("%d frames in 40 s at %d frames/s", frames, rate)
 	}
 }

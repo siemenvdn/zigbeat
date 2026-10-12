@@ -32,7 +32,7 @@ func (e *Engine) Due(now time.Time) []Send {
 	e.dropLate(now)
 
 	var out []Send
-	if e.canary.Due(now) && e.InFlight() < e.maxInFlight() && e.lim.Take(now, 1) {
+	if e.canary.Due(now) && e.InFlight() < e.maxInFlight() && e.lim.AllowN(now, 1) {
 		e.canary.Sent(now)
 		out = append(out, Send{Light: e.canary.Name(), Get: true, Payload: map[string]any{"state": ""}})
 	}
@@ -54,7 +54,7 @@ func (e *Engine) Due(now time.Time) []Send {
 			maps.Copy(payload, m.Payload)
 		}
 		frames := z2m.Frames(payload)
-		if !e.lim.Take(now, frames) {
+		if !e.lim.AllowN(now, frames) {
 			break
 		}
 		e.queue[l] = q[n:]

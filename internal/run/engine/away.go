@@ -39,7 +39,7 @@ func (e *Engine) retryAway(now time.Time) []Send {
 	var out []Send
 	for _, l := range e.lights {
 		next, gone := e.away[l]
-		if !gone || now.Before(next) || e.fl.Busy(l) || e.InFlight() >= e.maxInFlight() || !e.lim.Take(now, 1) {
+		if !gone || now.Before(next) || e.fl.Busy(l) || e.InFlight() >= e.maxInFlight() || !e.lim.AllowN(now, 1) {
 			continue
 		}
 		e.away[l] = now.Add(retryAway)

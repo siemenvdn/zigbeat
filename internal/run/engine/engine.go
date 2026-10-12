@@ -9,6 +9,7 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/config"
 	"github.com/siemenvdn/zigbeat/internal/run/flow"
 	"github.com/siemenvdn/zigbeat/internal/run/show"
+	"golang.org/x/time/rate"
 )
 
 // Send is one message for the loop to publish.
@@ -21,7 +22,7 @@ type Send struct {
 // Engine is one show. Only the loop goroutine may call it.
 type Engine struct {
 	plan     *show.Planner
-	lim      *flow.Limiter
+	lim      *rate.Limiter // Zigbee frames; budget.max_rate is a ceiling, never raised
 	bo       flow.Backoff
 	fl       *flow.InFlight
 	canary   flow.Canary
@@ -43,7 +44,7 @@ func millis(n int) time.Duration { return time.Duration(n) * time.Millisecond }
 func New(c config.Config, canaryLim time.Duration, now time.Time) *Engine {
 	e := &Engine{
 		plan:       show.NewPlanner(c),
-		lim:        flow.NewLimiter(c.Budget.MaxRate, now),
+		lim:        rate.NewLimiter(rate.Limit(c.Budget.MaxRate), flow.Burst),
 		fl:         flow.NewInFlight(millis(c.Budget.LatencyMS)),
 		canary:     flow.NewCanary(c.Canary, canaryLim, now),
 		lights:     c.Lights(),

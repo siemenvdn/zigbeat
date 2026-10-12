@@ -46,8 +46,9 @@ How zigbeat works and why. To use it, start with the [README](README.md).
 | The audio offset is calibrated by ear while `zigbeat run` plays | One number per speaker setup; Home Assistant stays out of it |
 | Roles and fixtures instead of device names in code | Works in any home |
 | Measure first, then build | The budget shapes the effect design |
-| Go, with a well-maintained library wherever it makes our code smaller: `go.yaml.in/yaml/v3`, `go-colorful` and `paho.mqtt.golang` | A single static binary; YAML is friendlier than JSON to edit by hand; colour conversion is not worth own code |
+| Go, with a well-maintained library wherever it makes our code smaller: `go.yaml.in/yaml/v3`, `go-colorful`, `paho.mqtt.golang` and `x/time/rate` | A single static binary; YAML is friendlier than JSON to edit by hand; colour conversion is not worth own code |
 | MQTT through `eclipse/paho.mqtt.golang` (under EDL-1.0), behind `internal/mqtt`'s own small API | About 300 fewer own lines. The adapter turns off paho's reconnect (the commands dial again themselves) and keeps every handler in order on one goroutine |
+| The frame budget is `golang.org/x/time/rate` | The own token bucket did the same; `AllowN` takes the loop's time, so the show still has no clock of its own |
 
 ## Roles and fixtures
 
@@ -73,7 +74,7 @@ Anything without a role is never touched. That is also how relays and plugs stay
 | `music.Source` | One ordered stream of what plays, at least 1 s ahead: a track with its tempo and album colours, its beats with their energy, and a clear when they no longer apply. Music Assistant is the source when the config has it, else a fixed-BPM metronome. See [Beat sources](#beat-sources). |
 | Planner | Decides per moment which bulbs change and how: the variant, the colour, the brightness kick, the breathing direction. See [Effects](#effects). |
 | Scheduler | Sends each message early by its number of Zigbee frames times the measured latency per frame, plus a configurable audio offset for TV and amplifier delay, which `zigbeat run` can change while it plays. The estimate starts at `budget.latency_ms` and follows the median of the last 20 confirmations. A colour change that cannot leave within 150 ms of its send time is dropped on its own, so a `together` fixture can miss one bulb for a moment; returns and breathe are never dropped. Due messages for one bulb are merged. |
-| Rate limiter | Token bucket in Zigbee frames at `budget.max_rate`, holding one moment (6 frames). A hard ceiling, never a target. Colour plus brightness in one message is two frames. |
+| Rate limiter | Token bucket in Zigbee frames at `budget.max_rate`, holding one moment (6 frames): `golang.org/x/time/rate`, fed the loop's time. A hard ceiling, never a target. Colour plus brightness in one message is two frames. |
 | Closed loop | At most one message in flight per bulb and three in total. A message is confirmed by the bulb's next state; a `brightness_move` publishes none, so it frees its slot after 1 s. Unanswered after 5 s counts as lost. |
 | Backoff | Level 0 normal, 1 no kick and one message in flight, 2 pause: nothing is sent but canary reads. Signals: latency per frame above twice the show's own starting median, a lost message, a slow canary, a Zigbee2MQTT error. One step per 10 s at most; one step back after a quiet minute. Errors about other devices raise it to 1 at most. |
 | Robustness | A bulb that misses twice in a row is left alone and read once a minute until it answers. A lost broker connection is dialled again every 5 s. Bulbs that do not answer at the start are left out, and a Zigbee2MQTT group name in the config is refused. A panic stops the show and restores every light. |
@@ -355,7 +356,7 @@ flowchart LR
   serve["serve"] -->|"run.Play with Hooks"| loop
   loop -->|"Music, State, ZigbeeError, Due, SetEffects"| eng["engine.Engine"]
   eng -->|"Track, Beat, SetEffects, Start, Settle, Missed"| plan["show.Planner"]
-  eng -->|"Take, Add, Confirm, Signal"| flow["run/flow: Limiter, InFlight,<br/>Backoff, Canary"]
+  eng -->|"Add, Confirm, Signal"| flow["run/flow: InFlight,<br/>Backoff, Canary"]
   loop -->|"Set, Get"| link["run.link: z2m.Bridge<br/>over mqtt.Client"]
   link -.->|"states, log lines"| loop
 ```
@@ -372,7 +373,7 @@ flowchart LR
    - a dropped link: `Engine.Disconnected` and `link.Reconnect`.
 
    After each, it prints `Engine.TakeNotes`.
-4. Inside the engine, `Music` hands a `Track` to `Planner.Track` and a `Beat` to `Planner.Beat`. The planner returns `show.Message`s with the time they must land. The engine queues them per light and sends each early by its frames times the latency estimate. It takes the frames from `flow.Limiter`, keeps one message in flight per light in `flow.InFlight`, and moves `flow.Backoff` on slow confirmations, losses, a slow `flow.Canary` and Zigbee2MQTT errors.
+4. Inside the engine, `Music` hands a `Track` to `Planner.Track` and a `Beat` to `Planner.Beat`. The planner returns `show.Message`s with the time they must land. The engine queues them per light and sends each early by its frames times the latency estimate. It takes the frames from a `rate.Limiter` with `flow.Burst`, keeps one message in flight per light in `flow.InFlight`, and moves `flow.Backoff` on slow confirmations, losses, a slow `flow.Canary` and Zigbee2MQTT errors.
 5. At the stop: `Hooks.Stopping`, `Engine.Halt`, a drain of up to `flow.LostAfter`, then `lights.Restore`.
 
 ### Interfaces
@@ -485,7 +486,6 @@ What each package offers the others. Unexported helpers are left out; `go doc ./
 
 | `run/flow` | Does |
 |---|---|
-| `Limiter`: `NewLimiter(rate, now)`, `Take(now, frames) bool` | The token bucket in Zigbee frames; the rate is a ceiling |
 | `InFlight`: `Add`, `Confirm`, `Busy`, `Expire`, `Count`, `Estimate`, `Median`, `Rising`, `Base`, `Clear`, `Forget` | One message in flight per light, and the latency per frame |
 | `Backoff`: `Level`, `Signal`, `Pause`, `Tick` | The ladder from 0 to `PauseLevel` |
 | `Canary`: `NewCanary`, `Due`, `Sent`, `Answer`, `Expire`, `Waiting`, `Last`, `Name`, `Forget` | Reads of the far-away device |
