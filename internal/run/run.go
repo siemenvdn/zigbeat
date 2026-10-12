@@ -26,7 +26,10 @@ func Run(args []string) int {
 	}
 	ctx, stopSignals := cli.StopContext()
 	defer stopSignals()
-	return Play(ctx, cfg, Source(cfg, o.BPM), Hooks{Stopping: cli.QuitOnInterrupt})
+	fmt.Println(offsetHelp)
+	offsets := make(chan time.Duration)
+	go readOffsets(os.Stdin, cfg.Budget.AudioOffset(), offsets)
+	return Play(ctx, cfg, Source(cfg, o.BPM), Hooks{Stopping: cli.QuitOnInterrupt, Offsets: offsets})
 }
 
 // show plays until ctx is done or the source ends. A panic starts a fresh
@@ -34,6 +37,7 @@ func Run(args []string) int {
 func (r *runner) show(ctx context.Context, src beat.Source, limit time.Duration) (reason string, code int) {
 	for panics := 0; ; {
 		r.eng = engine.New(r.cfg, limit, time.Now())
+		r.eng.SetOffset(r.offset)
 		why, panicked := r.play(ctx, src)
 		if !panicked {
 			return why, 0

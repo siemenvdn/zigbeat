@@ -56,13 +56,16 @@ func New(c config.Config, canaryLim time.Duration, now time.Time) *Engine {
 		started:    map[int]bool{},
 		fails:      map[string]int{},
 		away:       map[string]time.Time{},
-		offset:     millis(c.Budget.AudioOffsetMS),
+		offset:     c.Budget.AudioOffset(),
 		latency:    millis(c.Budget.LatencyMS),
 		lastStatus: now,
 	}
 	e.enqueue(e.plan.Start(now))
 	return e
 }
+
+// SetOffset sets the audio offset for every message planned from now on.
+func (e *Engine) SetOffset(d time.Duration) { e.offset = d }
 
 // Halt stops planning and sending; messages in flight can still be confirmed.
 func (e *Engine) Halt() {

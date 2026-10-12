@@ -66,3 +66,15 @@ func TestStaleBeatIsSkipped(t *testing.T) {
 		t.Fatal("a beat in the past must not be planned")
 	}
 }
+
+func TestSetOffsetMovesTheSendTime(t *testing.T) {
+	e := started(t, "separate", 100)
+	e.Beat(t0, moment(8))
+	before := e.queue["lamp-1"][0].sendAt
+	clear(e.queue)
+	e.SetOffset(120 * time.Millisecond)
+	e.Beat(t0, moment(16))
+	if d := e.queue["lamp-1"][0].sendAt.Sub(before); d != 4*time.Second+120*time.Millisecond {
+		t.Errorf("8 beats and 120 ms later, got %s", d)
+	}
+}

@@ -55,6 +55,10 @@ func (r *runner) play(ctx context.Context, src beat.Source) (reason string, pani
 			st := r.eng.Stats(now)
 			fmt.Println(st.Line())
 			r.report(st)
+		case d := <-r.hooks.Offsets:
+			r.offset = d
+			r.eng.SetOffset(d)
+			fmt.Printf("%s  audio offset %d ms\n", cli.Stamp(), d.Milliseconds())
 		}
 		for _, n := range r.eng.TakeNotes() {
 			fmt.Println(n)

@@ -23,6 +23,7 @@ type runner struct {
 	events   chan event
 	eng      *engine.Engine
 	hooks    Hooks
+	offset   time.Duration // the audio offset now, also across engine restarts
 	snaps    map[string]z2m.State
 	snapJSON []byte
 }
