@@ -46,7 +46,7 @@ How zigbeat works and why. To use it, start with the [README](README.md).
 | Roles and fixtures instead of device names in code | Works in any home |
 | Measure first, then build | The budget shapes the effect design |
 | Go, with a well-maintained library wherever it makes our code smaller: `go.yaml.in/yaml/v3`, `go-colorful`, `paho.mqtt.golang`, `x/time/rate` and `gorilla/websocket` | A single static binary; YAML is friendlier than JSON to edit by hand; colour conversion is not worth own code |
-| MQTT through `eclipse/paho.mqtt.golang` (under EDL-1.0), behind `internal/mqtt`'s own small API | About 300 fewer own lines. The adapter turns off paho's reconnect (the commands dial again themselves) and keeps every handler in order on one goroutine |
+| MQTT through `eclipse/paho.mqtt.golang` (under EDL-1.0), behind `internal/mqtt`'s own small API | About 300 fewer own lines. The adapter turns off paho's reconnect (the commands dial again themselves), keeps every handler in order on one goroutine and dials the broker directly, never through `ALL_PROXY` |
 | The frame budget is `golang.org/x/time/rate` | The own token bucket did the same; `AllowN` takes the loop's time, so the show still has no clock of its own |
 | The Music Assistant relay through `gorilla/websocket`, behind `internal/ws`'s own small API | About 200 fewer own lines. paho links it already, so it adds almost nothing to the binary; `coder/websocket` is better maintained but made it about 650 KB bigger. A read waits for a message: pings no longer count, the time sync's answers every 10 s do |
 

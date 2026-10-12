@@ -2,6 +2,8 @@ package mqtt
 
 import (
 	"bytes"
+	"os"
+	"os/exec"
 	"testing"
 	"time"
 )
@@ -50,4 +52,19 @@ func TestDoneOnCloseAndOnADrop(t *testing.T) {
 	if c.Err() == nil {
 		t.Error("no error after the broker dropped the connection")
 	}
+}
+
+// TestDialIgnoresAllProxy: the broker is dialled directly, also with ALL_PROXY
+// in the environment. x/net reads it once per process, so a child process
+// runs the dial.
+func TestDialIgnoresAllProxy(t *testing.T) {
+	if os.Getenv("ZIGBEAT_PROXY_CHILD") == "" {
+		cmd := exec.Command(os.Args[0], "-test.run=^TestDialIgnoresAllProxy$")
+		cmd.Env = append(os.Environ(), "ZIGBEAT_PROXY_CHILD=1", "ALL_PROXY=socks5://127.0.0.1:1")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("%v\n%s", err, out)
+		}
+		return
+	}
+	dial(t, startBroker(t), Options{ClientID: "id"})
 }

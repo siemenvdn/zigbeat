@@ -6,6 +6,8 @@ package mqtt
 import (
 	"errors"
 	"fmt"
+	"net"
+	"net/url"
 	"sync"
 	"time"
 
@@ -59,7 +61,8 @@ func Dial(addr string, o Options) (*Client, error) {
 		SetUsername(o.Username).SetPassword(o.Password).SetProtocolVersion(protocolLevel).
 		SetKeepAlive(o.KeepAlive).SetPingTimeout(pingWait).SetConnectTimeout(ioWait).SetWriteTimeout(ioWait).
 		SetAutoReconnect(false).SetOrderMatters(true). // one handler at a time, in order
-		SetConnectionLostHandler(func(_ paho.Client, err error) { cl.shutdown(fmt.Errorf("connection lost: %w", err)) })
+		SetConnectionLostHandler(func(_ paho.Client, err error) { cl.shutdown(fmt.Errorf("connection lost: %w", err)) }).
+		SetCustomOpenConnectionFn(dialDirect)
 	if o.WillTopic != "" {
 		po.SetBinaryWill(o.WillTopic, o.WillPayload, qos0, true)
 	}
@@ -111,6 +114,12 @@ func (c *Client) shutdown(err error) {
 		c.mu.Unlock()
 		close(c.done)
 	})
+}
+
+// dialDirect opens the TCP connection itself: paho's own would take a proxy
+// from ALL_PROXY, also for a broker on the LAN.
+func dialDirect(u *url.URL, _ paho.ClientOptions) (net.Conn, error) {
+	return net.DialTimeout("tcp", u.Host, ioWait)
 }
 
 func wait(t paho.Token) error {
