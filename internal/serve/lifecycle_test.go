@@ -19,7 +19,7 @@ type fakeShow struct {
 	hints   chan string                  // what the Stopping hook returned
 	start   chan struct{}                // when set, the start waits for it to close
 	status  chan struct{}                // when set, the first status waits for it to close, also after OFF
-	ends    chan struct{}                // when set, the show also ends when it closes, like after a third panic
+	ends    chan struct{}                // when set, the show also ends when it closes, like after a panic
 	code    int                          // when not 0, returned at once, like a show that could not start
 	effects chan (<-chan config.Effects) // the styles each start got
 }

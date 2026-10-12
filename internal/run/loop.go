@@ -19,7 +19,7 @@ const (
 
 // play runs the show until ctx is done or the source ends. Network trouble never
 // ends it: backoff pauses, a lost connection is dialled again. A panic returns
-// with panicked set, so Run can start a fresh engine.
+// with panicked set, so the show ends and every light is restored.
 func (r *runner) play(ctx context.Context, src music.Source) (reason string, panicked bool) {
 	defer func() {
 		if p := recover(); p != nil {
@@ -62,11 +62,9 @@ func (r *runner) play(ctx context.Context, src music.Source) (reason string, pan
 			fmt.Println(st.Line())
 			r.report(st)
 		case d := <-r.hooks.Offsets:
-			r.offset = d
 			r.eng.SetOffset(d)
 			fmt.Printf("%s  audio offset %d ms\n", cli.Stamp(), d.Milliseconds())
 		case eff := <-r.hooks.Effects:
-			r.cfg.Effects = eff // the engine after a panic keeps it
 			r.eng.SetEffects(time.Now(), eff)
 		}
 		for _, n := range r.eng.TakeNotes() {

@@ -21,7 +21,6 @@ Small known issues, found in the reviews of phases 1a to 3c and left for later. 
 - **PID 1 in a container.** The kernel ignores default-action signals for PID 1, so a second signal does not quit there. The phase 4 image needs an init (`docker run --init`, `init: true`).
 - **`ha.Value` panics on an unknown key.** `find` (`internal/serve/ha/style.go`) returns an empty setting and `Value` calls its nil `value`. serve calls it only after `Choose` accepted the key; return nil when the key is unknown.
 - **serve prints on the MQTT reader.** `choose` (`internal/serve/style.go`) prints its lines on the reader goroutine, whose handlers must not block, so a stalled stdout pipe would stall the Home Assistant link. Idea: hand the line to `link.run`.
-- **`TestStyleOutlivesTheEngine` never panics.** It (`internal/run/loop_test.go`) pins that the loop keeps the style in `r.cfg`, from which the engine after a panic is built, but restarts no engine. Rename it, or panic an engine as `TestPanicReasonCarriesTheStack` does.
 
 ## zigbeat setup
 

@@ -75,7 +75,7 @@ Anything without a role is never touched. That is also how relays and plugs stay
 | Rate limiter | Token bucket in Zigbee frames at `budget.max_rate`, holding one moment (6 frames). A hard ceiling, never a target. Colour plus brightness in one message is two frames. |
 | Closed loop | At most one message in flight per bulb and three in total. A message is confirmed by the bulb's next state; a `brightness_move` publishes none, so it frees its slot after 1 s. Unanswered after 5 s counts as lost. |
 | Backoff | Level 0 normal, 1 no kick and one message in flight, 2 pause: nothing is sent but canary reads. Signals: latency per frame above twice the show's own starting median, a lost message, a slow canary, a Zigbee2MQTT error. One step per 10 s at most; one step back after a quiet minute. Errors about other devices raise it to 1 at most. |
-| Robustness | A bulb that misses twice in a row is left alone and read once a minute until it answers. A lost broker connection is dialled again every 5 s. Bulbs that do not answer at the start are left out, and a Zigbee2MQTT group name in the config is refused. A panic restarts the engine; the third one stops the show. |
+| Robustness | A bulb that misses twice in a row is left alone and read once a minute until it answers. A lost broker connection is dialled again every 5 s. Bulbs that do not answer at the start are left out, and a Zigbee2MQTT group name in the config is refused. A panic stops the show and restores every light. |
 | Snapshot | Reads the state of every configured bulb at start and restores it at stop, one bulb at a time within the budget. A bulb that was off first gets its level and colour back, then goes off, so it does not come on in the show's colour next time. A broker that drops during the restore is dialled again for 30 s. |
 | Home Assistant | `zigbeat serve`: MQTT device discovery with a switch, the style of the show and sensors, availability through a will. See [Home Assistant](#home-assistant). |
 
@@ -360,7 +360,7 @@ flowchart LR
 ```
 
 1. `run.Play` dials the link, refuses Zigbee2MQTT groups and lights that may not be driven (`config.RejectGroups`, `z2m.Check`), reads every light (`lights.Snapshot`) and times the canary at rest.
-2. It creates an `engine.Engine`; after a panic a fresh one, up to three.
+2. It creates an `engine.Engine`; a panic ends the show.
 3. The loop is one goroutine. It waits for:
    - an event from the source: `Engine.Music`;
    - a state or a log line from the link: `Engine.State` or `Engine.ZigbeeError`;
@@ -446,7 +446,7 @@ What each package offers the others. Unexported helpers are left out; `go doc ./
 | `setup`, `probe`, `beats` | `Run(args []string) int` |
 | `serve` | `Run(args []string, version string) int` |
 | `run` | `Run(args []string) int` |
-| | `Play(ctx, cfg, src, hooks) int`: one show, from the checks at the start to the restore. Returns 0, or 1 when the show could not start, after three panics, or when the broker is gone at the stop |
+| | `Play(ctx, cfg, src, hooks) int`: one show, from the checks at the start to the restore. Returns 0, or 1 when the show could not start, after a panic, or when the broker is gone at the stop |
 | | `Source(cfg, bpm) music.Source`: Music Assistant from the config, or a metronome at bpm |
 | | `Hooks`: `Status(engine.Stats)` every 10 s, `Stopping() string` right before the restore, `Offsets <-chan time.Duration` with new audio offsets, `Effects <-chan config.Effects` with a new style |
 | | `ParseOptions(name, about, args) (Options, error)`: `-config` and `-bpm` for run, serve and beats |

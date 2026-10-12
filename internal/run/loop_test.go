@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/siemenvdn/zigbeat/internal/config"
 	"github.com/siemenvdn/zigbeat/internal/music"
 	"github.com/siemenvdn/zigbeat/internal/run/engine"
 )
@@ -28,27 +27,19 @@ func TestPanicReasonCarriesTheStack(t *testing.T) {
 	}
 }
 
-// TestStyleOutlivesTheEngine: the loop keeps a new style in the config, from
-// which the engine after a panic is built.
-func TestStyleOutlivesTheEngine(t *testing.T) {
+// panicSource panics each time a show starts it.
+type panicSource struct{ starts *int }
+
+func (s panicSource) Events(context.Context) <-chan music.Event {
+	*s.starts++
+	panic("test")
+}
+
+func TestPanicEndsTheShow(t *testing.T) {
 	r, _ := newShell(t)
-	r.eng = engine.New(r.cfg, 0, time.Now())
-	styles := make(chan config.Effects, 1)
-	r.hooks.Effects = styles
-	eff := r.cfg.Effects
-	eff.Variant = "swap"
-	styles <- eff
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan struct{})
-	go func() { r.play(ctx, music.Metronome{BPM: 120, Lookahead: time.Second}); close(done) }()
-	for deadline := time.Now().Add(time.Second); len(styles) > 0; time.Sleep(time.Millisecond) {
-		if time.Now().After(deadline) {
-			t.Fatal("the loop did not take the style")
-		}
-	}
-	cancel()
-	<-done
-	if r.cfg.Effects.Variant != "swap" {
-		t.Errorf("variant %q, want swap", r.cfg.Effects.Variant)
+	starts := 0
+	why, code := r.show(context.Background(), panicSource{&starts}, 0)
+	if code != 1 || starts != 1 || !strings.Contains(why, "bug") {
+		t.Errorf("code %d after %d starts, reason %q; want 1 after one start", code, starts, why)
 	}
 }

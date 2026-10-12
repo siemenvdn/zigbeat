@@ -16,13 +16,9 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/run/flow"
 )
 
-const (
-	// maxPanics ends the show: one panic can be a fluke, this many are a bug.
-	maxPanics = 3
-	// drainWait lets every message in flight be confirmed or count as lost, so
-	// the restore never sends a light a second command.
-	drainWait = flow.LostAfter
-)
+// drainWait lets every message in flight be confirmed or count as lost, so the
+// restore never sends a light a second command.
+const drainWait = flow.LostAfter
 
 // Run executes `zigbeat run` and returns an exit code.
 func Run(args []string) int {
@@ -57,23 +53,16 @@ func quitOnInterrupt() string {
 	return cli.QuitHint
 }
 
-// show plays until ctx is done or the source ends. A panic starts a fresh
-// engine; panic number maxPanics ends the show with exit code 1.
+// show plays until ctx is done or the source ends. A panic ends the show with
+// exit code 1; the stack goes to stderr.
 func (r *runner) show(ctx context.Context, src music.Source, limit time.Duration) (reason string, code int) {
-	for panics := 0; ; {
-		r.eng = engine.New(r.cfg, limit, time.Now())
-		r.eng.SetOffset(r.offset)
-		why, panicked := r.play(ctx, src)
-		if !panicked {
-			return why, 0
-		}
-		fmt.Fprintf(os.Stderr, "%s  %s\n", cli.Stamp(), why)
-		if panics++; panics == maxPanics {
-			return fmt.Sprintf("%d panics; this is a bug, please report it", maxPanics), 1
-		}
-		r.drain(drainWait)
-		fmt.Println("restarting the show")
+	r.eng = engine.New(r.cfg, limit, time.Now())
+	why, panicked := r.play(ctx, src)
+	if !panicked {
+		return why, 0
 	}
+	fmt.Fprintf(os.Stderr, "%s  %s\n", cli.Stamp(), why)
+	return "panic; this is a bug, please report it", 1
 }
 
 // stop lets the messages in flight land and puts every light back. It returns

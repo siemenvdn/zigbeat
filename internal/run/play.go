@@ -20,8 +20,8 @@ type Hooks struct {
 }
 
 // Play runs one show to the beats of src until ctx is done, then restores every
-// light. It returns 0, or 1 when the show could not start, after maxPanics panics,
-// or when the broker is gone at stop.
+// light. It returns 0, or 1 when the show could not start, after a panic, or
+// when the broker is gone at stop.
 func Play(ctx context.Context, cfg config.Config, src music.Source, h Hooks) int {
 	r, err := connect(ctx, cfg)
 	if err != nil {
@@ -34,13 +34,12 @@ func Play(ctx context.Context, cfg config.Config, src music.Source, h Hooks) int
 	}
 	defer func() { r.link.Close() }()
 	r.hooks = h
-	r.offset = cfg.Budget.AudioOffset()
 
 	limit, code, ok := r.start(ctx)
 	if !ok {
 		return code
 	}
-	fmt.Printf("show: %d lights, %v, audio offset %d ms, budget %g frames/s\n", len(r.cfg.Lights()), src, r.offset.Milliseconds(), r.cfg.Budget.MaxRate)
+	fmt.Printf("show: %d lights, %v, audio offset %d ms, budget %g frames/s\n", len(r.cfg.Lights()), src, cfg.Budget.AudioOffset().Milliseconds(), r.cfg.Budget.MaxRate)
 	reason, code := r.show(ctx, src, limit)
 	if h.Stopping != nil {
 		if hint := h.Stopping(); hint != "" {
