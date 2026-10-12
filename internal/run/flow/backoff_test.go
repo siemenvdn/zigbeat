@@ -38,8 +38,8 @@ func TestBackoffPausesAndResumes(t *testing.T) {
 	if b.level != PauseLevel {
 		t.Fatalf("level %d, want the pause level %d", b.level, PauseLevel)
 	}
-	if !b.Tick(at(100_000)) || b.level != 2 {
-		t.Fatalf("a quiet minute resumes the show at level 2, got %d", b.level)
+	if !b.Tick(at(100_000)) || b.level != PauseLevel-1 {
+		t.Fatalf("a quiet minute resumes the show one level below the pause, got %d", b.level)
 	}
 	b.Pause(at(110_000))
 	if b.level != PauseLevel || b.Signal(at(115_000), PauseLevel) {

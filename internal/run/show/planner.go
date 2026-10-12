@@ -94,7 +94,7 @@ func (p *Planner) Moments() int { return p.moments }
 // Beat returns the messages for b, or nothing when b is not a moment.
 func (p *Planner) Beat(b music.Beat, backoff int) []Message {
 	p.lastBeat, p.lastPeriod, p.settled = b.At, p.period(), false
-	n := p.spacing(b.Index, backoff)
+	n := p.spacing(b.Index)
 	if n == 0 {
 		return nil
 	}

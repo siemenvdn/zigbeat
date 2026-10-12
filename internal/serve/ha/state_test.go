@@ -45,9 +45,9 @@ func TestStatePlaying(t *testing.T) {
 			t.Errorf("%s = %v, want %v", k, m[k], v)
 		}
 	}
-	st.Backoff = 3
+	st.Backoff = 2
 	if s := Playing(st, 4); s.Status != "paused" {
-		t.Errorf("backoff 3 is paused, got %s", s.Status)
+		t.Errorf("backoff 2 is paused, got %s", s.Status)
 	}
 }
 

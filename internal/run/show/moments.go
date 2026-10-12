@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/music"
-	"github.com/siemenvdn/zigbeat/internal/run/flow"
 )
 
 // intervals are the beats between moments to pick from: powers of two keep
@@ -24,14 +23,11 @@ func interval(bpm float64, cadence time.Duration) int {
 }
 
 // spacing returns the beats between moments in force at index, or 0 when
-// index is no moment. A new interval, from the pace, the tempo or the sparse
-// level, starts only on a moment of both the old and the new grid, so the
-// breathe fade planned at a moment always ends on the next one.
-func (p *Planner) spacing(index, backoff int) int {
+// index is no moment. A new interval, from the pace or the tempo, starts only
+// on a moment of both the old and the new grid, so the breathe fade planned at
+// a moment always ends on the next one.
+func (p *Planner) spacing(index int) int {
 	want := interval(p.bpm, p.cadence)
-	if backoff >= flow.SparseLevel {
-		want *= 2
-	}
 	if p.every == 0 {
 		p.every = want
 	}

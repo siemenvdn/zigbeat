@@ -7,9 +7,8 @@ const (
 	RecoverAfter = 60 * time.Second // quiet time before one step back up
 
 	// The levels of the ladder above 0, normal.
-	CalmLevel   = 1 // no kick, one message in flight
-	SparseLevel = 2 // half as many moments
-	PauseLevel  = 3 // nothing but canary reads
+	CalmLevel  = 1 // no kick, one message in flight
+	PauseLevel = 2 // nothing but canary reads
 )
 
 // Backoff is the ladder from 0 to PauseLevel. It never stops the show.

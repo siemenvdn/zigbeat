@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/siemenvdn/zigbeat/internal/run/flow"
 	"github.com/siemenvdn/zigbeat/internal/run/show"
 )
 
@@ -43,11 +44,11 @@ func TestPauseForgetsOldLatency(t *testing.T) {
 	}
 	e.bo.Pause(at(40_000))
 	e.paused(at(40_000), "test")
-	if !e.bo.Tick(at(100_000)) || e.bo.Level() != 2 {
-		t.Fatalf("a quiet minute resumes at level 2, level %d", e.bo.Level())
+	if !e.bo.Tick(at(100_000)) || e.bo.Level() != flow.PauseLevel-1 {
+		t.Fatalf("a quiet minute resumes one level below the pause, level %d", e.bo.Level())
 	}
 	confirm(101_000, 40)
-	if e.bo.Level() != 2 {
+	if e.bo.Level() != flow.PauseLevel-1 {
 		t.Fatalf("the network is fast again, but latency from before the pause paused it again: level %d", e.bo.Level())
 	}
 }
@@ -98,10 +99,10 @@ func TestPauseSendsOnlyCanaryAndResumes(t *testing.T) {
 		t.Fatalf("a pause only reads the canary, sent %q", lightsOf(got))
 	}
 	e.State("far-lamp", at(100))
-	if !e.bo.Tick(at(60_000)) || e.bo.Level() != 2 {
-		t.Fatalf("a quiet minute resumes at level 2, level %d", e.bo.Level())
+	if !e.bo.Tick(at(60_000)) || e.bo.Level() != flow.PauseLevel-1 {
+		t.Fatalf("a quiet minute resumes one level below the pause, level %d", e.bo.Level())
 	}
-	e.Music(at(60_000), moment(240)) // 120 s; level 2 moments fall on every 8th beat
+	e.Music(at(60_000), moment(240)) // 120 s, on a bar
 	if len(e.queue["lamp-1"])+len(e.queue["lamp-3"]) == 0 {
 		t.Fatal("after the pause the show plans moments again")
 	}

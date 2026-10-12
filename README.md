@@ -152,7 +152,7 @@ zigbeat run -config config.yaml
 | `dropped` | Changes skipped because they could not land on the beat: one bulb of a `separate` fixture, or a whole `together` fixture |
 | `frames/s` | Zigbee frames sent, always below `budget.max_rate` |
 | `p50` | Time until Zigbee2MQTT confirms, per frame |
-| `backoff` | 0 normal, 1 no kick, 2 half as many moments, 3 paused |
+| `backoff` | 0 normal, 1 no kick, 2 paused |
 | `canary`, `z2m err` | Last canary answer and Zigbee2MQTT errors so far |
 
 Ctrl-C, `kill` or a closed SSH session stops the show and puts every light back, lights that were off included. A second Ctrl-C quits at once without restoring.
@@ -161,7 +161,7 @@ Ctrl-C, `kill` or a closed SSH session stops the show and puts every light back,
 
 The show keeps going and gets calmer instead:
 
-- **The network slows down** (rising latency, lost commands, a slow canary, Zigbee2MQTT errors): the backoff level rises one step at a time. At level 3 the show pauses with the lights in their last colour, and resumes after a quiet minute.
+- **The network slows down** (rising latency, lost commands, a slow canary, Zigbee2MQTT errors): the backoff level rises one step at a time. At level 2 the show pauses with the lights in their last colour, and resumes after a quiet minute.
 - **A light stops answering**, for example switched off at the wall: after two misses zigbeat leaves it alone, reads it once a minute and takes it back when it answers.
 - **The broker goes away**: zigbeat reconnects every 5 seconds and carries on. If it is still gone when you stop the show, zigbeat tries for 30 seconds, then prints the saved state of the lights it could not restore and exits with code 1.
 - **A light does not answer at the start**: it is left out with a warning; the show runs with the others.
@@ -229,7 +229,7 @@ It uses the same config as `zigbeat run`, with the same beat source. The show is
 | `sensor.zigbeat_status` | `off`, `starting`, `running`, `paused` or `stopping` |
 | `sensor.zigbeat_frames_per_second` | Zigbee frames sent, always below `budget.max_rate` |
 | `sensor.zigbeat_latency` | Time until Zigbee2MQTT confirms, per frame |
-| `sensor.zigbeat_backoff` | 0 normal, 1 no kick, 2 half as many moments, 3 paused |
+| `sensor.zigbeat_backoff` | 0 normal, 1 no kick, 2 paused |
 | `sensor.zigbeat_lights_playing`, `sensor.zigbeat_lights_left_alone` | Lights in the show, and lights from the config that do not answer |
 
 The numbers follow every 10 seconds and are unknown while the show is off. When zigbeat stops or loses its connection, the entities become unavailable.

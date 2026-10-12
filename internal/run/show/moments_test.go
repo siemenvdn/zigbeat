@@ -32,15 +32,16 @@ func TestOnlyMomentsPlan(t *testing.T) {
 	if ps := p.Beat(moment(4), 0); len(ps) == 0 {
 		t.Error("beat 4 is a moment")
 	}
-	if ps := p.Beat(moment(8), 2); len(ps) == 0 {
-		t.Error("backoff 2 doubles the interval from beat 8, a moment of both grids")
-	}
-	if ps := p.Beat(moment(12), 2); ps != nil {
-		t.Error("backoff 2 doubles the interval: beat 12 is no moment")
+	for backoff := range flow.PauseLevel {
+		for _, i := range []int{8 + 8*backoff, 12 + 8*backoff} {
+			if ps := p.Beat(moment(i), backoff); len(ps) == 0 {
+				t.Errorf("backoff %d keeps the interval: beat %d is a moment", backoff, i)
+			}
+		}
 	}
 }
 
-// TestFadesEndOnAMoment: however the pace and the backoff change, a moment's
+// TestFadesEndOnAMoment: however the pace and the tempo change, a moment's
 // breathe fade lasts exactly until the next moment, so no fade runs on to the
 // bulb's own limit.
 func TestFadesEndOnAMoment(t *testing.T) {
@@ -48,15 +49,16 @@ func TestFadesEndOnAMoment(t *testing.T) {
 	p := NewPlanner(testConfig("separate"))
 	p.Start(t0)
 	paces := []time.Duration{time.Second, 2 * time.Second, 3 * time.Second, 8 * time.Second, 16 * time.Second}
-	last, planned, backoff := -1, 0, 0 // the last moment, the beats its fade lasts
+	tempos := []float64{60, 90, 120, 128, 170}
+	last, planned := -1, 0 // the last moment, the beats its fade lasts
 	for i := 0; i < 4000; i++ {
 		if rng.IntN(8) == 0 {
 			p.cadence = paces[rng.IntN(len(paces))]
 		}
 		if rng.IntN(32) == 0 {
-			backoff = rng.IntN(flow.PauseLevel)
+			p.bpm = tempos[rng.IntN(len(tempos))]
 		}
-		move, ok := fade(p.Beat(moment(i), backoff))
+		move, ok := fade(p.Beat(moment(i), 0))
 		if !ok {
 			continue
 		}
