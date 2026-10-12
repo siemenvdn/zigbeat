@@ -19,10 +19,13 @@ const (
 	assumedRate = 44_100  // Hz, the rate of most music, until two frames give the real one
 	minRate     = 32_000  // Hz: the lowest common music rate
 	maxRate     = 192_000 // Hz: the highest Music Assistant buffers
-	keepFrames  = 2048    // more than 10 s at 192 kHz; MA sends 5 s ahead
-	silenceDB   = -45     // dBFS: the 8-bit noise floor is about -53
-	minSpread   = 6       // dB: bars within one section differ by about 1 dB, sections by 8 to 12
-	maxSpread   = 15      // dB: a fade-in or near-silence would otherwise push all music to 1
+	// stampSlack widens the rate bounds: stamps in whole µs make a 5.3 ms frame
+	// at 192 kHz read up to 0.02% fast.
+	stampSlack = 1.001
+	keepFrames = 2048 // more than 10 s at 192 kHz; MA sends 5 s ahead
+	silenceDB  = -45  // dBFS: the 8-bit noise floor is about -53
+	minSpread  = 6    // dB: bars within one section differ by about 1 dB, sections by 8 to 12
+	maxSpread  = 15   // dB: a fade-in or near-silence would otherwise push all music to 1
 )
 
 // level is the low band's mean square in one frame, which ends at ts.
@@ -57,7 +60,7 @@ func coefficient(rate float64) float64 { return 1 - math.Exp(-2*math.Pi*lowCut/r
 func (m *meter) add(ts int64, samples []byte) {
 	if m.prev != 0 && ts > m.prev {
 		rate := float64(len(samples)) / time.Duration((ts-m.prev)*int64(time.Microsecond)).Seconds()
-		if rate >= minRate && rate <= maxRate {
+		if rate >= minRate/stampSlack && rate <= maxRate*stampSlack {
 			m.a = coefficient(rate)
 		}
 	}

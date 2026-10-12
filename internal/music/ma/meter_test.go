@@ -33,26 +33,30 @@ func feed(m *meter, hz, a, rate float64, start int64, seconds float64) int64 {
 	return ts
 }
 
-// db is the mean level of the frames m keeps, in dB.
+// db is the mean level of the frames m keeps, in dB, after the first: that one
+// is filtered at assumedRate, before two frames give the real rate.
 func db(m *meter) float64 {
 	var sum float64
-	for _, f := range m.frames {
+	for _, f := range m.frames[1:] {
 		sum += f.ms
 	}
-	return 10 * math.Log10(sum/float64(len(m.frames)))
+	return 10 * math.Log10(sum/float64(len(m.frames)-1))
 }
 
 func TestTheLowBand(t *testing.T) {
 	const a = 0.5
 	in := 10 * math.Log10(a*a/2)
-	low, high := newMeter(), newMeter()
-	feed(low, 55, a, 44100, 0, 1)
-	feed(high, 2000, a, 44100, 0, 1)
-	if loss := in - db(low); loss < 0.5 || loss > 2 {
-		t.Errorf("55 Hz loses %.1f dB, want about 1", loss)
-	}
-	if loss := in - db(high); loss < 40 {
-		t.Errorf("2 kHz loses only %.1f dB", loss)
+	for _, rate := range []float64{44100, 192000} { // at 192 kHz a frame is 5333 µs, in whole µs
+		low, high := newMeter(), newMeter()
+		feed(low, 55, a, rate, 0, 1)
+		feed(high, 2000, a, rate, 0, 1)
+		if loss := in - db(low); loss < 0.5 || loss > 2 {
+			t.Errorf("%g Hz: 55 Hz loses %.1f dB, want about 1", rate, loss)
+		}
+		if loss := in - db(high); loss < 40 {
+			t.Errorf("%g Hz: 2 kHz loses only %.1f dB", rate, loss)
+		}
+		t.Logf("%g Hz: 55 Hz loses %.1f dB, 2 kHz %.1f dB", rate, in-db(low), in-db(high))
 	}
 }
 
