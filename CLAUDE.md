@@ -8,6 +8,7 @@ Keep the README short and about what works today. Plans, rationale and research 
 
 - Everything in English: code, comments, docs, CLI output, config keys, commit messages.
 - Keep comments short. No large explanatory blocks in code or config.
+- Identifiers spell `color`, as the config keys, Zigbee2MQTT and go-colorful do; prose and output spell `colour`.
 - Never put names of real lights, rooms, hosts or accounts from anyone's home in the repo. Examples use generic names such as `pendant-1`, `floor-lamp`, `hallway-ceiling`.
 
 ## Code

@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/siemenvdn/zigbeat/internal/probe/palette"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
@@ -30,7 +31,7 @@ func TestCheckTargets(t *testing.T) {
 		{"plug-1", "brightness", `light "plug-1" is not offered by zigbeat setup (measures power (power)`},
 	}
 	for _, c := range cases {
-		err := checkTargets(devs, strings.Split(c.targets, ","), c.mode)
+		err := checkTargets(devs, strings.Split(c.targets, ","), palette.Mode(c.mode))
 		if c.err == "" && err != nil || c.err != "" && (err == nil || !strings.HasPrefix(err.Error(), c.err)) {
 			t.Errorf("%s in %s mode: %v, want %q", c.targets, c.mode, err, c.err)
 		}

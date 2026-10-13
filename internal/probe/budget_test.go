@@ -1,16 +1,14 @@
-package report
+package probe
 
 import (
 	"testing"
-
-	"github.com/siemenvdn/zigbeat/internal/probe/measure"
 )
 
-func steps(verdicts ...string) []measure.Step {
+func steps(verdicts ...Verdict) []Step {
 	rates := []float64{1, 2, 4, 8, 12, 15, 19, 24, 30, 38}
-	var out []measure.Step
+	var out []Step
 	for i, v := range verdicts {
-		out = append(out, measure.Step{Rate: rates[i], Verdict: v})
+		out = append(out, Step{Rate: rates[i], Verdict: v})
 	}
 	return out
 }
@@ -18,7 +16,7 @@ func steps(verdicts ...string) []measure.Step {
 func TestSuggest(t *testing.T) {
 	cases := []struct {
 		name     string
-		results  []measure.Step
+		results  []Step
 		ok       bool
 		clean    float64
 		rate     float64

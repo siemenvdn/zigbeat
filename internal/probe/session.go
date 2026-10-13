@@ -2,13 +2,15 @@ package probe
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"os"
 	"slices"
 	"sync"
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/config"
 	"github.com/siemenvdn/zigbeat/internal/lights"
-	"github.com/siemenvdn/zigbeat/internal/probe/measure"
 	"github.com/siemenvdn/zigbeat/internal/probe/palette"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
@@ -18,11 +20,11 @@ type session struct {
 	*lights.Session
 	cfg     options
 	ctx     context.Context
-	rec     *measure.Recorder
-	ph      *measure.Phase
+	rec     *Recorder
+	ph      *Phase
 	gen     *palette.Generator
-	tracker *measure.Tracker
-	canary  *measure.Canary
+	tracker *Tracker
+	canary  *Canary
 
 	snaps    map[string]z2m.State
 	snapJSON []byte
@@ -33,15 +35,15 @@ type session struct {
 
 // connect dials the broker and subscribes to the targets, the canary and the Zigbee2MQTT log.
 func connect(ctx context.Context, cfg options) (*session, error) {
-	rec := &measure.Recorder{}
+	rec := &Recorder{}
 	s := &session{
 		cfg:     cfg,
 		ctx:     ctx,
 		rec:     rec,
-		ph:      measure.NewPhase("setup"),
+		ph:      NewPhase("setup"),
 		gen:     palette.New(cfg.mode),
-		tracker: measure.NewTracker(rec, cfg.timeout, palette.KeyFunc(cfg.mode)),
-		canary:  measure.NewCanary(cfg.canary, rec, cfg.timeout),
+		tracker: NewTracker(rec, cfg.timeout, palette.KeyFunc(cfg.mode)),
+		canary:  NewCanary(cfg.canary, rec, cfg.timeout),
 		snaps:   map[string]z2m.State{},
 		stopBg:  func() {},
 	}
@@ -57,7 +59,7 @@ func connect(ctx context.Context, cfg options) (*session, error) {
 		},
 		OnLog: func(e z2m.LogEntry, at time.Time) {
 			if e.Level == "error" || e.Level == "warning" {
-				rec.AddLog(measure.LogEvent{At: at, Level: e.Level, Msg: e.Message})
+				rec.AddLog(LogEvent{At: at, Level: e.Level, Msg: e.Message})
 			}
 		},
 	})
@@ -67,3 +69,31 @@ func connect(ctx context.Context, cfg options) (*session, error) {
 	s.Session = zb
 	return s, nil
 }
+
+// saveState reads the current state of every target so it can be put back afterwards.
+func (s *session) saveState() bool {
+	s.snaps = lights.Snapshot(s.ctx, s, s.cfg.targets, s.cfg.rates[0])
+	if s.ctx.Err() != nil {
+		fmt.Println("cancelled, nothing was changed")
+		return false
+	}
+	ok := true
+	for _, t := range s.cfg.targets {
+		if _, got := s.snaps[t]; !got {
+			fmt.Fprintf(os.Stderr, "no answer from %s; check the friendly name and that it is powered\n", t)
+			ok = false
+		}
+	}
+	s.snapJSON, _ = json.Marshal(s.snaps)
+	return ok
+}
+
+// restore puts every target back to its saved state.
+func (s *session) restore() {
+	s.ph.Set("restore", 0)
+	fmt.Println()
+	lights.Restore(s, s.snaps, s.cfg.targets, s.cfg.rates[0])
+}
+
+// Online lets the restore stop when the broker is gone, saying once what to restore by hand.
+func (s *session) Online() bool { return !s.connLost() }

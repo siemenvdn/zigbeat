@@ -7,8 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/siemenvdn/zigbeat/internal/probe/measure"
-	"github.com/siemenvdn/zigbeat/internal/probe/report"
+	"github.com/siemenvdn/zigbeat/internal/probe/palette"
 )
 
 const draft = `budget:
@@ -37,9 +36,9 @@ func writeConfig(t *testing.T, yaml string) string {
 }
 
 func TestWriteBudget(t *testing.T) {
-	b := report.Budget{Clean: measure.Step{Rate: 30}, Rate: 15, Ref: measure.Step{Rate: 12, Cmd: measure.Stats{P50: 66 * time.Millisecond}}}
+	b := Budget{Clean: Step{Rate: 30}, Rate: 15, Ref: Step{Rate: 12, Cmd: Stats{P50: 66 * time.Millisecond}}}
 	day := time.Date(2026, 10, 12, 21, 0, 0, 0, time.UTC)
-	cases := map[string]string{
+	cases := map[palette.Mode]string{
 		"color": "  max_rate: 15         # zigbeat probe 2026-10-12: the clean rate of 30 cmd/s in color mode / 2\n" +
 			"  latency_ms: 66       # zigbeat probe 2026-10-12: p50 per frame at 12 cmd/s\n",
 		"combo": "  max_rate: 30         # zigbeat probe 2026-10-12: the clean rate of 30 cmd/s in combo mode / 2\n" +

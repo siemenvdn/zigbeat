@@ -3,7 +3,7 @@ package palette
 import "testing"
 
 func TestPaletteKeysUnique(t *testing.T) {
-	for _, mode := range []string{"color", "brightness", "combo"} {
+	for _, mode := range []Mode{Color, Brightness, Combo} {
 		g := New(mode)
 		seen := map[int]bool{}
 		n := g.Size()

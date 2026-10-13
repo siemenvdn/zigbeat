@@ -3,13 +3,12 @@
 package probe
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/cli"
-	"github.com/siemenvdn/zigbeat/internal/probe/measure"
-	"github.com/siemenvdn/zigbeat/internal/probe/report"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
@@ -28,7 +27,6 @@ func Run(args []string) int {
 	if cfg.fallback {
 		fmt.Printf("no color lights in %s; probing the %d breathe lights in brightness mode\n", cfg.config, len(cfg.targets))
 	}
-
 	ctx, stopSignals := cli.StopContext()
 	defer stopSignals()
 	s, err := connect(ctx, cfg)
@@ -36,19 +34,48 @@ func Run(args []string) int {
 		return cli.Fail(err)
 	}
 	defer s.Close()
+	if code, ok := s.prepare(); !ok {
+		return code
+	}
+	s.startBackground()
+	results, base, touched, err := s.measure()
+	if touched && !s.connLost() {
+		s.restore()
+	}
+	s.finish(results, base)
+	if (err == nil || err == errInterrupted) && !s.saveBudget(results) {
+		return 1
+	}
+	switch err {
+	case nil:
+		return 0
+	case errInterrupted:
+		return cli.ExitInterrupted
+	}
+	return 1
+}
+
+var (
+	errInterrupted = errors.New("interrupted")
+	errFailed      = errors.New("failed") // the reason is printed already
+)
+
+// prepare checks the targets, saves their state, checks the canary and
+// shows the plan. Nothing is changed yet; false means stop with code.
+func (s *session) prepare() (code int, ok bool) {
 	if err := s.refuseTargets(); err != nil {
-		return cli.Fail(err)
+		return cli.Fail(err), false
 	}
 	if !s.saveState() {
-		if ctx.Err() != nil {
-			return cli.ExitInterrupted
+		if s.ctx.Err() != nil {
+			return cli.ExitInterrupted, false
 		}
-		return 1
+		return 1, false
 	}
 	if !s.canaryAnswers() {
-		return 1
+		return 1, false
 	}
-
+	cfg := s.cfg
 	est := cfg.baseline + time.Duration(len(cfg.rates))*(cfg.step+cfg.cooldown+stepOverhead)
 	fmt.Printf("zigbeat probe: %d targets, canary %s, mode %s, palette %d\n", len(cfg.targets), cfg.canary, cfg.mode, s.gen.Size())
 	fmt.Printf("rates %v cmd/s, then +%g%% per step until the first sign of trouble (at most %d)\n", cfg.rates, climbPercent(), maxRate)
@@ -58,49 +85,73 @@ func Run(args []string) int {
 		fmt.Printf("The lights will flash. Starting in %s, Ctrl-C to cancel.\n", cli.Seconds(countdown))
 		if !s.sleep(countdown) {
 			fmt.Println("cancelled, nothing was changed")
-			return cli.ExitInterrupted
+			return cli.ExitInterrupted, false
 		}
 	}
+	return 0, true
+}
 
-	s.startBackground()
-	defer s.stopBg()
-
+// measure runs the baseline, the self-check and the climb. touched says
+// whether the targets changed, so they need a restore. errFailed and
+// errInterrupted come with their reason printed.
+func (s *session) measure() (results []Step, base Stats, touched bool, err error) {
 	base, ok := s.baseline()
-	if !ok {
-		if s.connLost() {
-			return 1
-		}
+	switch {
+	case !ok && s.connLost():
+		return nil, base, false, errFailed
+	case !ok:
 		s.interrupted()
-		s.finish(nil, measure.Stats{})
-		return cli.ExitInterrupted
-	}
-	if base.N < z2m.MinCanaryReads {
+		return nil, Stats{}, false, errInterrupted
+	case base.N < z2m.MinCanaryReads:
 		fmt.Fprintln(os.Stderr, "canary answered too rarely during the baseline, aborting")
-		s.finish(nil, base)
-		return 1
+		return nil, base, false, errFailed
 	}
-	lim := measure.Limits{CanaryP50: base.P50, CanaryP95: base.P95}
-	fmt.Printf("canary at rest: p50 %s ms, p95 %s ms (step fails above %s ms)\n", report.Millis(base.P50), report.Millis(base.P95), report.Millis(lim.CanaryLimit()))
-
+	lim := Limits{CanaryP50: base.P50, CanaryP95: base.P95}
+	fmt.Printf("canary at rest: p50 %s ms, p95 %s ms (step fails above %s ms)\n", Millis(base.P50), Millis(base.P95), Millis(lim.CanaryLimit()))
 	if !s.selfCheck() {
-		s.restore()
-		s.finish(nil, base)
-		return 1
+		return nil, base, true, errFailed
 	}
+	results = s.climb(lim)
+	switch {
+	case s.connLost():
+		return results, base, true, errFailed
+	case s.interrupted():
+		return results, base, true, errInterrupted
+	}
+	return results, base, true, nil
+}
 
-	results := s.climb(lim)
-	if s.connLost() {
-		s.finish(results, base)
-		return 1
+func (s *session) interrupted() bool {
+	if s.ctx.Err() == nil {
+		return false
 	}
-	wasInterrupted := s.interrupted()
-	s.restore()
-	s.finish(results, base)
-	if !s.saveBudget(results) {
-		return 1
+	s.intOnce.Do(func() {
+		cli.QuitOnInterrupt()
+		fmt.Printf("\ninterrupted (%s)\n", cli.QuitHint)
+	})
+	return true
+}
+
+func (s *session) connLost() bool {
+	if s.Session.Online() {
+		return false
 	}
-	if wasInterrupted {
-		return cli.ExitInterrupted
+	s.lostOnce.Do(func() {
+		fmt.Fprintf(os.Stderr, "\nmqtt connection lost: %v\nrestore by hand from: %s\n", s.Err(), s.snapJSON)
+	})
+	return true
+}
+
+// finish stops the background work, prints the summary and writes the raw samples.
+func (s *session) finish(results []Step, base Stats) {
+	s.stopBg()
+	if len(results) > 0 {
+		Summary(os.Stdout, results, base, s.cfg.canary)
 	}
-	return 0
+	samples, logs := s.rec.Snapshot()
+	if err := WriteCSV(s.cfg.out, samples, logs); err != nil {
+		fmt.Fprintf(os.Stderr, "csv: %v\n", err)
+	} else {
+		fmt.Printf("raw samples: %s\n", s.cfg.out)
+	}
 }

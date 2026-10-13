@@ -1,4 +1,4 @@
-package measure
+package probe
 
 import (
 	"fmt"
@@ -18,9 +18,20 @@ type Step struct {
 	Canary  Stats
 	Errs    int
 	Warns   int
-	Verdict string
+	Verdict Verdict
 	Reasons []string
 }
+
+// Verdict is how a step went.
+type Verdict string
+
+// The verdicts.
+const (
+	OK      Verdict = "OK"
+	Warn    Verdict = "WARN"    // borderline: measured again once
+	Stop    Verdict = "STOP"    // overloaded: the climb ends
+	Partial Verdict = "PARTIAL" // interrupted
+)
 
 // Limits come from the canary at rest.
 type Limits struct {
@@ -54,14 +65,14 @@ func Evaluate(r *Step, cmds []Sample, l Limits) {
 	if total > 0 {
 		lostRatio = float64(r.Cmd.Lost) / float64(total)
 	}
-	stop := func(s string) { r.Reasons = append(r.Reasons, s); r.Verdict = "STOP" }
+	stop := func(s string) { r.Reasons = append(r.Reasons, s); r.Verdict = Stop }
 	warn := func(s string) {
 		r.Reasons = append(r.Reasons, s)
-		if r.Verdict == "OK" {
-			r.Verdict = "WARN"
+		if r.Verdict == OK {
+			r.Verdict = Warn
 		}
 	}
-	r.Verdict = "OK"
+	r.Verdict = OK
 	switch {
 	case lostRatio > maxLost:
 		stop(fmt.Sprintf("%.0f%% of commands unanswered", lostRatio*100))

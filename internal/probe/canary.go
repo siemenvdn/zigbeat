@@ -1,4 +1,4 @@
-package measure
+package probe
 
 import (
 	"sync"

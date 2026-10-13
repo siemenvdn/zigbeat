@@ -347,10 +347,8 @@ What each package imports from zigbeat, from `go list`:
 | `mqtt` | nothing |
 | `music` | nothing |
 | `music/ma` | `cli`, `music`, `ws` |
-| `probe` | `cli`, `config`, `lights`, `mqtt`, `probe/measure`, `probe/palette`, `probe/report`, `z2m` |
-| `probe/measure` | `cli`, `probe/palette`, `z2m` |
+| `probe` | `cli`, `config`, `lights`, `mqtt`, `probe/palette`, `z2m` |
 | `probe/palette` | `z2m` |
-| `probe/report` | `probe/measure` |
 | `run` | `cli`, `config`, `lights`, `music`, `music/ma`, `run/engine`, `z2m` |
 | `run/engine` | `cli`, `config`, `music`, `run/flow`, `run/show`, `z2m` |
 | `run/flow` | `z2m` |
@@ -446,26 +444,24 @@ internal/
   mqtt/           thin adapter over paho.mqtt.golang: MQTT 3.1.1, QoS 0, retained publish and will, live-only subscribe, keepalive
   ws/             thin adapter over gorilla/websocket, and the server side for tests and fake-ma
   z2m/            Zigbee2MQTT topics, groups, the device list and which lights may be driven, frame count, the canary limit
-  lights/         snapshot and restore of lights, shared by probe and run
+  lights/         the Zigbee2MQTT session of run, probe and setup, and the snapshot and restore of lights
   config/         the YAML configuration, and editing it in place
   music/          what plays: tracks, beats and clears in one stream, the Source interface, the metronome
     ma/           the Music Assistant source: connection, clock sync, beat grid, album colours, energy
   beats/          zigbeat beats: the beats from Music Assistant, printed without touching a light
   setup/          zigbeat setup: the device survey, the questions, fixtures, writing the config
   run/            zigbeat run: connection, startup, the real-time loop, stop and restore
-    show/         the planner: moments, variants, colours, album colours, kick, breathe
+    show/         the planner: its pace, palette, colour lights and their variants, breathe lights, energy
     flow/         frame budget, one message in flight per light, backoff, canary
     engine/       the show as a state machine without I/O
     runtest/      test fixtures shared by run's packages
   serve/          zigbeat serve: the Home Assistant link, the switch, the style and the show lifecycle
     ha/           Home Assistant topics, the discovery message, the style entities and the state payload
-  probe/          zigbeat probe: session, rate steps, climb
-    measure/      samples, statistics, verdicts, command tracking, the canary
+  probe/          zigbeat probe: session, rate steps, climb, samples, verdicts, the summary and the CSV
     palette/      commands whose echoes can be told apart
-    report/       the step table, the summary and the CSV
 ```
 
-Packages are small and split by concern; a file rarely passes 150 lines.
+A package is a domain; a file holds one type with its methods, or one concern, and rarely passes 200 lines.
 
 ## References
 

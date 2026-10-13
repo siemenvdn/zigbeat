@@ -1,14 +1,13 @@
-// Package report prints the probe's results and writes its raw samples.
-package report
+package probe
 
 import (
+	"encoding/csv"
 	"fmt"
 	"io"
+	"os"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/siemenvdn/zigbeat/internal/probe/measure"
 )
 
 // Millis prints d in whole milliseconds, or - for none.
@@ -26,7 +25,7 @@ func Header(w io.Writer) {
 }
 
 // Row prints one step.
-func Row(w io.Writer, r measure.Step) {
+func Row(w io.Writer, r Step) {
 	drift := "no"
 	if r.Drift {
 		drift = "yes"
@@ -41,7 +40,7 @@ func Row(w io.Writer, r measure.Step) {
 }
 
 // Summary prints the highest clean rate and the budget it suggests.
-func Summary(w io.Writer, results []measure.Step, base measure.Stats, canary string) {
+func Summary(w io.Writer, results []Step, base Stats, canary string) {
 	fmt.Fprintln(w, "\n== Summary ==")
 	fmt.Fprintf(w, "Canary %s at rest: p50 %s ms, p95 %s ms\n", canary, Millis(base.P50), Millis(base.P95))
 	b, ok := Suggest(results)
@@ -59,4 +58,28 @@ func Summary(w io.Writer, results []measure.Step, base measure.Stats, canary str
 	fmt.Fprintf(w, "Suggested sustained budget: %g cmd/s (the clean rate / %d)\n", b.Rate, Headroom)
 	fmt.Fprintf(w, "Command latency around that load (%g/s): p50 %s ms, p95 %s ms, jitter %s ms\n",
 		b.Ref.Rate, Millis(b.Ref.Cmd.P50), Millis(b.Ref.Cmd.P95), Millis(b.Ref.Cmd.P95-b.Ref.Cmd.P50))
+}
+
+// WriteCSV writes every sample and log line to path.
+func WriteCSV(path string, samples []Sample, logs []LogEvent) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	w := csv.NewWriter(f)
+	_ = w.Write([]string{"sent", "phase", "rate", "kind", "device", "latency_ms", "result"})
+	for _, s := range samples {
+		res := "ok"
+		lat := strconv.FormatFloat(float64(s.Latency.Microseconds())/1000, 'f', 1, 64)
+		if !s.OK {
+			res, lat = "timeout", ""
+		}
+		_ = w.Write([]string{s.Sent.Format(time.RFC3339Nano), s.Phase, strconv.FormatFloat(s.Rate, 'g', -1, 64), s.Kind, s.Device, lat, res})
+	}
+	for _, l := range logs {
+		_ = w.Write([]string{l.At.Format(time.RFC3339Nano), "z2m-log", "", l.Level, "", "", l.Msg})
+	}
+	w.Flush()
+	return w.Error()
 }

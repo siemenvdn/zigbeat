@@ -7,8 +7,8 @@ import (
 )
 
 // KeyFunc returns how the key of a command is read back from a state echo.
-func KeyFunc(mode string) func(z2m.State) (int, bool) {
-	if mode == "brightness" {
+func KeyFunc(mode Mode) func(z2m.State) (int, bool) {
+	if mode == Brightness {
 		return func(s z2m.State) (int, bool) {
 			if s.Brightness == nil {
 				return 0, false

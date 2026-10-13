@@ -16,6 +16,16 @@ const (
 	comboLow = 140
 )
 
+// Mode is the kind of command the probe sends.
+type Mode string
+
+// The modes.
+const (
+	Color      Mode = "color"      // a colour per command
+	Brightness Mode = "brightness" // a level per command, for lights without colour
+	Combo      Mode = "combo"      // a colour and a level per command
+)
+
 // Command is a set payload and the key its echo is matched by.
 type Command struct {
 	Key     int
@@ -25,14 +35,14 @@ type Command struct {
 // Generator hands out commands whose echo can be told apart: no key repeats
 // for a device until the whole palette has been used.
 type Generator struct {
-	mode   string
+	mode   Mode
 	colors []z2m.XY
 	levels []int
 	next   map[string]int
 }
 
 // New returns a generator for mode: color, brightness or combo.
-func New(mode string) *Generator {
+func New(mode Mode) *Generator {
 	g := &Generator{mode: mode, next: map[string]int{}}
 	seen := map[int]bool{}
 	taken := func(k int) bool {
@@ -60,7 +70,7 @@ func New(mode string) *Generator {
 
 // Size is the number of commands before a key repeats.
 func (g *Generator) Size() int {
-	if g.mode == "brightness" {
+	if g.mode == Brightness {
 		return len(g.levels)
 	}
 	return len(g.colors)
@@ -71,10 +81,10 @@ func (g *Generator) Next(dev string) Command {
 	i := g.next[dev]
 	g.next[dev] = i + 1
 	switch g.mode {
-	case "brightness":
+	case Brightness:
 		b := g.levels[i%len(g.levels)]
 		return Command{Key: b, Payload: map[string]any{"brightness": b, "transition": 0}}
-	case "combo":
+	case Combo:
 		c := g.colors[i%len(g.colors)]
 		b := comboLow
 		if i%2 == 0 {

@@ -11,6 +11,7 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/config"
 	"github.com/siemenvdn/zigbeat/internal/mqtt"
+	"github.com/siemenvdn/zigbeat/internal/probe/palette"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
@@ -35,13 +36,14 @@ type options struct {
 	rates                        []float64
 	step, cooldown, baseline     time.Duration
 	timeout                      time.Duration
-	mode, out                    string
+	mode                         palette.Mode
+	out                          string
 	yes                          bool
 }
 
 func parseFlags(args []string) (options, error) {
 	var cfg options
-	var targets, rates string
+	var targets, rates, mode string
 	fs := cli.NewFlagSet("probe", "usage: zigbeat probe -config config.yaml [flags]\n       zigbeat probe -targets <names> -canary <name> [flags]",
 		"Measures how many commands per second your Zigbee network handles. See the README.")
 	fs.StringVar(&cfg.config, "config", "", "configuration file: MQTT settings, targets and canary come from it, and the budget is written into it")
@@ -56,14 +58,14 @@ func parseFlags(args []string) (options, error) {
 	fs.DurationVar(&cfg.cooldown, "cooldown", defaultCooldown, "pause between steps")
 	fs.DurationVar(&cfg.baseline, "baseline", defaultBaseline, "canary-only measurement before the steps")
 	fs.DurationVar(&cfg.timeout, "timeout", defaultTimeout, "a command or probe without answer after this counts as lost")
-	fs.StringVar(&cfg.mode, "mode", "color", "command type: color, brightness or combo")
+	fs.StringVar(&mode, "mode", string(palette.Color), "command type: color, brightness or combo")
 	fs.StringVar(&cfg.out, "out", "zigbeat-probe-"+time.Now().Format("20060102-150405")+".csv", "CSV file for raw samples")
 	fs.BoolVar(&cfg.yes, "yes", false, "skip the "+cli.Seconds(countdown)+" start countdown")
 	if err := cli.Parse(fs, args); err != nil {
 		return cfg, err
 	}
 
-	cfg.targets = cli.Names(targets)
+	cfg.targets, cfg.mode = cli.Names(targets), palette.Mode(mode)
 	if cfg.config != "" {
 		set := map[string]bool{}
 		fs.Visit(func(f *flag.Flag) { set[f.Name] = true })
@@ -82,7 +84,7 @@ func parseFlags(args []string) (options, error) {
 		return cfg, fmt.Errorf("-baseline must be at least %v", minBaseline)
 	}
 	switch cfg.mode {
-	case "color", "brightness", "combo":
+	case palette.Color, palette.Brightness, palette.Combo:
 	default:
 		return cfg, fmt.Errorf("unknown -mode %q", cfg.mode)
 	}
@@ -105,4 +107,43 @@ func parseFlags(args []string) (options, error) {
 		cfg.rates = append(cfg.rates, v)
 	}
 	return cfg, nil
+}
+
+// fromConfig takes the MQTT settings, the targets and the canary from the
+// config at o.config. Flags in set still win, except the MQTT ones: they
+// belong in the config's mqtt block.
+func (o *options) fromConfig(set map[string]bool) error {
+	for _, f := range []string{"broker", "user", "password", "base"} {
+		if set[f] {
+			return fmt.Errorf("with -config the MQTT settings come from its mqtt block; leave out -%s", f)
+		}
+	}
+	c, err := config.Load(o.config, config.ForDraft)
+	if err != nil {
+		return err
+	}
+	o.budget = c.Budget
+	o.broker, o.user, o.password, o.base = c.MQTT.Broker, c.MQTT.Username, c.MQTT.Password, c.MQTT.BaseTopic
+	if !set["canary"] {
+		o.canary = c.Canary
+	}
+	if set["targets"] {
+		return nil
+	}
+	var color, breathe []string
+	for _, f := range c.Fixtures {
+		if f.Role == z2m.Color {
+			color = append(color, f.Lights...)
+		} else {
+			breathe = append(breathe, f.Lights...)
+		}
+	}
+	o.targets = color
+	if len(color) == 0 {
+		o.targets = breathe
+		if !set["mode"] {
+			o.mode, o.fallback = palette.Brightness, true
+		}
+	}
+	return nil
 }

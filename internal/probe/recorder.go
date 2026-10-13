@@ -1,5 +1,4 @@
-// Package measure records what the probe sends and sees, and judges each rate step.
-package measure
+package probe
 
 import (
 	"sync"
