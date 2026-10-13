@@ -16,7 +16,8 @@ How zigbeat works and why. To use it, start with the [README](README.md).
 10. [Open questions](#open-questions)
 11. [Why Zigbee needs care](#why-zigbee-needs-care)
 12. [Architecture](#architecture)
-13. [References](#references)
+13. [Developing](#developing)
+14. [References](#references)
 
 ## Decisions
 
@@ -89,6 +90,27 @@ Anything without a role is never touched. That is also how relays and plugs stay
 
 The latency signal is relative to the show itself, not to the probe: a moment sends up to six messages at once, they queue at the coordinator, and the show settles at about twice the probe's evenly spaced latency. How many leave together changes per phrase, so the signal divides each latency by the frames in flight when the message left, its own included: a busier moment is not a slower network. The send-early estimate and the status line keep the latency per frame of the message itself.
 
+### The status line
+
+`zigbeat run` prints one every 10 s; `zigbeat serve` publishes the same numbers as sensors:
+
+```
+21:14:10  moments 35  dropped 2  frames/s 4.2  in flight 1  p50 38 ms  backoff 0  canary 61 ms  z2m err 0
+```
+
+| Field | Meaning |
+|---|---|
+| `moments` | Moments played so far |
+| `dropped` | Colour changes skipped because they could not land on the beat, per light |
+| `frames/s` | Zigbee frames sent, always below `budget.max_rate` |
+| `in flight` | Messages waiting for their confirmation |
+| `p50` | Time until Zigbee2MQTT confirms, per frame |
+| `backoff` | 0 normal, 1 no kick, 2 paused |
+| `canary`, `z2m err` | Last canary answer and Zigbee2MQTT errors so far |
+
+At the start, `zigbeat run` prints the state of every light as JSON after `current state (for manual restore)`, for the case it cannot put them back itself. Ctrl-C, `kill` or a closed SSH session stops the show and restores every light, lights that were off included. A second Ctrl-C quits at once without restoring.
+
+
 ### Home Assistant
 
 | Topic | Retained | Payload |
@@ -104,6 +126,49 @@ The latency signal is relative to the show itself, not to the probe: a moment se
 - Each show calls back every 10 s with its numbers. The callback only stores the newest state; a separate goroutine publishes it, so Home Assistant stays out of the timing path.
 - `OFF` cancels the show, which restores every light exactly as on Ctrl-C. An `ON` that arrives during the restore starts the next show right after it.
 - A style command is checked like the config (`config.Effects.Validate`): a refused one gets a line and changes nothing, an empty one gives the key back to the config. The style in force goes into the next show's config and, through `run.Hooks.Effects`, into a running one, from its next moment. A kept choice that arrives again after a reconnect changes nothing.
+
+#### Entities
+
+| Entity | Shows |
+|---|---|
+| `switch.zigbeat_show` | Starts and stops the show |
+| `sensor.zigbeat_status` | `off`, `starting`, `running`, `paused` or `stopping` |
+| `sensor.zigbeat_frames_per_second` | Zigbee frames sent, always below `budget.max_rate` |
+| `sensor.zigbeat_latency` | Time until Zigbee2MQTT confirms, per frame |
+| `sensor.zigbeat_backoff` | 0 normal, 1 no kick, 2 paused |
+| `sensor.zigbeat_lights_playing`, `sensor.zigbeat_lights_left_alone` | Lights in the show, and lights from the config that do not answer |
+
+The numbers follow every 10 s and are unknown while the show is off. When zigbeat stops or loses its connection, the entities become unavailable.
+
+The style, set before the show starts or while it plays; a change applies from the next moment:
+
+| Entity | Sets | In the config |
+|---|---|---|
+| `switch.zigbeat_album_colours` | Whether the album art's colours play | `effects.album_palette` |
+| `number.zigbeat_album_colour_count` | How many colours, 2 to 6 | `effects.album_colors` |
+| `select.zigbeat_variant` | How the colour bulbs change: `rotation`, `walk`, `shuffle`, `swap` or `build` | `effects.variant` |
+| `number.zigbeat_brightness` | The base brightness of the colour bulbs, 1 to 100 % | `effects.brightness` |
+| `select.zigbeat_pace` | How often the bulbs change: every beat, every 2 beats, every bar, every 2 bars or every 4 bars | `effects.pace` |
+| `select.zigbeat_breathe_variant` | How the breathe bulbs move: `rotation`, `pulse` or `flip` | `effects.breathe_variant` |
+| `number.zigbeat_breathe_low` | The low end of the breathe bulbs, 1 to 100 % | `effects.breathe_range` |
+| `number.zigbeat_breathe_high` | The high end of the breathe bulbs, 1 to 100 %, above the low end | `effects.breathe_range` |
+| `switch.zigbeat_follow_energy` | Whether quiet parts of the music play calmer | `effects.follow_energy` |
+| `number.zigbeat_audio_offset` | How much later than the beat the lights change, for the delay of TV and speakers: -500 to 2000 ms, in steps of 10 | `budget.audio_offset_ms` |
+
+A pace that the budget cannot carry at the tempo that plays gets slower only when even the colour changes without kicks do not fit; the show prints a line when that happens.
+
+A choice stays until it is changed in Home Assistant, also when zigbeat or Home Assistant restarts: the broker keeps it, and over its own restart too when it has persistence, as Home Assistant's Mosquitto app does. What was never chosen comes from `config.yaml`; editing a key there that was chosen in Home Assistant changes nothing until the choice is wiped. `zigbeat run` uses only `config.yaml`. To give one setting back to the config, wipe its choice, for example the brightness:
+
+```bash
+mosquitto_pub -r -n -t zigbeat/style/brightness/set
+```
+
+Run one `zigbeat serve` per broker, and no `zigbeat run` while its show is on. To remove the device from Home Assistant, stop zigbeat and clear its discovery message and the choices:
+
+```bash
+mosquitto_pub -r -n -t homeassistant/device/zigbeat/config
+for k in album_palette album_colors variant brightness pace breathe_variant breathe_low breathe_high follow_energy audio_offset_ms cadence; do mosquitto_pub -r -n -t zigbeat/style/$k/set; done
+```
 
 ## Effects
 
@@ -249,6 +314,34 @@ Safety rails:
 - **One command in flight per bulb.** When all targets are still busy too often, that ends the climb too; more targets may go higher.
 - **Restore** of every target at the end, also after Ctrl-C.
 - **Unicast only.**
+
+### Running it
+
+```bash
+zigbeat probe -config config.yaml
+```
+
+Without colour lights in the config, it measures the other lights with brightness commands. Without a config, `-targets` names two to four mains-powered colour bulbs and `-canary` the canary, with `MQTT_USER` and `MQTT_PASSWORD` in the environment. A target that `zigbeat setup` would not offer, such as a plug, stops the probe before anything changes; `zigbeat probe -h` lists all flags.
+
+The run takes at least 5 minutes, a few more on a strong network. The targets flash in all colours the whole time. At the end every target goes back to its starting state, also after Ctrl-C; a second Ctrl-C quits at once without restoring, and the starting state is printed as JSON at the top of the output. Raw samples go to a CSV file. With `-config`, the budget goes into the config at the end, also after Ctrl-C: `budget written to config.yaml: max_rate 0 -> 15 frames/s, latency_ms 0 -> 66 ms`.
+
+### Reading the output
+
+One line per step:
+
+| Column | Meaning |
+|---|---|
+| `sent`, `ok`, `lost` | Commands sent, confirmed, and unanswered after 5 s |
+| `p50`, `p95`, `max` | Time until Zigbee2MQTT confirmed the new state |
+| `drift` | Latency kept growing during the step: a queue is building up |
+| `canary p95`, `canary lost` | How the rest of the network is doing |
+| `z2m err` | Errors Zigbee2MQTT logged during the step |
+| `verdict` | `OK`, `WARN` (borderline, repeated once), `STOP` (overloaded) or `PARTIAL` (interrupted) |
+
+The summary gives the highest clean rate, a safe budget (half of it) and the latency at that load.
+
+If `p50` stays below about 20 ms everywhere, Zigbee2MQTT confirmed before the bulb got the command, and the probe measured MQTT instead of the radio: an [open question](#open-questions). Please [open an issue](https://github.com/siemenvdn/zigbeat/issues) with the output.
+
 
 ## Roadmap
 
@@ -475,6 +568,74 @@ internal/
 ```
 
 A package is a domain; a file holds one type with its methods, or one concern, and rarely passes 200 lines.
+
+## Developing
+
+```bash
+go test ./...
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags "-s -w" -o zigbeat ./cmd/zigbeat
+```
+
+The image by hand, for example for a Raspberry Pi; the `Dockerfile` copies the binary from `linux/<arch>/`:
+
+```bash
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags "-s -w" -o linux/arm64/zigbeat ./cmd/zigbeat
+docker build --platform linux/arm64 -t zigbeat:dev .
+```
+
+`goreleaser release --snapshot --clean` builds the archives into `dist/` and both images into Docker, as a release does, without publishing anything.
+
+### Without lights
+
+Try the probe against a simulated Zigbee2MQTT that handles about 10 commands per second:
+
+```bash
+mosquitto -p 18830 &
+go run ./cmd/fake-z2m -broker 127.0.0.1:18830 &
+go run ./cmd/zigbeat probe -broker 127.0.0.1:18830 -targets lamp-1,lamp-2,lamp-3 -canary far-lamp \
+  -baseline 8s -step 6s -cooldown 2s
+```
+
+The probe should report OK up to around 8/s and stop at 10/s.
+
+`fake-z2m` also simulates a white bulb, a plug, a relay, a dimmer module and a sensor; `fake-z2m -h` lists the kinds. `zigbeat setup` against it offers `lamp-1` to `far-lamp` and refuses the others:
+
+```bash
+ZIGBEAT_MQTT_PASSWORD=x go run ./cmd/zigbeat setup -broker 127.0.0.1:18830 -config try.yaml
+```
+
+Run the show against the same simulation with the example config:
+
+```bash
+sed 's/1883$/18830/' config.example.yaml > config.yaml
+ZIGBEAT_MQTT_PASSWORD=x go run ./cmd/zigbeat run -config config.yaml
+```
+
+It should stay at backoff 0 at about 3 frames/s: with a budget of 4 the colour bulbs change mostly without their kick, and the breathe bulb flips now and then. Restart `fake-z2m` with `-loss 0.1` to watch backoff and lights being left alone, or stop and start `mosquitto` to watch it reconnect.
+
+`zigbeat serve` against the same simulation, with `mosquitto_pub` playing the Home Assistant switch:
+
+```bash
+ZIGBEAT_MQTT_PASSWORD=x go run ./cmd/zigbeat serve -config config.yaml &
+mosquitto_sub -p 18830 -v -t 'zigbeat/#' &
+mosquitto_pub -p 18830 -t zigbeat/show/set -m ON
+```
+
+`zigbeat/state` goes from `off` to `starting` and `running`. Publish `OFF` the same way to stop the show and restore the lamps. Set the style as Home Assistant does, retained: `mosquitto_pub -p 18830 -r -t zigbeat/style/variant/set -m swap` changes the variant from the next moment, and serve takes it again after a restart.
+
+`fake-ma` simulates Music Assistant: the beats, the album colours and the music itself, here three tracks of 30 seconds:
+
+```bash
+go run ./cmd/fake-ma -listen 127.0.0.1:18831 -tracks 80:30s,124:30s,172:30s &
+sed -e 's/1883$/18830/' -e 's|^# music_assistant:.*|music_assistant:|' -e 's|^#   url: .*|  url: ws://127.0.0.1:18831|' \
+  -e 's|^#   token_env: .*|  token_env: ZIGBEAT_MA_TOKEN|' -e '/^#   player: /d' config.example.yaml > config.yaml
+ZIGBEAT_MQTT_PASSWORD=x ZIGBEAT_MA_TOKEN=fake-token go run ./cmd/zigbeat run -config config.yaml
+```
+
+The beats of each track arrive 6 seconds after it starts, as on a first play in Music Assistant. The first track has a navy cover with an orange title, the second none, the third a red one; each plays an intro, a drop, a silent breakdown and the drop again. `fake-ma -h` lists seeks, gaps, palettes and a clock offset to try; `fake-z2m -log` prints when each command lands.
+
+`zigbeat beats -config config.yaml` prints what the source sends without touching a light: after a line such as `412 beats ahead, 124.0 BPM, 103 downbeats` the track with the colours the show would play, then one line per beat when it should sound, such as `21:14:10.500  bar 3 beat 1  energy 0.82`. Energy is how loud the coming bar is within the track: 0.50 until the track has had a louder or a quieter part; a bar below 0.30 starts a quiet part of the show, a bar of 0.50 or more ends it. During a show, lines starting with `music assistant:` tell what the source does, and lines such as `album colours #406cff #ff943d #7340ff` and `variant walk from bar 16` what the lights do.
+
 
 ## References
 
