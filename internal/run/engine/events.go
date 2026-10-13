@@ -23,7 +23,7 @@ func (e *Engine) Music(now time.Time, ev music.Event) {
 		if e.stopping || e.bo.Level() >= flow.PauseLevel || ev.At.Before(now) {
 			return
 		}
-		e.enqueue(e.plan.Beat(ev, e.bo.Level()))
+		e.enqueue(e.plan.Beat(ev, e.bo.Level() >= flow.CalmLevel))
 	}
 	e.planNotes(now)
 }
@@ -66,7 +66,7 @@ func (e *Engine) ZigbeeError(at time.Time, msg string) {
 		return
 	}
 	// Only a signal: the error may be about an older message, so the slot and
-	// the failure count are left to the echo or the flow.LostAfter expiry.
+	// the failure count are left to the echo or the z2m.LostAfter expiry.
 	if _, gone := e.away[light]; gone {
 		return
 	}

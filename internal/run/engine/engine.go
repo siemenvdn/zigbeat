@@ -5,11 +5,12 @@ package engine
 import (
 	"time"
 
+	"golang.org/x/time/rate"
+
 	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/config"
 	"github.com/siemenvdn/zigbeat/internal/run/flow"
 	"github.com/siemenvdn/zigbeat/internal/run/show"
-	"golang.org/x/time/rate"
 )
 
 // Send is one message for the loop to publish.

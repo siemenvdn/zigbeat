@@ -49,7 +49,7 @@ func (r *runner) online() bool {
 	if !r.offline() {
 		return true
 	}
-	fmt.Printf("%s  mqtt connection lost; reconnecting for up to %s\n", cli.Stamp(), cli.Seconds(restoreRedial))
+	cli.Say("mqtt connection lost; reconnecting for up to %s", cli.Seconds(restoreRedial))
 	ctx, cancel := context.WithTimeout(context.Background(), restoreRedial)
 	defer cancel()
 	return r.link.Reconnect(ctx)

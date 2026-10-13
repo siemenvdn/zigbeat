@@ -15,10 +15,8 @@ var RedialEvery = 5 * time.Second
 // to stderr after what.
 func Redial(ctx context.Context, what string, dial func() error) bool {
 	for {
-		select {
-		case <-ctx.Done():
+		if !Sleep(ctx, RedialEvery) {
 			return false
-		case <-time.After(RedialEvery):
 		}
 		err := dial()
 		if err == nil {

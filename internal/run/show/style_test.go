@@ -39,10 +39,10 @@ func TestAlbumColoursSwitchMidTrack(t *testing.T) {
 func TestRotationChosenMidTrack(t *testing.T) {
 	p := NewPlanner(testConfig("separate"))
 	p.Start(t0)
-	p.Beat(moment(156), 0)
+	p.Beat(moment(156), false)
 	p.TakeNotes()
 	p.SetEffects(style(func(e *config.Effects) { e.Variant = "rotation" }))
-	p.Beat(moment(160), 0)
+	p.Beat(moment(160), false)
 	if n := p.TakeNotes(); len(n) != 1 || n[0] != "variant shuffle, breathe pulse from bar 40" {
 		t.Errorf("rotation chosen in bar 40 plays that phrase's variant: %q", n)
 	}
@@ -53,7 +53,7 @@ func TestBrightnessFromTheNextMoment(t *testing.T) {
 	p.Start(t0)
 	p.SetEffects(style(func(e *config.Effects) { e.Brightness = 30 }))
 	kicks, returns := 0, 0
-	for _, m := range p.Beat(moment(4), 0) {
+	for _, m := range p.Beat(moment(4), false) {
 		switch {
 		case m.Light == "lamp-4":
 		case m.Payload["color"] != nil:
@@ -78,11 +78,11 @@ func TestBrightnessFromTheNextMoment(t *testing.T) {
 func TestSlowerPaceKeepsTheGrid(t *testing.T) {
 	p := NewPlanner(testConfig("separate"))
 	p.Start(t0)
-	p.Beat(moment(4), 0)
+	p.Beat(moment(4), false)
 	p.SetEffects(style(func(e *config.Effects) { e.Pace = 16 }))
 	var got []int
 	for i := 5; i <= 40; i++ {
-		if p.Beat(moment(i), 0) != nil {
+		if p.Beat(moment(i), false) != nil {
 			got = append(got, i)
 		}
 	}

@@ -40,7 +40,7 @@ func TestPulse(t *testing.T) {
 	p.Start(t0)
 	b := moment(4)
 	var up, down Message
-	for _, m := range p.Beat(b, 0) {
+	for _, m := range p.Beat(b, false) {
 		if m.Light == "lamp-4" && m.Land.Equal(b.At) {
 			up = m
 		} else if m.Light == "lamp-4" {
@@ -67,7 +67,7 @@ func TestFlipInCounterPhase(t *testing.T) {
 		{fmt.Sprintf("lamp-4:%d+", hi), fmt.Sprintf("lamp-5:%d+", lo)},
 	}
 	for i, w := range want {
-		got := white(p.Beat(moment(4*i), 0), lights)
+		got := white(p.Beat(moment(4*i), false), lights)
 		slices.Sort(got) // the turn decides who goes first
 		if !slices.Equal(got, w) {
 			t.Errorf("moment %d: %v, want %v", i, got, w)
@@ -99,11 +99,11 @@ func TestCalmHoldsTheWhite(t *testing.T) {
 	p := NewPlanner(c)
 	p.Start(t0)
 	lights := c.Fixtures[1].Lights
-	p.Beat(moment(0), 0) // lamp-4 goes high
-	if got := white(p.Beat(moment(4), 1), lights); !slices.Equal(got, []string{fmt.Sprintf("lamp-4:%d", level(10))}) {
+	p.Beat(moment(0), false) // lamp-4 goes high
+	if got := white(p.Beat(moment(4), true), lights); !slices.Equal(got, []string{fmt.Sprintf("lamp-4:%d", level(10))}) {
 		t.Errorf("calm: %v", got)
 	}
-	if got := white(p.Beat(moment(8), 1), lights); got != nil {
+	if got := white(p.Beat(moment(8), true), lights); got != nil {
 		t.Errorf("calm again: %v", got)
 	}
 }
@@ -112,7 +112,7 @@ func TestBreatheRangeFromTheNextMoment(t *testing.T) {
 	p := NewPlanner(whites("pulse", 1))
 	p.Start(t0)
 	p.SetEffects(style(func(e *config.Effects) { e.BreatheVariant, e.BreatheRange = "pulse", [2]int{20, 60} }))
-	if got := white(p.Beat(moment(4), 0), []string{"lamp-4"}); !slices.Equal(got, []string{fmt.Sprintf("lamp-4:%d+", level(60)), fmt.Sprintf("lamp-4:%d", level(20))}) {
+	if got := white(p.Beat(moment(4), false), []string{"lamp-4"}); !slices.Equal(got, []string{fmt.Sprintf("lamp-4:%d+", level(60)), fmt.Sprintf("lamp-4:%d", level(20))}) {
 		t.Errorf("got %v", got)
 	}
 }

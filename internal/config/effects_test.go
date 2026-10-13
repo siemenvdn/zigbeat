@@ -6,7 +6,7 @@ import (
 )
 
 func TestAlbumAndVariant(t *testing.T) {
-	c, err := Parse([]byte(minimal+"effects: {album_palette: false, album_colors: 6, variant: swap}\n"), env(nil))
+	c, err := Parse([]byte(minimal+"effects: {album_palette: false, album_colors: 6, variant: swap}\n"), env(nil), ForShow)
 	if err != nil || c.Effects.AlbumPalette || c.Effects.AlbumColors != 6 || c.Effects.Variant != "swap" {
 		t.Errorf("effects %+v, %v", c.Effects, err)
 	}
@@ -18,7 +18,7 @@ func TestAlbumAndVariantErrors(t *testing.T) {
 		{"{album_colors: 7}", "effects.album_colors must be 2 to 6"},
 		{"{variant: random}", "effects.variant must be rotation, walk, shuffle, swap or build"},
 	} {
-		_, err := Parse([]byte(minimal+"effects: "+c.effects+"\n"), env(nil))
+		_, err := Parse([]byte(minimal+"effects: "+c.effects+"\n"), env(nil), ForShow)
 		if err == nil || !strings.Contains(err.Error(), c.want) {
 			t.Errorf("%s: %v, want %q", c.effects, err, c.want)
 		}
@@ -35,7 +35,7 @@ func TestPaceAndBreatheVariant(t *testing.T) {
 		{"{breathe_variant: flip}", ""},
 		{"{breathe_variant: breathe}", "effects.breathe_variant must be rotation, pulse or flip"},
 	} {
-		_, err := Parse([]byte(minimal+"effects: "+c.effects+"\n"), env(nil))
+		_, err := Parse([]byte(minimal+"effects: "+c.effects+"\n"), env(nil), ForShow)
 		if c.want == "" && err != nil || c.want != "" && (err == nil || !strings.Contains(err.Error(), c.want)) {
 			t.Errorf("%s: %v, want %q", c.effects, err, c.want)
 		}
@@ -44,7 +44,7 @@ func TestPaceAndBreatheVariant(t *testing.T) {
 
 // TestCadenceIsGone: a config from before the pace in beats says what to set instead.
 func TestCadenceIsGone(t *testing.T) {
-	_, err := Parse([]byte(minimal+"effects: {cadence: 2s}\n"), env(nil))
+	_, err := Parse([]byte(minimal+"effects: {cadence: 2s}\n"), env(nil), ForShow)
 	if err == nil || err.Error() != "config: effects.cadence is gone: set effects.pace in beats, such as pace: 2" {
 		t.Errorf("got %v", err)
 	}

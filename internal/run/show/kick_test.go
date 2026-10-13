@@ -7,7 +7,7 @@ import (
 
 func TestKickAndReturn(t *testing.T) {
 	p := NewPlanner(testConfig("separate"))
-	ps := p.Beat(moment(0), 0)
+	ps := p.Beat(moment(0), false)
 	kick, ret := ps[0], ps[1]
 	if kick.Payload["brightness"] != 229 || !kick.Drop || !kick.Land.Equal(t0) {
 		t.Errorf("kick: %+v", kick)
@@ -15,7 +15,7 @@ func TestKickAndReturn(t *testing.T) {
 	if ret.Payload["brightness"] != 152 || ret.Drop || !ret.Land.Equal(at(500)) {
 		t.Errorf("return: %+v", ret)
 	}
-	for _, pl := range p.Beat(moment(4), 1) {
+	for _, pl := range p.Beat(moment(4), true) {
 		if _, ok := pl.Payload["color"]; ok && pl.Payload["brightness"] != nil {
 			t.Errorf("backoff 1 has no kick: %v", pl.Payload)
 		}
@@ -24,7 +24,7 @@ func TestKickAndReturn(t *testing.T) {
 
 func TestMissedKeepsANewerColour(t *testing.T) {
 	p := NewPlanner(testConfig("separate"))
-	kick := p.Beat(moment(0), 0)[0]
+	kick := p.Beat(moment(0), false)[0]
 	p.current[kick.Light] = "#000000" // a later moment gave it another colour
 	p.Missed(kick)
 	if p.current[kick.Light] != "#000000" {
@@ -36,7 +36,7 @@ func TestMissedGivesBackThePreviousColour(t *testing.T) {
 	p := NewPlanner(testConfig("separate"))
 	p.Start(t0)
 	was := maps.Clone(p.current)
-	kick := p.Beat(moment(0), 0)[0]
+	kick := p.Beat(moment(0), false)[0]
 	p.Missed(kick)
 	if got := p.current[kick.Light]; got != was[kick.Light] {
 		t.Errorf("%s counts as showing %q after a dropped kick, want its previous %q", kick.Light, got, was[kick.Light])
@@ -53,7 +53,7 @@ func TestKicksAllOrNone(t *testing.T) {
 	c.Effects.BreatheVariant = "pulse"
 	p := NewPlanner(c)
 	p.Start(t0)
-	ps := p.Beat(moment(0), 0)
+	ps := p.Beat(moment(0), false)
 	pulses := 0
 	for _, m := range ps {
 		if m.Payload["color"] != nil && m.Payload["brightness"] != nil {
@@ -91,7 +91,7 @@ func TestBlendFitsTheMoment(t *testing.T) {
 		c.Effects.Pace = pace
 		p := NewPlanner(c)
 		p.Start(t0)
-		for _, m := range p.Beat(moment(0), 0) {
+		for _, m := range p.Beat(moment(0), false) {
 			if m.Payload["color"] != nil && m.Payload["transition"] != want {
 				t.Errorf("pace %d: %s blends %v s, want %v", pace, m.Light, m.Payload["transition"], want)
 			}

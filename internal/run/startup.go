@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/siemenvdn/zigbeat/internal/run/flow"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
@@ -102,8 +101,8 @@ func (r *runner) canaryBaseline(ctx context.Context) time.Duration {
 	var lat []time.Duration
 	for range canaryReads {
 		sent := time.Now()
-		_ = r.link.Get(r.cfg.Canary, map[string]string{"state": ""})
-		if _, at, ok := r.waitState(ctx, r.cfg.Canary, sent, flow.LostAfter); ok {
+		_ = r.link.Get(r.cfg.Canary, z2m.StateQuery)
+		if _, at, ok := r.waitState(ctx, r.cfg.Canary, sent, z2m.LostAfter); ok {
 			lat = append(lat, at.Sub(sent))
 		}
 		select {

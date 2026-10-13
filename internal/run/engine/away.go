@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/cli"
+	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
 const (
@@ -44,7 +45,7 @@ func (e *Engine) retryAway(now time.Time) []Send {
 		}
 		e.away[l] = now.Add(retryAway)
 		e.fl.Add(l, now, 1)
-		out = append(out, Send{Light: l, Get: true, Payload: map[string]any{"state": ""}})
+		out = append(out, Send{Light: l, Get: true, Payload: z2m.StateQuery})
 	}
 	return out
 }

@@ -13,9 +13,9 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/serve/ha"
 )
 
-// link is serve's own MQTT connection to Home Assistant, apart from the show's.
+// haLink is serve's own MQTT connection to Home Assistant, apart from the show's.
 // After connect, only run touches the client.
-type link struct {
+type haLink struct {
 	broker  string
 	opts    mqtt.Options
 	disc    []byte
@@ -31,8 +31,8 @@ type link struct {
 	wake  chan struct{} // tells run to publish the state
 }
 
-func newLink(cfg config.Config, version string) *link {
-	return &link{
+func newHALink(cfg config.Config, version string) *haLink {
+	return &haLink{
 		broker: cfg.MQTT.Broker,
 		opts: mqtt.Options{
 			ClientID:    fmt.Sprintf("zigbeat-serve-%d", os.Getpid()),
@@ -55,10 +55,10 @@ func newLink(cfg config.Config, version string) *link {
 // connect dials and announces zigbeat. The command topic is cleared before the
 // subscription, so a stale retained ON can never start a show. The style
 // topics keep their retained choices, which arrive as commands.
-func (l *link) connect() error {
+func (l *haLink) connect() error {
 	c, err := mqtt.Dial(l.broker, l.opts)
 	if err != nil {
-		return fmt.Errorf("mqtt: %v", err)
+		return fmt.Errorf("mqtt: %w", err)
 	}
 	err = c.PublishRetained(ha.CommandTopic, nil)
 	if err == nil {
@@ -78,7 +78,7 @@ func (l *link) connect() error {
 	}
 	if err != nil {
 		c.Close()
-		return fmt.Errorf("home assistant: %v", err)
+		return fmt.Errorf("home assistant: %w", err)
 	}
 	l.client = c
 	return nil
@@ -86,7 +86,7 @@ func (l *link) connect() error {
 
 // command runs on the MQTT reader. Every command gets the state back, so a
 // switch waiting for an answer gets one even when nothing changes.
-func (l *link) command(_ string, p []byte, _ time.Time) {
+func (l *haLink) command(_ string, p []byte, _ time.Time) {
 	switch string(p) {
 	case "ON":
 		newest(l.cmds, true)
@@ -99,14 +99,14 @@ func (l *link) command(_ string, p []byte, _ time.Time) {
 }
 
 // put sets the state to publish. It never blocks, so the show loop may call it.
-func (l *link) put(st ha.State) {
+func (l *haLink) put(st ha.State) {
 	l.mu.Lock()
 	l.state = st
 	l.mu.Unlock()
 	l.signal()
 }
 
-func (l *link) signal() {
+func (l *haLink) signal() {
 	select {
 	case l.wake <- struct{}{}:
 	default:
@@ -114,7 +114,7 @@ func (l *link) signal() {
 }
 
 // current is the state to publish, with the style in force.
-func (l *link) current() []byte {
+func (l *haLink) current() []byte {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	st := l.state
@@ -125,7 +125,7 @@ func (l *link) current() []byte {
 // run publishes each new state and dials again every cli.RedialEvery after the connection
 // drops, until ctx is done. Then it publishes the last state and offline, and
 // disconnects; a clean disconnect does not trigger the will.
-func (l *link) run(ctx context.Context) {
+func (l *haLink) run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -136,11 +136,11 @@ func (l *link) run(ctx context.Context) {
 		case <-l.wake:
 			_ = l.client.PublishRetained(ha.StateTopic, l.current())
 		case <-l.client.Done():
-			fmt.Printf("%s  home assistant link lost (%v); reconnecting every %s\n", cli.Stamp(), l.client.Err(), cli.Seconds(cli.RedialEvery))
+			cli.Say("home assistant link lost (%v); reconnecting every %s", l.client.Err(), cli.Seconds(cli.RedialEvery))
 			if !cli.Redial(ctx, "home assistant reconnect", l.connect) {
 				return
 			}
-			fmt.Printf("%s  home assistant link back\n", cli.Stamp())
+			cli.Say("home assistant link back")
 		}
 	}
 }

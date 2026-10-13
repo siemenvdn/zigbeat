@@ -2,7 +2,6 @@ package serve
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -38,7 +37,7 @@ func newest[T any](ch chan T, v T) {
 func (s *server) loop(ctx context.Context) {
 	for {
 		s.put(ha.Off)
-		fmt.Printf("%s  waiting for the switch in Home Assistant\n", cli.Stamp())
+		cli.Say("waiting for the switch in Home Assistant")
 		if !s.waitOn(ctx) {
 			return
 		}
@@ -63,7 +62,7 @@ func (s *server) waitOn(ctx context.Context) bool {
 // play runs one show. OFF cancels it at once, also during the start, and ON is
 // ignored while it runs. From the restore on, commands wait in cmds for the loop.
 func (s *server) play(ctx context.Context) {
-	fmt.Printf("%s  switched on in Home Assistant\n", cli.Stamp())
+	cli.Say("switched on in Home Assistant")
 	s.put(ha.Starting)
 	showCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -95,7 +94,7 @@ func (s *server) watchOff(st *states, cancel func()) (unwatch func()) {
 			select {
 			case on := <-s.cmds:
 				if !on {
-					fmt.Printf("%s  switched off in Home Assistant\n", cli.Stamp())
+					cli.Say("switched off in Home Assistant")
 					st.stopping()
 					cancel()
 					return

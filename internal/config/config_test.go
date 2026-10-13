@@ -11,7 +11,7 @@ func env(vals map[string]string) func(string) string {
 
 func TestExampleLoads(t *testing.T) {
 	t.Setenv("ZIGBEAT_MQTT_PASSWORD", "secret")
-	c, err := Load("../../config.example.yaml")
+	c, err := Load("../../config.example.yaml", ForShow)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,7 +29,7 @@ budget: {max_rate: 10, latency_ms: 50}
 fixtures:
   - {name: pendant, role: color, lights: [a, b]}
   - {name: floor, role: breathe, lights: [c]}
-`), env(nil))
+`), env(nil), ForShow)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +54,7 @@ func TestParseRejects(t *testing.T) {
 		"short range":  "budget: {max_rate: 10, latency_ms: 50}\nfixtures: [{name: p, role: color, lights: [a]}]\neffects: {breathe_range: [30]}",
 	}
 	for name, y := range cases {
-		if _, err := Parse([]byte(y), env(nil)); err == nil {
+		if _, err := Parse([]byte(y), env(nil), ForShow); err == nil {
 			t.Errorf("%s: expected an error", name)
 		}
 	}

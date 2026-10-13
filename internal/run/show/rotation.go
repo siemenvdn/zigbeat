@@ -45,7 +45,7 @@ func (p *Planner) noteVariants(b music.Beat) {
 	if w != "" {
 		note += ", breathe " + w
 	}
-	p.notes = append(p.notes, fmt.Sprintf("%s from bar %d", note, (b.Index-b.InBar)/music.PerBar))
+	p.notes = append(p.notes, fmt.Sprintf("%s from bar %d", note, b.Bar()))
 }
 
 // pickFor lists the units variant v changes at this moment.

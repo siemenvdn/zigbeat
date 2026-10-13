@@ -4,7 +4,6 @@ package serve
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/config"
@@ -17,10 +16,9 @@ func Run(args []string, version string) int {
 	if code, stop := cli.Exit(err); stop {
 		return code
 	}
-	cfg, err := config.Load(o.Config)
+	cfg, err := config.Load(o.Config, config.ForShow)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 1
+		return cli.Fail(err)
 	}
 
 	ctx, stopSignals := cli.StopContext()
@@ -28,10 +26,9 @@ func Run(args []string, version string) int {
 	// After the first signal a second Ctrl-C quits at once, without restoring.
 	go func() { <-ctx.Done(); cli.QuitOnInterrupt() }()
 
-	l := newLink(cfg, version)
+	l := newHALink(cfg, version)
 	if err := l.connect(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 1
+		return cli.Fail(err)
 	}
 	linkCtx, closeLink := context.WithCancel(context.Background())
 	linkDone := make(chan struct{})

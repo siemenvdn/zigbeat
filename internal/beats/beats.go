@@ -23,10 +23,9 @@ func Run(args []string) int {
 	if code, stop := cli.Exit(cli.Parse(fs, args)); stop {
 		return code
 	}
-	cfg, err := config.LoadWithoutMQTT(path) // beats never connects to MQTT
+	cfg, err := config.Load(path, config.ForBeats) // beats never connects to MQTT
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 1
+		return cli.Fail(err)
 	}
 	if cfg.MusicAssistant == nil {
 		fmt.Fprintln(os.Stderr, "zigbeat beats needs a music_assistant block in the config")
@@ -67,7 +66,7 @@ func print(ctx context.Context, events <-chan music.Event, offset time.Duration,
 			}
 		case <-t.C:
 			b := due[0]
-			fmt.Fprintf(w, "%s  bar %d beat %d  energy %.2f\n", b.At.Add(offset).Format(cli.ClockMS), (b.Index-b.InBar)/music.PerBar, b.InBar+1, b.Energy)
+			fmt.Fprintf(w, "%s  bar %d beat %d  energy %.2f\n", b.At.Add(offset).Format(cli.ClockMS), b.Bar(), b.InBar+1, b.Energy)
 			if due = due[1:]; len(due) > 0 {
 				t.Reset(time.Until(due[0].At.Add(offset)))
 			}

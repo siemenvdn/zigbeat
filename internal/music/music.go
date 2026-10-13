@@ -56,3 +56,6 @@ type Beat struct {
 func (Clear) isEvent() {}
 func (Track) isEvent() {}
 func (Beat) isEvent()  {}
+
+// Bar is the number of the bar b falls in, counted from the track's first downbeat.
+func (b Beat) Bar() int { return (b.Index - b.InBar) / PerBar }

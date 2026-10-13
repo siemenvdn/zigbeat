@@ -8,6 +8,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/music"
 )
 
@@ -54,10 +55,8 @@ func (s Source) Events(ctx context.Context) <-chan music.Event {
 			if ctx.Err() != nil {
 				return // a wait of 0 would race ctx and dial once more
 			}
-			select {
-			case <-ctx.Done():
+			if !cli.Sleep(ctx, wait) {
 				return
-			case <-time.After(wait):
 			}
 		}
 	}()

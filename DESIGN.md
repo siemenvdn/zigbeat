@@ -322,7 +322,7 @@ Bulb behaviour that zigbeat relies on (seen on IKEA bulbs, to be verified on oth
 
 ## Architecture
 
-zigbeat is one static binary. `cmd/zigbeat` hands each subcommand to `internal/<command>`, whose `Run` returns the exit code. Below the commands sit the show, the music, Zigbee2MQTT and the transports. Imports point down the layers. Two commands also build on `run`, and `lights` and `setup` wait by the loss rule in `run/flow`, `flow.LostAfter` (see [Dependencies](#dependencies)). The show's packages do no I/O.
+zigbeat is one static binary. `cmd/zigbeat` hands each subcommand to `internal/<command>`, whose `Run` returns the exit code. Below the commands sit the show, the music, Zigbee2MQTT and the transports. Imports point down the layers. Two commands also build on `run` (see [Dependencies](#dependencies)); `go doc ./internal/<package>` lists what each package offers. The show's packages do no I/O.
 
 ### Layers
 
@@ -340,22 +340,26 @@ What each package imports from zigbeat, from `go list`:
 
 | Package | Imports |
 |---|---|
-| `setup` | `cli`, `config`, `mqtt`, `run/flow`, `z2m` |
-| `probe` | `cli`, `config`, `lights`, `mqtt`, `probe/measure`, `probe/palette`, `probe/report`, `z2m` |
-| `run` | `cli`, `config`, `lights`, `mqtt`, `music`, `music/ma`, `run/engine`, `run/flow`, `z2m` |
-| `serve` | `cli`, `config`, `mqtt`, `run`, `run/engine`, `serve/ha` |
 | `beats` | `cli`, `config`, `music`, `run`, `run/show` |
-| `run/engine` | `cli`, `config`, `music`, `run/flow`, `run/show`, `z2m` |
-| `run/show` | `config`, `music`, `run/flow`, `z2m` |
-| `run/flow` | nothing |
-| `serve/ha` | `config`, `music`, `run/engine` |
-| `music/ma` | `cli`, `music`, `ws` |
+| `cli` | nothing |
+| `config` | `mqtt`, `z2m` |
+| `lights` | `cli`, `z2m` |
+| `mqtt` | nothing |
 | `music` | nothing |
-| `lights` | `run/flow`, `z2m` |
+| `music/ma` | `cli`, `music`, `ws` |
+| `probe` | `cli`, `config`, `lights`, `mqtt`, `probe/measure`, `probe/palette`, `probe/report`, `z2m` |
+| `probe/measure` | `cli`, `probe/palette`, `z2m` |
+| `probe/palette` | `z2m` |
+| `probe/report` | `probe/measure` |
+| `run` | `cli`, `config`, `lights`, `mqtt`, `music`, `music/ma`, `run/engine`, `z2m` |
+| `run/engine` | `cli`, `config`, `music`, `run/flow`, `run/show`, `z2m` |
+| `run/flow` | `z2m` |
+| `run/show` | `config`, `music`, `run/flow`, `z2m` |
+| `serve` | `cli`, `config`, `mqtt`, `run`, `run/engine`, `serve/ha` |
+| `serve/ha` | `config`, `music`, `run/engine` |
+| `setup` | `cli`, `config`, `mqtt`, `z2m` |
+| `ws` | nothing |
 | `z2m` | `mqtt` |
-| `config` | `mqtt`, `z2m` (their defaults) |
-| `probe/measure`, `probe/palette`, `probe/report` | `cli`, `z2m` and each other |
-| `mqtt`, `ws`, `cli` | nothing |
 
 ### A show, end to end
 
@@ -383,7 +387,7 @@ flowchart LR
 
    After each, it prints `Engine.TakeNotes`.
 4. Inside the engine, `Music` hands a `Track` to `Planner.Track` and a `Beat` to `Planner.Beat`. The planner returns `show.Message`s with the time they must land. The engine queues them per light and sends each early by its frames times the latency estimate. It takes the frames from a `rate.Limiter` with `flow.Burst`, keeps one message in flight per light in `flow.InFlight`, and moves `flow.Backoff` on slow confirmations, losses, a slow `flow.Canary` and Zigbee2MQTT errors.
-5. At the stop: `Hooks.Stopping`, `Engine.Halt`, a drain of up to `flow.LostAfter`, then `lights.Restore`.
+5. At the stop: `Hooks.Stopping`, `Engine.Halt`, a drain of up to `z2m.LostAfter`, then `lights.Restore`.
 
 ### Interfaces
 
@@ -445,93 +449,6 @@ A source sends a `Track` before the first `Beat` of a track, and a `Clear` befor
 
 - **Implemented by** `mqttBridge`.
 - **Used by** the session in `internal/setup`.
-
-### Package APIs
-
-What each package offers the others. Unexported helpers are left out; `go doc ./internal/<package>` lists everything.
-
-#### Commands
-
-| Package | Offers |
-|---|---|
-| `setup`, `probe`, `beats` | `Run(args []string) int` |
-| `serve` | `Run(args []string, version string) int` |
-| `run` | `Run(args []string) int` |
-| | `Play(ctx, cfg, src, hooks) int`: one show, from the checks at the start to the restore. Returns 0, or 1 when the show could not start, after a panic, or when the broker is gone at the stop |
-| | `Source(cfg, bpm) music.Source`: Music Assistant from the config, or a metronome at bpm |
-| | `Hooks`: `Status(engine.Stats)` every 10 s, `Stopping() string` right before the restore, `Offsets <-chan time.Duration` with new audio offsets, typed or set in Home Assistant, `Effects <-chan config.Effects` with a new style |
-| | `ParseOptions(name, about, args) (Options, error)`: `-config` and `-bpm` for run, serve and beats |
-| `serve/ha` | `Discovery(version) []byte`: the discovery message. `State`, `Playing(stats, lights)` and `Off`: the state payload; `Style` and `StyleOf(effects)`: the style in it. `DiscoveryTopic`, `AvailTopic`, `StateTopic`, `CommandTopic` |
-| | `Choose(effects, config, key, payload) (config.Effects, error)`: a choice from Home Assistant, checked like the config. `Value(effects, key)`: a setting as the config writes it, nil for a key that is no setting. `StyleTopic(key)`, `StyleKey(topic)`, `StyleFilter` |
-
-#### The show
-
-| `run/engine` | Does |
-|---|---|
-| `New(cfg, canaryLimit, now) *Engine` | One show. Only the loop goroutine calls it |
-| `Music(now, event)` | A `Clear` drops the moments planned and not sent; a `Track` goes to the planner; a `Beat` is planned unless it is past, the show pauses or it stops |
-| `State(light, at)` | A state from a light or the canary: confirms the message in flight |
-| `ZigbeeError(at, msg)` | An error line from Zigbee2MQTT's log: raises the backoff |
-| `Due(now) []Send` | Counts unanswered messages as lost and returns what to publish now, within the budget |
-| `Stats(now) Stats` | The numbers of the status line (`Stats.Line`) and of Home Assistant |
-| `TakeNotes() []string` | Stamped lines for the operator: backoff, lights left alone, album colours, variants |
-| `SetOffset(d)` | The audio offset |
-| `SetEffects(now, effects)` | The style, from the next moment; the planner's notes come out stamped |
-| `Halt()`, `Disconnected()` | Stop planning and sending; forget what was in flight on a dropped connection |
-| `Away(light) bool`, `InFlight() int` | For the restore order and the drain |
-
-| `run/show` | Does |
-|---|---|
-| `NewPlanner(cfg) *Planner` | The planner of one show |
-| `Start(now) []Message` | Every light on: colour lights at the base brightness with a first colour, breathe lights at their low end |
-| `Track(music.Track)` | Takes the tempo, and the album colours when `effects.album_palette` is on |
-| `SetEffects(config.Effects)` | Takes the style from the next moment: album colours from the last track, the variants, the brightness, the breathe range, the pace |
-| `Beat(b, backoff) []Message` | The messages of a moment within its room, or nil when b is no moment: the variant, colours, kick and return, then the breathe variant |
-| `Settle(now) []Message` | Breathe lights to their low end when the beats stop |
-| `Missed(Message)` | A colour change the engine dropped no longer counts as shown: the light keeps its colour from before, and `build` gives it the colour again |
-| `TakeNotes() []string`, `Moments() int` | Notes since the last call; moments planned so far |
-| `AlbumColors(palette, n) []string` | n vivid hex colours from album art, or nil; also used by `zigbeat beats` |
-| `Message` | One message: the light, the payload, when it must land, whether it may be dropped |
-
-| `run/flow` | Does |
-|---|---|
-| `InFlight`: `Add`, `Confirm`, `Busy`, `Expire`, `Count`, `Estimate`, `Median`, `Rising`, `Base`, `Clear`, `Forget` | One message in flight per light, and the latency per frame |
-| `Backoff`: `Level`, `Signal`, `Pause`, `Tick` | The ladder from 0 to `PauseLevel` |
-| `Canary`: `NewCanary`, `Due`, `Sent`, `Answer`, `Expire`, `Waiting`, `Last`, `Name`, `Forget` | Reads of the far-away device |
-| Constants | `MaxPerMoment`, `MaxInFlight`, `Burst`, `CanaryEvery`, `LostAfter`, `RecoverAfter`, `CalmLevel`, `PauseLevel` |
-
-`run/runtest` holds the test fixtures that the show's packages share: `Config`, `Beat`, `At`, `T0`.
-
-#### Music
-
-| Package | Offers |
-|---|---|
-| `music` | `Source`, `Event`, `Clear`, `Track`, `Beat`, `RGB`; `Metronome{BPM, Lookahead}`; `PerBar`, `DefaultBPM`, `Lookahead`, `UnknownEnergy`; `Span(beats)`: beat, 2 beats, bar, 2 bars |
-| `music/ma` | `Source{URL, Token, Player, Lookahead, Notes}` with `Events(ctx)`; its notes, such as `music assistant: connected`, go to `Notes` |
-
-#### Lights, Zigbee2MQTT and the config
-
-| Package | Offers |
-|---|---|
-| `lights` | `Snapshot(ctx, conn, lights, rate) map[string]z2m.State`, `Restore(conn, snaps, lights, rate) (left []string)`, both one light at a time within rate frames per second; `Conn` |
-| `z2m` | `New(client, baseTopic) *Bridge` with `Set`, `Get`, `OnState`, `OnLog`, `Devices`, `Groups` |
-| | `Classify(device) (role, why)`: whether a device may be driven and in which role. `Check(devices, name, role) error`: the same for a light in the config. `Find`, `CanaryCandidate`, `CanaryLimit` |
-| | `Frames(payload) int`: the Zigbee frames of a payload |
-| | `State`, `Device`, `LogEntry`, `MaxBrightness`, `ErrNoRetained` |
-| `config` | `Load`, `LoadDraft` (no budget yet), `LoadWithoutMQTT` (no password needed), `Parse`, `ParseDraft` |
-| | `Config.Lights`, `Config.Keep`, `Config.RejectGroups`, `Budget.AudioOffset`; `DefaultEffects`, `DefaultPalette` |
-| | `Effects.Validate`: the effects block's rules, which Home Assistant's choices meet too. Their bounds: `Paces`, `BreatheVariants`, `MinPercent`, `MaxPercent`, `MinAlbumColors`, `MaxAlbumColors`, `Variants` |
-| | `File`, which edits the config in place: `OpenFile`, `NewFile`, `Set(key, value, comment)`, `SetBlock(key, text)`, `Bytes`, `Save(check)` |
-
-#### Transport and shared
-
-| Package | Offers |
-|---|---|
-| `mqtt` | `Dial(addr, Options) (*Client, error)`. `Client`: `Publish`, `PublishRetained`, `Subscribe`, `SubscribeLive` (no retained messages), `Unsubscribe`, `Done`, `Err`, `Closed`, `Close` |
-| `ws` | `Dial(url, timeout)`, `Upgrade(w, r)` for the server side. `Conn`: `Read`, `WriteText`, `WriteBinary`, `Ping`, `Close`, `CloseWith`, `SetIdleTimeout`, `SetReadDeadline`. `Message{Binary, Data}` |
-| `cli` | `StopContext`, `QuitOnInterrupt`, `QuitHint`; `NewFlagSet`, `Parse`, `Exit`, `Names`; `Redial`, `RedialEvery`; `Stamp`, `Clock`, `ClockMS`, `Seconds` |
-
-The probe's own packages serve only `internal/probe`: `measure` (`Recorder`, `Tracker`, `Canary`, `Phase`, `Step`, `Stats`, `Evaluate`, `Drifting`), `palette` (`New(mode)` and `Generator.Next`, `KeyFunc`) and `report` (`Header`, `Row`, `Summary`, `Suggest`, `WriteCSV`).
 
 ### Code layout
 

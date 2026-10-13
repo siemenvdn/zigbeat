@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
@@ -20,7 +21,7 @@ func Snapshot(ctx context.Context, c Conn, lights []string, rate float64) map[st
 			sent := time.Now()
 			_ = c.Get(l, query)
 			st, ok := c.Await(ctx, l, sent, answerWait)
-			if !sleep(ctx, pace(queryFrames, rate)-time.Since(sent)) {
+			if !cli.Sleep(ctx, pace(queryFrames, rate)-time.Since(sent)) {
 				return snaps
 			}
 			if ok {

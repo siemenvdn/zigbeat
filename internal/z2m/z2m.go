@@ -11,6 +11,10 @@ import (
 // DefaultBaseTopic is Zigbee2MQTT's own default base topic.
 const DefaultBaseTopic = "zigbee2mqtt"
 
+// LostAfter is how long a command waits for its state before it counts as
+// lost: far above a healthy answer of tens of ms, even on a busy mesh.
+const LostAfter = 5 * time.Second
+
 // MaxBrightness is Zigbee2MQTT's top brightness; it runs 0..254.
 const MaxBrightness = 254
 
@@ -42,6 +46,9 @@ type Bridge struct {
 func New(c *mqtt.Client, base string) *Bridge {
 	return &Bridge{c: c, base: base}
 }
+
+// StateQuery asks a device for its state: Zigbee2MQTT answers with all of it.
+var StateQuery = map[string]any{"state": ""}
 
 func (b *Bridge) Set(device string, payload any) error {
 	return b.publish(b.base+"/"+device+"/set", payload)

@@ -6,7 +6,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/siemenvdn/zigbeat/internal/run/flow"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
@@ -25,21 +24,9 @@ type Conn interface {
 
 // answerWait is how long a read or a set waits for the state: until it counts as
 // lost, so a slow light never gets a second command before the first one is confirmed.
-const answerWait = flow.LostAfter
+const answerWait = z2m.LostAfter
 
 // pace is the time frames take at rate frames per second.
 func pace(frames int, rate float64) time.Duration {
 	return time.Duration(float64(frames) / rate * float64(time.Second))
-}
-
-// sleep waits d, or less when ctx is done; it reports whether ctx is still live.
-func sleep(ctx context.Context, d time.Duration) bool {
-	t := time.NewTimer(max(0, d))
-	defer t.Stop()
-	select {
-	case <-ctx.Done():
-		return false
-	case <-t.C:
-		return true
-	}
 }

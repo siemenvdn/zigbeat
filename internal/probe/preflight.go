@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/probe/measure"
+	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
 const (
@@ -19,7 +20,7 @@ const (
 
 // canaryAnswers checks that the canary replies to a state request.
 func (s *session) canaryAnswers() bool {
-	_ = s.bridge.Get(s.cfg.canary, map[string]string{"state": ""})
+	_ = s.bridge.Get(s.cfg.canary, z2m.StateQuery)
 	select {
 	case <-s.canaryAnswered:
 		return true

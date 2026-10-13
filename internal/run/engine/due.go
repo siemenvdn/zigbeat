@@ -14,11 +14,11 @@ import (
 func (e *Engine) Due(now time.Time) []Send {
 	for _, l := range e.fl.Expire(now) {
 		if !e.failed(now, l) {
-			e.raise(now, flow.PauseLevel, l+" did not answer within "+cli.Seconds(flow.LostAfter))
+			e.raise(now, flow.PauseLevel, l+" did not answer within "+cli.Seconds(z2m.LostAfter))
 		}
 	}
 	if e.canary.Expire(now) {
-		e.raise(now, flow.PauseLevel, "canary did not answer within "+cli.Seconds(flow.LostAfter))
+		e.raise(now, flow.PauseLevel, "canary did not answer within "+cli.Seconds(z2m.LostAfter))
 	}
 	if e.bo.Tick(now) {
 		e.note(now, fmt.Sprintf("backoff %d: quiet for %s", e.bo.Level(), cli.Seconds(flow.RecoverAfter)))
@@ -34,7 +34,7 @@ func (e *Engine) Due(now time.Time) []Send {
 	var out []Send
 	if e.canary.Due(now) && e.InFlight() < e.maxInFlight() && e.lim.AllowN(now, 1) {
 		e.canary.Sent(now)
-		out = append(out, Send{Light: e.canary.Name(), Get: true, Payload: map[string]any{"state": ""}})
+		out = append(out, Send{Light: e.canary.Name(), Get: true, Payload: z2m.StateQuery})
 	}
 	if e.bo.Level() >= flow.PauseLevel {
 		return out

@@ -99,12 +99,8 @@ func (s *session) askCanary(ctx context.Context, cands []z2m.Device, current str
 func (s *session) answers(ctx context.Context, name string) bool {
 	var got []time.Duration
 	for i := range canaryReads {
-		if i > 0 {
-			select {
-			case <-ctx.Done():
-				return false
-			case <-time.After(s.gap):
-			}
+		if i > 0 && !cli.Sleep(ctx, s.gap) {
+			return false
 		}
 		if d, ok := s.br.Read(ctx, name); ok {
 			got = append(got, d)

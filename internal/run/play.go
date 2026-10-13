@@ -3,9 +3,9 @@ package run
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
+	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/config"
 	"github.com/siemenvdn/zigbeat/internal/music"
 	"github.com/siemenvdn/zigbeat/internal/run/engine"
@@ -29,8 +29,7 @@ func Play(ctx context.Context, cfg config.Config, src music.Source, h Hooks) int
 			fmt.Println(cancelled)
 			return 0
 		}
-		fmt.Fprintln(os.Stderr, err)
-		return 1
+		return cli.Fail(err)
 	}
 	defer func() { r.link.Close() }()
 	r.hooks = h

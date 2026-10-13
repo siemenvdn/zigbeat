@@ -1,6 +1,10 @@
 package flow
 
-import "time"
+import (
+	"time"
+
+	"github.com/siemenvdn/zigbeat/internal/z2m"
+)
 
 // CanaryEvery sees a busy network within seconds, for one frame of the budget.
 const CanaryEvery = 5 * time.Second
@@ -38,9 +42,9 @@ func (c *Canary) Answer(at time.Time) bool {
 	return c.last > c.limit
 }
 
-// Expire reports a read that stayed unanswered for LostAfter.
+// Expire reports a read that stayed unanswered for z2m.LostAfter.
 func (c *Canary) Expire(now time.Time) bool {
-	if c.wait && now.Sub(c.sent) >= LostAfter {
+	if c.wait && now.Sub(c.sent) >= z2m.LostAfter {
 		c.wait = false
 		return true
 	}

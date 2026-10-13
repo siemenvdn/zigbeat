@@ -51,7 +51,7 @@ func writeBudget(path string, b report.Budget, mode string, now time.Time) (rate
 	}
 	if err == nil {
 		err = f.Save(func(data []byte) error {
-			_, err := config.ParseDraft(data, os.Getenv)
+			_, err := config.Parse(data, os.Getenv, config.ForDraft)
 			return err
 		})
 	}

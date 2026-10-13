@@ -3,9 +3,9 @@ package flow
 import (
 	"slices"
 	"time"
-)
 
-const LostAfter = 5 * time.Second // no echo after this: lost
+	"github.com/siemenvdn/zigbeat/internal/z2m"
+)
 
 type flight struct {
 	sent   time.Time
@@ -57,11 +57,11 @@ func (f *InFlight) Confirm(light string, at time.Time) bool {
 	return true
 }
 
-// Expire returns the lights whose confirmation did not come within LostAfter, sorted.
+// Expire returns the lights whose confirmation did not come within z2m.LostAfter, sorted.
 func (f *InFlight) Expire(now time.Time) []string {
 	var lost []string
 	for l, fl := range f.open {
-		if now.Sub(fl.sent) >= LostAfter {
+		if now.Sub(fl.sent) >= z2m.LostAfter {
 			delete(f.open, l)
 			lost = append(lost, l)
 		}

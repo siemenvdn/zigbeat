@@ -48,7 +48,7 @@ func connect(ctx context.Context, cfg options) (*session, error) {
 		Password: cfg.password,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("mqtt: %v", err)
+		return nil, fmt.Errorf("mqtt: %w", err)
 	}
 	rec := &measure.Recorder{}
 	s := &session{
@@ -68,7 +68,7 @@ func connect(ctx context.Context, cfg options) (*session, error) {
 	}
 	if err := s.subscribe(); err != nil {
 		client.Close()
-		return nil, fmt.Errorf("subscribe: %v", err)
+		return nil, fmt.Errorf("subscribe: %w", err)
 	}
 	return s, nil
 }

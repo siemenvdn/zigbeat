@@ -46,7 +46,7 @@ func fitsItsRoom(t *testing.T, c config.Config, bpm float64, backoff int) {
 	p.Track(music.Track{BPM: bpm})
 	for i := range roomBeats {
 		room := p.room(p.interval())
-		ps := p.Beat(moment(i), backoff)
+		ps := p.Beat(moment(i), backoff >= flow.CalmLevel)
 		if ps == nil {
 			continue
 		}

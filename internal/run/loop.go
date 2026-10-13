@@ -39,12 +39,12 @@ func (r *runner) play(ctx context.Context, src music.Source) (reason string, pan
 		case <-ctx.Done():
 			return "interrupted", false
 		case <-r.link.Lost():
-			fmt.Printf("%s  mqtt connection lost (%v); reconnecting every %s\n", cli.Stamp(), r.link.Err(), cli.Seconds(cli.RedialEvery))
+			cli.Say("mqtt connection lost (%v); reconnecting every %s", r.link.Err(), cli.Seconds(cli.RedialEvery))
 			r.eng.Disconnected()
 			if !r.link.Reconnect(ctx) {
 				return "interrupted", false
 			}
-			fmt.Printf("%s  reconnected\n", cli.Stamp())
+			cli.Say("reconnected")
 		case ev, ok := <-events:
 			if !ok {
 				return "the beat source ended", false
@@ -63,7 +63,7 @@ func (r *runner) play(ctx context.Context, src music.Source) (reason string, pan
 			r.report(st)
 		case d := <-r.hooks.Offsets:
 			r.eng.SetOffset(d)
-			fmt.Printf("%s  audio offset %d ms\n", cli.Stamp(), d.Milliseconds())
+			cli.Say("audio offset %d ms", d.Milliseconds())
 		case eff := <-r.hooks.Effects:
 			r.eng.SetEffects(time.Now(), eff)
 		}

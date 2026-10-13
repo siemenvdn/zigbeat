@@ -37,7 +37,7 @@ func colours(ps []Message) map[string]string {
 
 func TestLargeUnitChangesInParts(t *testing.T) {
 	p := NewPlanner(fixtures("together", 5))
-	first, second := p.Beat(moment(0), 0), p.Beat(moment(4), 0)
+	first, second := p.Beat(moment(0), false), p.Beat(moment(4), false)
 	if got := changed(first); got != "f0-1,f0-2,f0-3" {
 		t.Fatalf("the first part: %q", got)
 	}
@@ -48,7 +48,7 @@ func TestLargeUnitChangesInParts(t *testing.T) {
 	if a["f0-1"] != b["f0-4"] || a["f0-1"] != b["f0-5"] {
 		t.Errorf("one colour for the whole fixture: %v then %v", a, b)
 	}
-	if got := changed(p.Beat(moment(8), 0)); got != "f0-1,f0-2,f0-3" {
+	if got := changed(p.Beat(moment(8), false)); got != "f0-1,f0-2,f0-3" {
 		t.Errorf("then the fixture starts again: %q", got)
 	}
 }
@@ -57,7 +57,7 @@ func TestSevenLightsTakeThreeMoments(t *testing.T) {
 	p := NewPlanner(fixtures("together", 7))
 	var got []string
 	for i := 0; i < 3; i++ {
-		got = append(got, changed(p.Beat(moment(4*i), 0)))
+		got = append(got, changed(p.Beat(moment(4*i), false)))
 	}
 	if want := "f0-1,f0-2,f0-3 f0-4,f0-5,f0-6 f0-7"; strings.Join(got, " ") != want {
 		t.Errorf("parts %v, want %s", got, want)
@@ -70,7 +70,7 @@ func TestTheChaseWaitsForTheParts(t *testing.T) {
 	p := NewPlanner(c)
 	var got []string
 	for i := 0; i < 4; i++ {
-		got = append(got, changed(p.Beat(moment(4*i), 0)))
+		got = append(got, changed(p.Beat(moment(4*i), false)))
 	}
 	if want := "f0-1,f0-2,f0-3 f0-4,f0-5 a,b f0-1,f0-2,f0-3"; strings.Join(got, " ") != want {
 		t.Errorf("moments %v, want %s", got, want)

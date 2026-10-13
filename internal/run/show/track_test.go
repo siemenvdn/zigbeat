@@ -23,7 +23,7 @@ func TestTrackBringsAlbumColours(t *testing.T) {
 	if n := p.TakeNotes(); n != nil {
 		t.Errorf("the same palette again: %q", n)
 	}
-	for _, m := range p.Beat(moment(0), 0) {
+	for _, m := range p.Beat(moment(0), false) {
 		if c, ok := m.Payload["color"].(map[string]string); ok && !slices.Contains(want, c["hex"]) {
 			t.Errorf("%s got %s, not an album colour", m.Light, c["hex"])
 		}

@@ -83,9 +83,12 @@ var DefaultEffects = Effects{
 var DefaultPalette = []string{"#ff2a6d", "#ff7b00", "#ffd400", "#00e5ff", "#2962ff", "#aa00ff"}
 
 // Lights returns every light in config order.
-func (c Config) Lights() []string {
+func (c Config) Lights() []string { return LightsOf(c.Fixtures) }
+
+// LightsOf lists the lights of fixtures in order.
+func LightsOf(fixtures []Fixture) []string {
 	var out []string
-	for _, f := range c.Fixtures {
+	for _, f := range fixtures {
 		out = append(out, f.Lights...)
 	}
 	return out

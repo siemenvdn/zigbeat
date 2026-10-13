@@ -15,7 +15,7 @@ func (o *options) fromConfig(set map[string]bool) error {
 			return fmt.Errorf("with -config the MQTT settings come from its mqtt block; leave out -%s", f)
 		}
 	}
-	c, err := config.LoadDraft(o.config)
+	c, err := config.Load(o.config, config.ForDraft)
 	if err != nil {
 		return err
 	}

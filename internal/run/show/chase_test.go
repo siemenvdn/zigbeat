@@ -10,7 +10,7 @@ func TestChaseSeparate(t *testing.T) {
 	p := NewPlanner(testConfig("separate"))
 	var got []string
 	for i := 0; i < 3; i++ {
-		got = append(got, changed(p.Beat(moment(4*i), 0)))
+		got = append(got, changed(p.Beat(moment(4*i), false)))
 	}
 	if want := "lamp-1,lamp-2 lamp-3,lamp-1 lamp-2,lamp-3"; strings.Join(got, " ") != want {
 		t.Errorf("chase %v, want %s", got, want)
@@ -21,7 +21,7 @@ func TestAlternateFlipsEveryFourMoments(t *testing.T) {
 	p := NewPlanner(testConfig("alternate"))
 	var got []string
 	for i := 0; i < 9; i++ {
-		got = append(got, changed(p.Beat(moment(4*i), 0)))
+		got = append(got, changed(p.Beat(moment(4*i), false)))
 	}
 	all := "lamp-1,lamp-2,lamp-3"
 	for i, g := range got {
@@ -38,7 +38,7 @@ func TestTogetherSharesOneColour(t *testing.T) {
 	for i := 0; i < 6; i++ {
 		before := p.current["lamp-1"]
 		colours := map[string]bool{}
-		for _, pl := range p.Beat(moment(4*i), 0) {
+		for _, pl := range p.Beat(moment(4*i), false) {
 			if c, ok := pl.Payload["color"]; ok {
 				colours[fmt.Sprint(c)] = true
 			}
@@ -57,14 +57,14 @@ func TestSingleRoleConfigs(t *testing.T) {
 	breatheOnly.Fixtures = breatheOnly.Fixtures[1:]
 	p := NewPlanner(breatheOnly)
 	p.Start(t0)
-	if ps := p.Beat(moment(0), 0); len(ps) != 2 || ps[0].Light != "lamp-4" || ps[1].Light != "lamp-4" {
+	if ps := p.Beat(moment(0), false); len(ps) != 2 || ps[0].Light != "lamp-4" || ps[1].Light != "lamp-4" {
 		t.Errorf("breathe only: a pulse up and its fall: %v", ps)
 	}
 	colorOnly := testConfig("together")
 	colorOnly.Fixtures = colorOnly.Fixtures[:1]
 	p = NewPlanner(colorOnly)
 	p.Start(t0)
-	if got := changed(p.Beat(moment(0), 0)); got != "lamp-1,lamp-2,lamp-3" {
+	if got := changed(p.Beat(moment(0), false)); got != "lamp-1,lamp-2,lamp-3" {
 		t.Errorf("color only: %q", got)
 	}
 }

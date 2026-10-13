@@ -43,7 +43,7 @@ func (p *Planner) hear(b music.Beat) {
 	if quiet {
 		how = "quiet, no kicks"
 	}
-	p.notes = append(p.notes, fmt.Sprintf("energy %s from bar %d: every %s", how, (b.Index-b.InBar)/music.PerBar, music.Span(p.paceNow())))
+	p.notes = append(p.notes, fmt.Sprintf("energy %s from bar %d: every %s", how, b.Bar(), music.Span(p.paceNow())))
 }
 
 // paceNow is the pace that plays: effects.pace, one step slower in a quiet part.

@@ -14,7 +14,7 @@ func TestMoreBreatheLightsTakeTurns(t *testing.T) {
 	var got []string
 	for i := range 3 {
 		var ups []string
-		for _, m := range p.Beat(moment(4*i), 0) {
+		for _, m := range p.Beat(moment(4*i), false) {
 			if m.Drop && m.Payload["color"] == nil {
 				ups = append(ups, m.Light)
 			}
@@ -37,7 +37,7 @@ func TestWhiteTakesTurnsWhenTheRoomIsShort(t *testing.T) {
 	p.Start(t0)
 	var got []string
 	for i := range 4 {
-		ws := white(p.Beat(moment(2*i), 0), c.Fixtures[1].Lights)
+		ws := white(p.Beat(moment(2*i), false), c.Fixtures[1].Lights)
 		if len(ws) != 2 { // one light up and its fall
 			t.Fatalf("moment %d: %v", i, ws)
 		}

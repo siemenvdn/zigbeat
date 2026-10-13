@@ -8,7 +8,6 @@ import (
 
 	"github.com/siemenvdn/zigbeat/internal/config"
 	"github.com/siemenvdn/zigbeat/internal/music"
-	"github.com/siemenvdn/zigbeat/internal/run/flow"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
@@ -91,9 +90,9 @@ func level(percent int) int {
 func (p *Planner) Moments() int { return p.moments }
 
 // Beat returns the messages for b, or nothing when b is not a moment: the
-// colour changes, their kicks when they fit the room, then the white. A quiet
-// part plays like the calm level of backoff, one pace slower.
-func (p *Planner) Beat(b music.Beat, backoff int) []Message {
+// colour changes, their kicks when they fit the room, then the white. calm
+// leaves out the kicks and holds the breathe lights; a quiet part plays calm too, one pace slower.
+func (p *Planner) Beat(b music.Beat, calm bool) []Message {
 	p.lastBeat, p.lastPeriod, p.settled = b.At, p.period(), false
 	p.hear(b)
 	n := p.interval()
@@ -102,7 +101,7 @@ func (p *Planner) Beat(b music.Beat, backoff int) []Message {
 	}
 	p.noteStretch(n)
 	p.noteVariants(b)
-	calm := backoff >= flow.CalmLevel || p.quiet
+	calm = calm || p.quiet
 	room := p.room(n)
 	st := stroke{at: b.At, fall: p.fall(n), blend: p.blend(n)}
 	out := p.colour(st, calm, room)

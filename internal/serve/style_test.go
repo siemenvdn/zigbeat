@@ -11,7 +11,7 @@ import (
 )
 
 func TestStyleCommands(t *testing.T) {
-	l := newLink(runtest.Config("separate"), "test")
+	l := newHALink(runtest.Config("separate"), "test")
 	for _, c := range []struct {
 		key, payload string
 		brightness   int  // in force afterwards
@@ -52,7 +52,7 @@ func TestStyleCommands(t *testing.T) {
 // TestOffsetCommands: an audio offset from Home Assistant goes to the show as
 // an offset, not as a style, and to the next show in the config.
 func TestOffsetCommands(t *testing.T) {
-	l := newLink(runtest.Config("separate"), "test")
+	l := newHALink(runtest.Config("separate"), "test")
 	l.choose(ha.StyleTopic("audio_offset_ms"), []byte("180"), time.Time{})
 	select {
 	case d := <-l.offsets:

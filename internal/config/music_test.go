@@ -8,14 +8,14 @@ import (
 const minimal = "budget: {max_rate: 10, latency_ms: 50}\nfixtures: [{name: p, role: color, lights: [a]}]\n"
 
 func TestMusicAssistant(t *testing.T) {
-	c, err := Parse([]byte(minimal+"music_assistant: {url: 'ws://ma:8095', token_env: MA, player: kitchen}"), env(map[string]string{"MA": "tok"}))
+	c, err := Parse([]byte(minimal+"music_assistant: {url: 'ws://ma:8095', token_env: MA, player: kitchen}"), env(map[string]string{"MA": "tok"}), ForShow)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if m := c.MusicAssistant; m == nil || m.URL != "ws://ma:8095" || m.Token != "tok" || m.Player != "kitchen" {
 		t.Errorf("music_assistant: %+v", m)
 	}
-	if c, err := Parse([]byte(minimal), env(nil)); err != nil || c.MusicAssistant != nil {
+	if c, err := Parse([]byte(minimal), env(nil), ForShow); err != nil || c.MusicAssistant != nil {
 		t.Errorf("without the block: %+v, %v", c.MusicAssistant, err)
 	}
 }
@@ -32,7 +32,7 @@ func TestMusicAssistantRejects(t *testing.T) {
 		{"unknown key", "{url: 'ws://ma:8095', token_env: MA, port: 1}", "port"},
 	}
 	for _, c := range cases {
-		_, err := Parse([]byte(minimal+"music_assistant: "+c.block), env(map[string]string{"MA": "tok"}))
+		_, err := Parse([]byte(minimal+"music_assistant: "+c.block), env(map[string]string{"MA": "tok"}), ForShow)
 		if err == nil || !strings.Contains(err.Error(), c.want) {
 			t.Errorf("%s: got %v, want %q", c.name, err, c.want)
 		}
@@ -42,10 +42,10 @@ func TestMusicAssistantRejects(t *testing.T) {
 func TestWithoutMQTT(t *testing.T) {
 	cfg := []byte("mqtt: {password_env: NOPE}\n" + minimal + "music_assistant: {url: 'ws://ma:8095', token_env: MA}")
 	getenv := env(map[string]string{"MA": "tok"})
-	if _, err := parse(cfg, getenv, rules{password: true, budget: true}); err == nil || !strings.Contains(err.Error(), "$NOPE is not set") {
+	if _, err := Parse(cfg, getenv, ForShow); err == nil || !strings.Contains(err.Error(), "$NOPE is not set") {
 		t.Errorf("run and serve need the MQTT password: %v", err)
 	}
-	if c, err := parse(cfg, getenv, rules{budget: true}); err != nil || c.MusicAssistant.Token != "tok" {
+	if c, err := Parse(cfg, getenv, ForBeats); err != nil || c.MusicAssistant.Token != "tok" {
 		t.Errorf("zigbeat beats never connects to MQTT: %+v, %v", c.MusicAssistant, err)
 	}
 }

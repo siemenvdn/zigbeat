@@ -57,10 +57,10 @@ func TestSave(t *testing.T) {
 
 func TestDraftNeedsNoBudget(t *testing.T) {
 	cfg := []byte("budget: {max_rate: 0, latency_ms: 0}\nfixtures: [{name: p, role: color, lights: [a]}]\n")
-	if _, err := ParseDraft(cfg, env(nil)); err != nil {
+	if _, err := Parse(cfg, env(nil), ForDraft); err != nil {
 		t.Errorf("a draft without a budget: %v", err)
 	}
-	if _, err := Parse(cfg, env(nil)); err == nil || !strings.Contains(err.Error(), "budget.max_rate is required") {
+	if _, err := Parse(cfg, env(nil), ForShow); err == nil || !strings.Contains(err.Error(), "budget.max_rate is required") {
 		t.Errorf("run needs the budget: %v", err)
 	}
 }

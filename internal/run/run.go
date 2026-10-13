@@ -13,12 +13,12 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/config"
 	"github.com/siemenvdn/zigbeat/internal/music"
 	"github.com/siemenvdn/zigbeat/internal/run/engine"
-	"github.com/siemenvdn/zigbeat/internal/run/flow"
+	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
 // drainWait lets every message in flight be confirmed or count as lost, so the
 // restore never sends a light a second command.
-const drainWait = flow.LostAfter
+const drainWait = z2m.LostAfter
 
 // Run executes `zigbeat run` and returns an exit code.
 func Run(args []string) int {
@@ -26,10 +26,9 @@ func Run(args []string) int {
 	if code, stop := cli.Exit(err); stop {
 		return code
 	}
-	cfg, err := config.Load(o.Config)
+	cfg, err := config.Load(o.Config, config.ForShow)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 1
+		return cli.Fail(err)
 	}
 	ctx, stopSignals := cli.StopContext()
 	defer stopSignals()

@@ -8,7 +8,6 @@ import (
 
 	"github.com/siemenvdn/zigbeat/internal/config"
 	"github.com/siemenvdn/zigbeat/internal/mqtt"
-	"github.com/siemenvdn/zigbeat/internal/run/flow"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
@@ -34,7 +33,7 @@ func dial(m config.MQTT) (*mqttBridge, error) {
 		Password: m.Password,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("mqtt: %v", err)
+		return nil, fmt.Errorf("mqtt: %w", err)
 	}
 	return &mqttBridge{client: c, z2m: z2m.New(c, m.BaseTopic)}, nil
 }
@@ -60,10 +59,10 @@ func (b *mqttBridge) Read(ctx context.Context, name string) (time.Duration, bool
 	default:
 	}
 	sent := time.Now()
-	if b.z2m.Get(name, map[string]string{"state": ""}) != nil {
+	if b.z2m.Get(name, z2m.StateQuery) != nil {
 		return 0, false
 	}
-	t := time.NewTimer(flow.LostAfter)
+	t := time.NewTimer(z2m.LostAfter)
 	defer t.Stop()
 	select {
 	case at := <-b.answers:

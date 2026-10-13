@@ -13,15 +13,15 @@ import (
 
 func TestOnlyMomentsPlan(t *testing.T) {
 	p := NewPlanner(testConfig("separate"))
-	if ps := p.Beat(moment(1), 0); ps != nil {
+	if ps := p.Beat(moment(1), false); ps != nil {
 		t.Errorf("beat 1 is no moment: %v", ps)
 	}
-	if ps := p.Beat(moment(4), 0); len(ps) == 0 {
+	if ps := p.Beat(moment(4), false); len(ps) == 0 {
 		t.Error("beat 4 is a moment")
 	}
 	for backoff := range flow.PauseLevel {
 		for _, i := range []int{8 + 8*backoff, 12 + 8*backoff} {
-			if ps := p.Beat(moment(i), backoff); len(ps) == 0 {
+			if ps := p.Beat(moment(i), backoff >= flow.CalmLevel); len(ps) == 0 {
 				t.Errorf("backoff %d keeps the interval: beat %d is a moment", backoff, i)
 			}
 		}
@@ -33,12 +33,12 @@ func TestOnlyMomentsPlan(t *testing.T) {
 // start with two moments closer than its interval.
 func TestPickupBeatsFollowTheNewGrid(t *testing.T) {
 	p := NewPlanner(testConfig("separate"))
-	p.Beat(moment(400), 0) // pace 4: a moment every 4 beats
-	p.pace = 8             // a moment every 8 beats, as Home Assistant may choose
-	if ps := p.Beat(moment(-4), 0); ps != nil {
+	p.Beat(moment(400), false) // pace 4: a moment every 4 beats
+	p.pace = 8                 // a moment every 8 beats, as Home Assistant may choose
+	if ps := p.Beat(moment(-4), false); ps != nil {
 		t.Error("beat -4 is on the old grid only")
 	}
-	if ps := p.Beat(moment(0), 0); len(ps) == 0 {
+	if ps := p.Beat(moment(0), false); len(ps) == 0 {
 		t.Error("the downbeat is a moment")
 	}
 }
@@ -47,9 +47,9 @@ func TestPickupBeatsFollowTheNewGrid(t *testing.T) {
 // beat on its grid.
 func TestFasterPaceStartsAtOnce(t *testing.T) {
 	p := NewPlanner(testConfig("separate"))
-	p.Beat(moment(4), 0)
+	p.Beat(moment(4), false)
 	p.pace = 2
-	if p.Beat(moment(6), 0) == nil {
+	if p.Beat(moment(6), false) == nil {
 		t.Error("beat 6 is on the grid of 2")
 	}
 }
@@ -99,16 +99,16 @@ func TestStretchNotes(t *testing.T) {
 	p := NewPlanner(c)
 	p.Track(music.Track{BPM: 81})
 	p.TakeNotes()
-	p.Beat(moment(0), 0)
+	p.Beat(moment(0), false)
 	if n := p.TakeNotes(); !slices.Contains(n, "pace every beat; the budget allows every 2 beats at 81 BPM") {
 		t.Errorf("notes %q", n)
 	}
-	p.Beat(moment(2), 0)
+	p.Beat(moment(2), false)
 	if n := p.TakeNotes(); n != nil {
 		t.Errorf("no note while it stays stretched: %q", n)
 	}
 	p.Track(music.Track{BPM: 60})
-	p.Beat(moment(3), 0)
+	p.Beat(moment(3), false)
 	if n := p.TakeNotes(); !slices.Contains(n, "pace every beat again") {
 		t.Errorf("notes %q", n)
 	}
@@ -124,7 +124,7 @@ func TestATinyBudgetStillChangesColour(t *testing.T) {
 	if n := p.interval(); n != config.Paces[len(config.Paces)-1] {
 		t.Fatalf("every %d beats, want the longest pace", n)
 	}
-	if changed(p.Beat(moment(0), 0)) == "" {
+	if changed(p.Beat(moment(0), false)) == "" {
 		t.Error("the colour changes go")
 	}
 }

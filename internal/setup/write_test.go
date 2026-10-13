@@ -87,11 +87,11 @@ fixtures:
 	if got != want {
 		t.Errorf("got\n%s", got)
 	}
-	c, err := config.ParseDraft([]byte(got), func(string) string { return "secret" })
+	c, err := config.Parse([]byte(got), func(string) string { return "secret" }, config.ForDraft)
 	if err != nil || c.Canary != "hallway-ceiling" || c.Fixtures[1].Lights[0] != "lamp, big" || c.Fixtures[0].Mode != "alternate" {
 		t.Errorf("parsed back: %+v, %v", c, err)
 	}
-	if _, err := config.Parse([]byte(got), os.Getenv); err == nil {
+	if _, err := config.Parse([]byte(got), os.Getenv, config.ForShow); err == nil {
 		t.Error("run must refuse a config without a budget")
 	}
 }

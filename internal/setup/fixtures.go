@@ -140,12 +140,3 @@ func fixtureOf(fixtures []config.Fixture) map[string]string {
 	}
 	return m
 }
-
-// lightsOf lists the lights of fixtures in order.
-func lightsOf(fixtures []config.Fixture) []string {
-	var out []string
-	for _, f := range fixtures {
-		out = append(out, f.Lights...)
-	}
-	return out
-}

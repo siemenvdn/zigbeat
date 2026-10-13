@@ -64,3 +64,9 @@ func Names(list string) []string {
 	}
 	return out
 }
+
+// Fail prints err on stderr and returns exit code 1.
+func Fail(err error) int {
+	fmt.Fprintln(os.Stderr, err)
+	return 1
+}

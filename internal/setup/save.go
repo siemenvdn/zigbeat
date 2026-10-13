@@ -14,8 +14,8 @@ import (
 // reads back as a valid config with exactly the chosen lights.
 func (s *session) write(fixtures []config.Fixture, canary string) error {
 	check := func(data []byte) error {
-		c, err := config.ParseDraft(data, os.Getenv)
-		if err == nil && !slices.Equal(c.Lights(), lightsOf(fixtures)) {
+		c, err := config.Parse(data, os.Getenv, config.ForDraft)
+		if err == nil && !slices.Equal(c.Lights(), config.LightsOf(fixtures)) {
 			err = errors.New("the lights read back differ from the ones chosen")
 		}
 		if err != nil {
@@ -62,5 +62,5 @@ func (s *session) done(fixtures []config.Fixture, canary string) {
 	if s.o.existing != nil && s.o.existing.Budget.MaxRate > 0 {
 		next = "zigbeat run -config " + s.o.config
 	}
-	fmt.Fprintf(s.out, "wrote %s (lights: %d, fixtures: %d, canary: %s); next: %s\n", s.o.config, len(lightsOf(fixtures)), len(fixtures), about, next)
+	fmt.Fprintf(s.out, "wrote %s (lights: %d, fixtures: %d, canary: %s); next: %s\n", s.o.config, len(config.LightsOf(fixtures)), len(fixtures), about, next)
 }

@@ -33,13 +33,11 @@ func Run(args []string) int {
 	defer stopSignals()
 	s, err := connect(ctx, cfg)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 1
+		return cli.Fail(err)
 	}
 	defer s.client.Close()
 	if err := s.refuseTargets(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 1
+		return cli.Fail(err)
 	}
 	if !s.saveState() {
 		if ctx.Err() != nil {

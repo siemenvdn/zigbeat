@@ -49,13 +49,13 @@ func (l *mqttLink) dial() error {
 		Password: l.cfg.Password,
 	})
 	if err != nil {
-		return fmt.Errorf("mqtt: %v", err)
+		return fmt.Errorf("mqtt: %w", err)
 	}
 	bridge := z2m.New(client, l.cfg.BaseTopic)
 	for _, d := range l.watch() {
 		if err := bridge.OnState(d, func(st z2m.State, at time.Time) { l.push(event{light: d, st: st, at: at}) }); err != nil {
 			client.Close()
-			return fmt.Errorf("subscribe: %v", err)
+			return fmt.Errorf("subscribe: %w", err)
 		}
 	}
 	err = bridge.OnLog(func(e z2m.LogEntry, at time.Time) {
@@ -65,7 +65,7 @@ func (l *mqttLink) dial() error {
 	})
 	if err != nil {
 		client.Close()
-		return fmt.Errorf("subscribe: %v", err)
+		return fmt.Errorf("subscribe: %w", err)
 	}
 	l.client, l.bridge = client, bridge
 	return nil

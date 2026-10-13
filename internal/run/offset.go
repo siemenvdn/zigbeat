@@ -82,7 +82,7 @@ func (c *calibration) read(r io.Reader, out chan<- time.Duration) {
 		case err != nil:
 			fmt.Println(err)
 		case next == cur:
-			fmt.Printf("%s  audio offset %d ms\n", cli.Stamp(), cur.Milliseconds())
+			cli.Say("audio offset %d ms", cur.Milliseconds())
 		default:
 			out <- next
 		}
@@ -100,16 +100,16 @@ func (c *calibration) save() {
 	}
 	if err == nil {
 		err = f.Save(func(data []byte) error {
-			_, err := config.Parse(data, os.Getenv)
+			_, err := config.Parse(data, os.Getenv, config.ForShow)
 			return err
 		})
 	}
 	if err != nil {
-		fmt.Printf("%s  audio offset %d ms not saved: %v\n", cli.Stamp(), ms, err)
+		cli.Say("audio offset %d ms not saved: %v", ms, err)
 		return
 	}
 	c.saved = c.cur
-	fmt.Printf("%s  audio offset %d ms saved to %s\n", cli.Stamp(), ms, c.path)
+	cli.Say("audio offset %d ms saved to %s", ms, c.path)
 }
 
 // unsaved is the hint after the show when the offset changed since the last save.

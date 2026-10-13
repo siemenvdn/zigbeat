@@ -20,15 +20,13 @@ func Run(args []string) int {
 		return code
 	}
 	if err := o.load(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 1
+		return cli.Fail(err)
 	}
 	ctx, stop := cli.StopContext()
 	defer stop()
 	br, err := dial(o.mqtt)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 1
+		return cli.Fail(err)
 	}
 	defer br.Close()
 	s := &session{o: o, br: br, in: newInput(os.Stdin), out: os.Stdout, err: os.Stderr, today: time.Now(), gap: readGap}
@@ -69,11 +67,11 @@ func (s *session) run(ctx context.Context) int {
 	}
 	proposal, _ := arrange(existing, offered)
 	marked := map[string]bool{}
-	for _, l := range lightsOf(existing) {
+	for _, l := range config.LightsOf(existing) {
 		marked[l] = true
 	}
 	printTable(s.out, len(devs)-1, offered, fixtureOf(proposal), marked, refused, others)
-	for _, l := range lightsOf(existing) {
+	for _, l := range config.LightsOf(existing) {
 		if indexOf(offered, l) < 0 {
 			fmt.Fprintf(s.out, "%s: %s; removed from the config\n", l, whyNot(devs, l))
 		}

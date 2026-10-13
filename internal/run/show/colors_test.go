@@ -10,7 +10,7 @@ func TestNoRepeatedColour(t *testing.T) {
 		for l, c := range p.current {
 			before[l] = c
 		}
-		for _, pl := range p.Beat(moment(4*i), 0) {
+		for _, pl := range p.Beat(moment(4*i), false) {
 			if c, ok := pl.Payload["color"].(map[string]string); ok && c["hex"] == before[pl.Light] {
 				t.Fatalf("moment %d: %s got its own colour %s again", i, pl.Light, c["hex"])
 			}

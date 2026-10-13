@@ -25,7 +25,7 @@ func TestShuffleChangesEveryUnitOnceBeforeAnyRepeats(t *testing.T) {
 	for round := 0; round < 3; round++ {
 		var seen []string
 		for i := 0; i < 2; i++ { // 3 lights per moment, 6 lights
-			seen = append(seen, strings.Split(changed(p.Beat(moment(4*(2*round+i)), 0)), ",")...)
+			seen = append(seen, strings.Split(changed(p.Beat(moment(4*(2*round+i)), false)), ",")...)
 		}
 		sorted := slices.Clone(seen)
 		slices.Sort(sorted)
@@ -43,7 +43,7 @@ func TestSwapAlternatesTwoGroupsOfOneColour(t *testing.T) {
 	p := playing("swap", "separate", 6)
 	var got []string
 	for i := 0; i < 4; i++ {
-		ps := p.Beat(moment(4*i), 0)
+		ps := p.Beat(moment(4*i), false)
 		got = append(got, changed(ps))
 		distinct := map[string]bool{}
 		for _, c := range colours(ps) {
@@ -62,7 +62,7 @@ func TestSwapAlternatesTwoGroupsOfOneColour(t *testing.T) {
 	p = playing("swap", "separate", 8)
 	got = nil
 	for i := 0; i < 3; i++ {
-		got = append(got, changed(p.Beat(moment(4*i), 0)))
+		got = append(got, changed(p.Beat(moment(4*i), false)))
 	}
 	if want := "f0-1,f0-4,f0-7 f0-2,f0-5,f0-8 f0-3,f0-6"; strings.Join(got, " ") != want {
 		t.Errorf("8 lights make 3 groups: %v", got)
@@ -84,7 +84,7 @@ func TestSwapChangesTheColourOfEachGroup(t *testing.T) {
 		p.Start(t0)
 		for i := 0; i < 12; i++ {
 			before := maps.Clone(p.current)
-			ls := strings.Split(changed(p.Beat(moment(4*i), 0)), ",")
+			ls := strings.Split(changed(p.Beat(moment(4*i), false)), ",")
 			if i < firstRound {
 				continue // the groups take one colour each
 			}
@@ -101,7 +101,7 @@ func TestBuildFillsTheRoomWithOneColour(t *testing.T) {
 	p := playing("build", "separate", 3)
 	var targets []string
 	for i := 0; i < 6; i++ {
-		ps := p.Beat(moment(4*i), 0)
+		ps := p.Beat(moment(4*i), false)
 		if got := changed(ps); len(strings.Split(got, ",")) != 1 {
 			t.Fatalf("moment %d changed %q, want one light", i, got)
 		}
@@ -132,12 +132,12 @@ func TestRotation(t *testing.T) {
 func TestVariantNotes(t *testing.T) {
 	p := playing("rotation", "separate", 3)
 	p.TakeNotes()
-	p.Beat(moment(60), 0)
-	p.Beat(moment(64), 0)
+	p.Beat(moment(60), false)
+	p.Beat(moment(64), false)
 	if n := p.TakeNotes(); len(n) != 2 || n[0] != "variant build, breathe pulse from bar 15" || n[1] != "variant walk, breathe flip from bar 16" {
 		t.Errorf("notes %q", n)
 	}
-	p.Beat(moment(68), 0)
+	p.Beat(moment(68), false)
 	if n := p.TakeNotes(); n != nil {
 		t.Errorf("no note while the variant plays on: %q", n)
 	}
@@ -145,9 +145,9 @@ func TestVariantNotes(t *testing.T) {
 	colourOnly.Fixtures = colourOnly.Fixtures[:1]
 	colourOnly.Effects.Variant = "swap"
 	q := NewPlanner(colourOnly)
-	q.Beat(moment(60), 0)
+	q.Beat(moment(60), false)
 	q.TakeNotes()
-	q.Beat(moment(64), 0)
+	q.Beat(moment(64), false)
 	if n := q.TakeNotes(); n != nil {
 		t.Errorf("without breathe lights a new phrase of the same variant says nothing: %q", n)
 	}

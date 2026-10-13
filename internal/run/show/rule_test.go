@@ -53,7 +53,7 @@ func noMoreThanThree(t *testing.T, c config.Config, backoff int) {
 		}
 		b := moment(4 * i)
 		colour := 0
-		for _, m := range p.Beat(b, backoff) {
+		for _, m := range p.Beat(b, backoff >= flow.CalmLevel) {
 			if _, ok := m.Payload["color"]; !ok || !m.Land.Equal(b.At) {
 				continue
 			}

@@ -64,7 +64,7 @@ func parseFlags(args []string) (options, error) {
 // settings: from that config, or from the flags and the environment.
 func (o *options) load() error {
 	if _, err := os.Stat(o.config); err == nil {
-		c, err := config.LoadDraft(o.config)
+		c, err := config.Load(o.config, config.ForDraft)
 		if err != nil {
 			return err
 		}

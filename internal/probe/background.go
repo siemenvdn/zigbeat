@@ -4,6 +4,8 @@ import (
 	"context"
 	"math/rand"
 	"time"
+
+	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
 const (
@@ -26,7 +28,7 @@ func (s *session) startBackground() {
 			case <-bg.Done():
 				return
 			case now := <-time.After(d):
-				s.canary.Tick(now, s.ph, func() error { return s.bridge.Get(s.cfg.canary, map[string]string{"state": ""}) })
+				s.canary.Tick(now, s.ph, func() error { return s.bridge.Get(s.cfg.canary, z2m.StateQuery) })
 			}
 		}
 	}()

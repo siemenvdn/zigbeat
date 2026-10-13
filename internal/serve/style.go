@@ -1,7 +1,6 @@
 package serve
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/cli"
@@ -13,7 +12,7 @@ import (
 // checks the value like the config, keeps it for the next show and hands it to
 // a running one. A kept choice that comes again after a reconnect changes
 // nothing and prints nothing. Every command gets the state back.
-func (l *link) choose(topic string, p []byte, _ time.Time) {
+func (l *haLink) choose(topic string, p []byte, _ time.Time) {
 	key := ha.StyleKey(topic)
 	l.mu.Lock()
 	prev := l.style
@@ -25,13 +24,13 @@ func (l *link) choose(topic string, p []byte, _ time.Time) {
 	l.mu.Unlock()
 	switch {
 	case err != nil:
-		fmt.Printf("%s  refused from Home Assistant: %s %q: %v\n", cli.Stamp(), key, p, err)
+		cli.Say("refused from Home Assistant: %s %q: %v", key, p, err)
 	case changed:
 		how := "set in Home Assistant"
 		if len(p) == 0 {
 			how = "from the config again"
 		}
-		fmt.Printf("%s  %s %v, %s\n", cli.Stamp(), key, ha.Value(next, key), how)
+		cli.Say("%s %v, %s", key, ha.Value(next, key), how)
 		if next.Budget.AudioOffsetMS != prev.Budget.AudioOffsetMS {
 			newest(l.offsets, next.Budget.AudioOffset())
 		} else {
@@ -42,7 +41,7 @@ func (l *link) choose(topic string, p []byte, _ time.Time) {
 }
 
 // config is the config in force: the file's, with the choices over it.
-func (l *link) config() config.Config {
+func (l *haLink) config() config.Config {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	return l.style
