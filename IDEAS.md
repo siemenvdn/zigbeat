@@ -46,7 +46,7 @@ Ideas for later, grouped by topic. Nothing here is planned yet; plans live in th
 - **A restore at the next start after a hard kill:** the state from before the show on disk at its start, removed after the restore. Only when it is fresh: a state restored hours later would undo what people did with their lights in between.
 - **Docker secrets:** a `password_file` next to `password_env`.
 - **linux/arm/v7** for 32-bit Raspberry Pi OS; distroless has it.
-- **A restore before the broker stops at a reboot under Docker,** for example zigbeat under systemd ordered before `docker.service`, as the README's unit does for the binary.
+- **A restore before the broker stops at a reboot under Docker.** Docker stops the containers in no order, so the broker can go before zigbeat has put the lights back. The binary under systemd, ordered before `docker.service`, does not have that problem.
 - **CI on every push:** gofmt, vet, test and govulncheck.
 - **An SBOM and a cosign signature** on the image; GoReleaser supports both.
 

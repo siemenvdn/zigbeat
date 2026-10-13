@@ -32,13 +32,13 @@ Home Assistant switches the show on and off and sets its style; it stays out of 
 
 ## Quick start
 
-You need Zigbee2MQTT with an MQTT broker, and Linux on amd64 or arm64 for zigbeat, best on the host of the broker: a Raspberry Pi 4 or 5 with a 64-bit OS does. For the music, [Music Assistant](https://www.music-assistant.io/) 2.10 or later.
+You need Zigbee2MQTT and its MQTT broker in Docker compose, on Linux amd64 or arm64: a Raspberry Pi 4 or 5 with a 64-bit OS does. For the music, [Music Assistant](https://www.music-assistant.io/) 2.10 or later.
 
 ### 1. An MQTT user
 
 zigbeat logs in to the broker as its own user, `zigbeat`.
 
-- **Mosquitto:** `mosquitto_passwd <password_file> zigbeat` (in Docker: `docker compose exec mosquitto mosquitto_passwd /mosquitto/config/password.txt zigbeat`), then restart the broker. With an `acl_file`, add:
+- **Mosquitto:** `docker compose exec mosquitto mosquitto_passwd /mosquitto/config/password.txt zigbeat`, then restart the broker. With an `acl_file`, add:
 
   ```
   user zigbeat
@@ -54,7 +54,7 @@ zigbeat logs in to the broker as its own user, `zigbeat`.
 
 ### 2. Install
 
-**Docker compose**, in the directory of your `compose.yml`:
+In the directory of your `compose.yml`:
 
 1. `mkdir zigbeat` for the config.
 2. Put the password, and for the music a Music Assistant token, in `.env` (`chmod 600 .env`; single quotes around a value with a `$`):
@@ -66,25 +66,7 @@ zigbeat logs in to the broker as its own user, `zigbeat`.
 
 3. Add the service of [`compose.example.yml`](compose.example.yml) to `compose.yml`. Set `user` to `id -u` and `id -g`, the owner of `./zigbeat`.
 
-Run every `zigbeat` command below as `docker compose run --rm zigbeat <command>`; `config.yaml` lands in `./zigbeat`.
-
-**A release binary:** download the archive for your machine (`uname -m`: `x86_64` is amd64, `aarch64` is arm64) and `checksums.txt` from the [latest release](https://github.com/siemenvdn/zigbeat/releases/latest), then:
-
-```bash
-sha256sum -c --ignore-missing checksums.txt
-tar xzf zigbeat_*_linux_*.tar.gz zigbeat
-sudo install zigbeat /usr/local/bin/
-```
-
-Every command reads the password from the environment:
-
-```bash
-read -rsp 'MQTT password for zigbeat: ' ZIGBEAT_MQTT_PASSWORD && echo && export ZIGBEAT_MQTT_PASSWORD
-```
-
-**With Go 1.26 or later:** `go install github.com/siemenvdn/zigbeat/cmd/zigbeat@latest`.
-
-zigbeat expects the broker at `127.0.0.1:1883` and Music Assistant at `ws://127.0.0.1:8095`. On another machine, give `zigbeat setup` `-broker <ip>:1883` and put Music Assistant's address in the config. A container next to Home Assistant OS marks the install as unsupported: run zigbeat on another Linux machine instead, against `<ha-ip>:1883`.
+Run every `zigbeat` command below as `docker compose run --rm zigbeat <command>`; `config.yaml` lands in `./zigbeat`. The service runs on the host network, so the broker is at `127.0.0.1:1883` and Music Assistant at `ws://127.0.0.1:8095`; on another machine, give `zigbeat setup` `-broker <ip>:1883` and put Music Assistant's address in the config. A container next to Home Assistant OS marks the install as unsupported: run zigbeat on another Linux machine instead, against `<ha-ip>:1883`. A Home Assistant add-on is on the [ideas list](IDEAS.md).
 
 ### 3. Find your lights
 
@@ -109,7 +91,7 @@ budget written to config.yaml: max_rate 0 -> 15 frames/s, latency_ms 0 -> 66 ms
 ### 5. Play
 
 ```bash
-zigbeat run -config config.yaml
+zigbeat run
 ```
 
 A show to a metronome at 120 BPM (`-bpm` for another tempo), until Ctrl-C puts every light back. Every 10 seconds it prints a status line; `backoff 0` means the network keeps up. For the music, read on.
@@ -119,63 +101,33 @@ A show to a metronome at 120 BPM (`-bpm` for another tempo), until Ctrl-C puts e
 Music Assistant finds the beats in the music it plays itself, from Spotify, Apple Music, Tidal, local files or any other of its providers, on any speaker, a Chromecast included. Music it only passes on, such as Spotify Connect into Music Assistant or radio, has no beats.
 
 1. In Music Assistant, add the **Smart Fades** audio analysis and the **MilkDrop Visualizer** plugin, and create a long-lived token under Settings, Profile. The analysis recommends 6 GB of RAM and 4 cores.
-2. Uncomment the `music_assistant` block in `config.yaml`. The token comes from `ZIGBEAT_MA_TOKEN`, like the password.
+2. Uncomment the `music_assistant` block in `config.yaml`. The token is the `ZIGBEAT_MA_TOKEN` of `.env`.
 3. Check that beats arrive, without touching a light, then play:
 
    ```bash
-   zigbeat beats -config config.yaml
-   zigbeat run -config config.yaml
+   zigbeat beats
+   zigbeat run
    ```
 
    The first time a track plays, its beats arrive 5 to 10 seconds in; Music Assistant keeps the analysis for the next time.
 
-**Audio offset.** TVs, soundbars and amplifiers delay the sound, so the lights have to wait for it. While `zigbeat run` plays a track with a clear kick, type `+` or `-` and Enter to move the lights 10 ms later or earlier (`+30` for 30 ms, a number such as `180` sets it), watch the brightness jump of a colour bulb, and type `save` when it lands on the beat. With `zigbeat serve`, the **Audio offset** slider in Home Assistant does the same, so a change of speakers needs no terminal.
+**Audio offset.** TVs, soundbars and amplifiers delay the sound, so the lights have to wait for it. While `zigbeat run` plays a track with a clear kick, type `+` or `-` and Enter to move the lights 10 ms later or earlier (`+30` for 30 ms, a number such as `180` sets it), watch the brightness jump of a colour bulb, and type `save` when it lands on the beat. The **Audio offset** slider in Home Assistant does the same, so a change of speakers needs no terminal.
 
 ## Home Assistant
 
 ```bash
-zigbeat serve -config config.yaml
+docker compose up -d zigbeat
 ```
 
-It keeps running next to Zigbee2MQTT and adds a **zigbeat** device to Home Assistant through MQTT discovery; the MQTT integration that Zigbee2MQTT already uses is enough.
+The service runs `zigbeat serve`: it keeps running next to Zigbee2MQTT and adds a **zigbeat** device to Home Assistant through MQTT discovery; the MQTT integration that Zigbee2MQTT already uses is enough.
 
-- A **switch** starts and stops the show. It is off after every start of serve.
+- A **switch** starts and stops the show. It is off after every start of the service.
 - The **style**: the album colours and how many, how the colour bulbs change (`rotation`, `walk`, `shuffle`, `swap` or `build`), the brightness, the pace (every beat to every 4 bars), how the breathe bulbs move and their range, whether quiet parts play calmer, and the audio offset. A change applies from the next change of the bulbs and stays until you change it there; `config.yaml` is the default for what you never chose.
 - **Sensors**: status, frames per second, latency, backoff, and the lights playing or left alone.
 
 The entities, the MQTT topics, and how to give a setting back to the config or remove the device: [DESIGN.md](DESIGN.md#home-assistant).
 
-### As a service
-
-With Docker compose, `docker compose up -d zigbeat` runs serve; `stop`, `restart` and `down` put every light back first, and `docker compose pull zigbeat && docker compose up -d zigbeat` updates.
-
-With the binary, put the password in `/etc/zigbeat.env` as in `.env` above (`chmod 600`) and write `/etc/systemd/system/zigbeat.service`, with your user and the directory of `config.yaml`:
-
-```ini
-[Unit]
-Description=zigbeat light show
-Wants=network-online.target
-After=network-online.target docker.service mosquitto.service zigbee2mqtt.service
-
-[Service]
-User=pi
-WorkingDirectory=/home/pi/zigbeat
-EnvironmentFile=/etc/zigbeat.env
-ExecStart=/usr/local/bin/zigbeat serve
-TimeoutStopSec=60
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-```
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now zigbeat
-```
-
-Both give zigbeat a minute to put every light back at a stop, a restart or a reboot. After `docker kill`, a crash or a power cut it cannot; the log holds the state from before the show, after `current state (for manual restore)`.
+`docker compose stop`, `restart` and `down` put every light back first, with a minute to do it. `docker compose pull zigbeat && docker compose up -d zigbeat` updates. After `docker kill`, a crash or a power cut zigbeat cannot put the lights back; `docker compose logs zigbeat` holds their state from before the show, after `current state (for manual restore)`.
 
 ## When something goes wrong
 
@@ -184,7 +136,7 @@ The show gets calmer, never stops. On a slow network it leaves out the kick firs
 ## More
 
 - [DESIGN.md](DESIGN.md): the decisions, the effects, the configuration, the probe, the architecture, and how to try everything against a simulated Zigbee2MQTT and Music Assistant.
-- [CLAUDE.md](CLAUDE.md): how work on zigbeat is done.
+- [AGENTS.md](AGENTS.md): how work on zigbeat is done, for people and their coding agents.
 
 ## License
 
