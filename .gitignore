@@ -6,3 +6,5 @@ zigbeat-*-linux-*
 .env
 config.yaml
 /docs/
+/dist/
+/linux/

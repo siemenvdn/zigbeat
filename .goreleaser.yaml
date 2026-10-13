@@ -1,0 +1,35 @@
+version: 2
+
+project_name: zigbeat
+
+builds:
+  - main: ./cmd/zigbeat
+    env:
+      - CGO_ENABLED=0
+    goos: [linux]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X main.version=v{{ .Version }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - formats: [tar.gz]
+    files:
+      - README.md
+      - LICENSE
+      - config.example.yaml
+
+checksum:
+  name_template: checksums.txt
+
+dockers_v2:
+  - images:
+      - ghcr.io/siemenvdn/zigbeat
+    tags:
+      - "{{ .Version }}"
+      - latest
+    platforms: [linux/amd64, linux/arm64]
+    labels:
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
