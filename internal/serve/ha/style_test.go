@@ -53,8 +53,8 @@ func TestStyleEntities(t *testing.T) {
 			t.Errorf("%s options %v, want %v", key, opts, want)
 		}
 	}
-	if stub := cs["cadence"].(map[string]any); len(stub) != 1 || stub["platform"] != "number" {
-		t.Errorf("the old pace slider is removed with its platform only: %v", stub)
+	if _, ok := cs["cadence"]; ok {
+		t.Errorf("discovery still names the old pace slider")
 	}
 }
 

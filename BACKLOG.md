@@ -21,7 +21,6 @@ Small known issues, found in the reviews of phases 1a to 3c and of the cleanup a
 ## zigbeat serve
 
 - **Breathe low and high arrive one at a time.** Each slider is checked with the other end in force (`Choose`, `internal/serve/ha/style.go`), so after a restart the broker's replay order decides: with the config at [10, 100] and the choices low 2, high 5, a `breathe_high` that arrives first is refused ([10, 5]) and the show plays [2, 100]. The spec refuses low not below high; moving the other end along, as Home Assistant's range sliders do, would keep the choice. Spec decision.
-- **The `cadence` removal stub.** The discovery message carries `cadence` with only its platform, so Home Assistant drops the old pace slider (`removed` in `internal/serve/ha/discovery.go`). Drop it at the release.
 - **PID 1 in a container.** The kernel ignores default-action signals for PID 1, so a second signal does not quit there. The phase 4 image needs an init (`docker run --init`, `init: true`).
 - **The same state twice.** At some switches serve publishes the same `zigbeat/state` twice in a row: `off` before `starting`, `stopping` twice, `off` twice. Harmless; skip a publish equal to the last one.
 - **Kept choices print before the banner.** At a start with retained style choices, the `..., set in Home Assistant` lines come before `zigbeat serve: ...`.

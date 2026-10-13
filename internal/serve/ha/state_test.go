@@ -65,12 +65,6 @@ func TestDiscovery(t *testing.T) {
 	ids := map[string]bool{}
 	for name, raw := range m["components"].(map[string]any) {
 		c := raw.(map[string]any)
-		if platform, gone := removed[name]; gone {
-			if len(c) != 1 || c["platform"] != platform {
-				t.Errorf("%s: a removed component is its platform only: %v", name, c)
-			}
-			continue
-		}
 		id, _ := c["unique_id"].(string)
 		if c["platform"] == nil || id == "" || ids[id] {
 			t.Errorf("%s: platform %v, unique_id %q", name, c["platform"], id)

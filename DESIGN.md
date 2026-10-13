@@ -93,7 +93,7 @@ The latency signal is relative to the show itself, not to the probe: a moment se
 | `zigbeat/show/set` | no | `ON` or `OFF` from the switch |
 | `zigbeat/style/<key>/set` | yes, by Home Assistant | A choice for `effects.<key>`: `album_palette` (`ON`, `OFF`), `album_colors`, `variant`, `brightness`, `pace` (`every beat` to `every 4 bars`), `breathe_variant`, `breathe_low` or `breathe_high` (one end of `breathe_range`), `follow_energy` (`ON`, `OFF`), or for `budget.audio_offset_ms` (`audio_offset_ms`); empty is no choice |
 
-- The discovery message carries `cadence`, the pace in seconds of an older zigbeat, with only its platform, which removes that slider from the device. A kept choice for a setting that is gone gets a line with the command that wipes it.
+- A kept choice for a setting that is gone, such as `cadence`, the pace in seconds of an older zigbeat, gets a line with the command that wipes it.
 - On every connect serve clears a retained switch command first, subscribes to the switch and to the style topics, whose retained choices arrive as commands, then publishes `online`, the discovery message and the last state. A broker restart drops the connection, so this also covers a broker that lost its retained messages; Home Assistant's birth message is not needed.
 - Each show calls back every 10 s with its numbers. The callback only stores the newest state; a separate goroutine publishes it, so Home Assistant stays out of the timing path.
 - `OFF` cancels the show, which restores every light exactly as on Ctrl-C. An `ON` that arrives during the restore starts the next show right after it.
