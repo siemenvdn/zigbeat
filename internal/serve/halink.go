@@ -143,6 +143,9 @@ func (l *haLink) run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			for len(l.lines) > 0 { // what the last choices said
+				fmt.Println(<-l.lines)
+			}
 			_ = l.client.PublishRetained(ha.StateTopic, l.current())
 			_ = l.client.PublishRetained(ha.AvailTopic, []byte("offline"))
 			l.client.Close()

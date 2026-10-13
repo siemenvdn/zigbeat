@@ -6,29 +6,31 @@ import (
 	"os/exec"
 	"testing"
 	"time"
+
+	"github.com/siemenvdn/zigbeat/internal/mqtt/mqtttest"
 )
 
 func TestWillAndRetain(t *testing.T) {
-	b := startBroker(t)
+	b := mqtttest.Start(t)
 	c := dial(t, b, Options{ClientID: "id", Username: "u", Password: "p",
 		WillTopic: "zigbeat/availability", WillPayload: []byte("offline")})
-	want := append(mqttString("MQTT"), 4, 0x02|0x04|0x20|0x40|0x80, 0, byte(defaultKeepAlive/time.Second))
+	want := append(mqtttest.String("MQTT"), 4, 0x02|0x04|0x20|0x40|0x80, 0, byte(defaultKeepAlive/time.Second))
 	for _, s := range []string{"id", "zigbeat/availability", "offline", "u", "p"} {
-		want = append(want, mqttString(s)...)
+		want = append(want, mqtttest.String(s)...)
 	}
-	if p := b.next(t, 1); !bytes.Equal(p[1:], want) {
+	if p := b.Next(t, 1); !bytes.Equal(p[1:], want) {
 		t.Errorf("CONNECT % x, want % x", p[1:], want)
 	}
 	if err := c.PublishRetained("zigbeat/state", []byte("{}")); err != nil {
 		t.Fatal(err)
 	}
-	if p := b.next(t, 3); p[0] != 0x31 || !bytes.Equal(p[1:], append(mqttString("zigbeat/state"), "{}"...)) {
+	if p := b.Next(t, 3); p[0] != 0x31 || !bytes.Equal(p[1:], append(mqtttest.String("zigbeat/state"), "{}"...)) {
 		t.Errorf("PUBLISH % x", p)
 	}
 }
 
 func TestDoneOnCloseAndOnADrop(t *testing.T) {
-	b := startBroker(t)
+	b := mqtttest.Start(t)
 	c := dial(t, b, Options{ClientID: "id"})
 	c.Close()
 	select {
@@ -40,9 +42,9 @@ func TestDoneOnCloseAndOnADrop(t *testing.T) {
 		t.Errorf("closed %v, err %v after a local close", c.Closed(), c.Err())
 	}
 
-	b = startBroker(t)
+	b = mqtttest.Start(t)
 	c = dial(t, b, Options{ClientID: "id"})
-	conn := <-b.conn
+	conn := <-b.Conn
 	conn.Close()
 	select {
 	case <-c.Done():
@@ -52,9 +54,7 @@ func TestDoneOnCloseAndOnADrop(t *testing.T) {
 	if c.Err() == nil {
 		t.Error("no error after the broker dropped the connection")
 	}
-	_ = b.ln.SetDeadline(time.Now().Add(300 * time.Millisecond)) // paho's own reconnect would dial at once
-	if again, err := b.ln.Accept(); err == nil {
-		again.Close()
+	if b.Dialled(300 * time.Millisecond) { // paho's own reconnect would dial at once
 		t.Error("the client dialled again by itself; the commands do that")
 	}
 }
@@ -71,5 +71,5 @@ func TestDialIgnoresAllProxy(t *testing.T) {
 		}
 		return
 	}
-	dial(t, startBroker(t), Options{ClientID: "id"})
+	dial(t, mqtttest.Start(t), Options{ClientID: "id"})
 }

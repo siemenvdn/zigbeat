@@ -73,6 +73,10 @@ func (s *session) prepare() (code int, ok bool) {
 		return 1, false
 	}
 	if !s.canaryAnswers() {
+		if s.ctx.Err() != nil {
+			fmt.Println("cancelled, nothing was changed")
+			return cli.ExitInterrupted, false
+		}
 		return 1, false
 	}
 	cfg := s.cfg

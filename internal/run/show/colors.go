@@ -40,7 +40,7 @@ type part struct {
 }
 
 func newColorShow(fs []config.Fixture, pl *palette) colorShow {
-	c := colorShow{fixtureOf: map[string][]string{}, palette: pl, current: map[string]string{},
+	c := colorShow{fixtureOf: map[string][]string{}, palette: pl, current: map[string]string{}, variant: walk{},
 		rng: rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64()))}
 	for _, f := range fs {
 		if f.Role != z2m.Color {

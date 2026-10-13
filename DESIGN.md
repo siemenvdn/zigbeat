@@ -368,11 +368,11 @@ flowchart LR
   loop -->|"Music, State, ZigbeeError, Due, SetEffects"| eng["engine.Engine"]
   eng -->|"Track, Beat, SetEffects, Start, Settle, Missed"| plan["show.Planner"]
   eng -->|"Add, Confirm, Signal"| flow["run/flow: InFlight,<br/>Backoff, Canary"]
-  loop -->|"Set, Get"| link["run.link: z2m.Bridge<br/>over mqtt.Client"]
+  loop -->|"Set, Get"| link["run.link: lights.Session<br/>(z2m.Bridge over mqtt.Client)"]
   link -.->|"states, log lines"| loop
 ```
 
-1. `run.Play` dials the link, refuses Zigbee2MQTT groups and lights that may not be driven (`config.RejectGroups`, `z2m.Check`), reads every light (`lights.Snapshot`) and times the canary at rest.
+1. `run.Play` dials the session (`lights.Dial`), refuses Zigbee2MQTT groups and lights that may not be driven (`config.RejectGroups`, `z2m.Check`), reads every light (`lights.Snapshot`) and times the canary at rest.
 2. It creates an `engine.Engine`; a panic ends the show.
 3. The loop is one goroutine. It waits for:
    - an event from the source: `Engine.Music`;
@@ -442,6 +442,7 @@ cmd/
 internal/
   cli/            what the subcommands share: stop signals, flag errors, the time stamp, the 5 s redial
   mqtt/           thin adapter over paho.mqtt.golang: MQTT 3.1.1, QoS 0, retained publish and will, live-only subscribe, keepalive
+    mqtttest/     a broker for one client, for the tests of mqtt and lights
   ws/             thin adapter over gorilla/websocket, and the server side for tests and fake-ma
   z2m/            Zigbee2MQTT topics, groups, the device list and which lights may be driven, frame count, the canary limit
   lights/         the Zigbee2MQTT session of run, probe and setup, and the snapshot and restore of lights

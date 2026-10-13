@@ -116,7 +116,7 @@ func (e *Engine) Away(light string) bool {
 // the show into backoff. It returns true when the light is left alone.
 func (e *Engine) failed(now time.Time, name string) bool {
 	l := e.lights[name]
-	if l.away {
+	if l == nil || l.away {
 		return true
 	}
 	if l.fails++; l.fails < awayAfter {

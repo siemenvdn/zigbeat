@@ -45,7 +45,7 @@ func (e *Engine) State(light string, at time.Time) {
 		return
 	}
 	l := e.lights[light]
-	if l == nil {
+	if l == nil { // after a reconnect the session also watches lights left out of the show
 		return
 	}
 	// Any state means the light is alive.

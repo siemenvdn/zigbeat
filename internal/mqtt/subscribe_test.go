@@ -6,35 +6,37 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/siemenvdn/zigbeat/internal/mqtt/mqtttest"
 )
 
 func TestSubscribeLiveSkipsRetained(t *testing.T) {
-	b := startBroker(t)
+	b := mqtttest.Start(t)
 	c := dial(t, b, Options{ClientID: "id"})
 	in := make(inbox, 2)
 	if err := c.SubscribeLive("a/b", in.handle); err != nil {
 		t.Fatal(err)
 	}
-	b.publish(t, "a/b", "retained", true)
-	b.publish(t, "a/b", "live", false)
+	b.Publish(t, "a/b", "retained", true)
+	b.Publish(t, "a/b", "live", false)
 	in.want(t, "live")
 }
 
 // TestRetainedThroughAWildcard: serve gets the kept style choices this way.
 func TestRetainedThroughAWildcard(t *testing.T) {
-	b := startBroker(t)
+	b := mqtttest.Start(t)
 	c := dial(t, b, Options{ClientID: "id"})
 	in := make(inbox, 1)
 	if err := c.Subscribe("zigbeat/style/+/set", in.handle); err != nil {
 		t.Fatal(err)
 	}
-	b.publish(t, "zigbeat/style/brightness/set", "30", true)
+	b.Publish(t, "zigbeat/style/brightness/set", "30", true)
 	in.want(t, "30")
 }
 
 // TestHandlersRunInOrderOneAtATime: serve's newest() relies on one sender.
 func TestHandlersRunInOrderOneAtATime(t *testing.T) {
-	b := startBroker(t)
+	b := mqtttest.Start(t)
 	c := dial(t, b, Options{ClientID: "id"})
 	const n = 40
 	var mu sync.Mutex
@@ -62,7 +64,7 @@ func TestHandlersRunInOrderOneAtATime(t *testing.T) {
 	var want []string
 	for i := range n {
 		want = append(want, string(rune('0'+i)))
-		b.publish(t, []string{"a/x", "b/x"}[i%2], want[i], false)
+		b.Publish(t, []string{"a/x", "b/x"}[i%2], want[i], false)
 	}
 	select {
 	case <-done:
@@ -77,7 +79,7 @@ func TestHandlersRunInOrderOneAtATime(t *testing.T) {
 }
 
 func TestRefusedSubscribeLeavesNothing(t *testing.T) {
-	b := startBroker(t)
+	b := mqtttest.Start(t)
 	c := dial(t, b, Options{ClientID: "id"})
 	refused, ok := make(inbox, 1), make(inbox, 1)
 	if err := c.Subscribe("refused/+", refused.handle); err == nil {
@@ -86,8 +88,8 @@ func TestRefusedSubscribeLeavesNothing(t *testing.T) {
 	if err := c.Subscribe("ok", ok.handle); err != nil {
 		t.Fatal(err)
 	}
-	b.publish(t, "refused/a", "stray", false)
-	b.publish(t, "ok", "sync", false)
+	b.Publish(t, "refused/a", "stray", false)
+	b.Publish(t, "ok", "sync", false)
 	ok.want(t, "sync")
 	if len(refused) != 0 {
 		t.Error("the handler of a refused subscription got a message")
@@ -95,7 +97,7 @@ func TestRefusedSubscribeLeavesNothing(t *testing.T) {
 }
 
 func TestUnsubscribe(t *testing.T) {
-	b := startBroker(t)
+	b := mqtttest.Start(t)
 	c := dial(t, b, Options{ClientID: "id"})
 	gone, ok := make(inbox, 1), make(inbox, 1)
 	if err := c.Subscribe("a/b", gone.handle); err != nil {
@@ -107,11 +109,11 @@ func TestUnsubscribe(t *testing.T) {
 	if err := c.Unsubscribe("a/b"); err != nil {
 		t.Fatal(err)
 	}
-	if p := b.next(t, 10); !bytes.HasSuffix(p, mqttString("a/b")) {
+	if p := b.Next(t, 10); !bytes.HasSuffix(p, mqtttest.String("a/b")) {
 		t.Errorf("UNSUBSCRIBE % x", p)
 	}
-	b.publish(t, "a/b", "stray", false)
-	b.publish(t, "ok", "sync", false)
+	b.Publish(t, "a/b", "stray", false)
+	b.Publish(t, "ok", "sync", false)
 	ok.want(t, "sync")
 	if len(gone) != 0 {
 		t.Error("an unsubscribed handler got a message")

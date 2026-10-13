@@ -18,7 +18,7 @@ type Conn interface {
 	// Await waits up to d for a state from light that arrived after since. It is
 	// false when none came, the connection dropped or ctx is done.
 	Await(ctx context.Context, light string, since time.Time, d time.Duration) (z2m.State, bool)
-	// Online reports whether the broker is there, dialling again first when it can.
+	// Online reports whether the broker is there; the show's dials it again first for a while.
 	Online() bool
 }
 

@@ -23,7 +23,8 @@ type Watch struct {
 
 // Session is a command's connection to Zigbee2MQTT: the MQTT client, the
 // devices it watches and the last state of each. It is the Conn of the
-// snapshot and the restore.
+// snapshot and the restore. One goroutine calls its methods; the Watch
+// callbacks run on the MQTT reader.
 type Session struct {
 	broker, base string
 	opts         mqtt.Options

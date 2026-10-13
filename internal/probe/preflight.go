@@ -23,7 +23,9 @@ func (s *session) canaryAnswers() bool {
 	if _, ok := s.Read(s.ctx, s.cfg.canary, s.cfg.timeout); ok {
 		return true
 	}
-	fmt.Fprintf(os.Stderr, "canary %s does not answer; pick another device with -canary\n", s.cfg.canary)
+	if s.ctx.Err() == nil { // not Ctrl-C: the canary itself
+		fmt.Fprintf(os.Stderr, "canary %s does not answer; pick another device with -canary\n", s.cfg.canary)
+	}
 	return false
 }
 

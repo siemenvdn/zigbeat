@@ -1,4 +1,6 @@
-package mqtt
+// Package mqtttest plays an MQTT broker for one client, for the tests of the
+// packages that speak to one.
+package mqtttest
 
 import (
 	"bufio"
@@ -10,40 +12,53 @@ import (
 	"time"
 )
 
-const testWait = 2 * time.Second
+// Wait is how long a test waits for a packet or a message.
+const Wait = 2 * time.Second
 
-// broker plays an MQTT broker for one client. It answers CONNECT, SUBSCRIBE
+// Broker plays an MQTT broker for one client. It answers CONNECT, SUBSCRIBE
 // (refusing filters under refused/) and UNSUBSCRIBE, and hands every packet it
-// reads to pkts: the first byte, then the body.
-type broker struct {
-	ln   *net.TCPListener
-	addr string
-	pkts chan []byte
-	conn chan net.Conn
+// reads to Pkts: the first byte, then the body.
+type Broker struct {
+	ln   *net.TCPListener // the first connection is served; Dialled reports a second one
+	Addr string
+	Pkts chan []byte
+	Conn chan net.Conn // the client's connection, for a test that cuts it
 }
 
-func startBroker(t *testing.T) *broker {
+// Dialled reports whether a second client dialled within d: a client that
+// reconnects by itself does, zigbeat's do not.
+func (b *Broker) Dialled(d time.Duration) bool {
+	_ = b.ln.SetDeadline(time.Now().Add(d))
+	again, err := b.ln.Accept()
+	if err == nil {
+		again.Close()
+	}
+	return err == nil
+}
+
+// Start listens on a free port; the broker stops with the test.
+func Start(t *testing.T) *Broker {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { ln.Close() })
-	b := &broker{ln: ln.(*net.TCPListener), addr: ln.Addr().String(), pkts: make(chan []byte, 64), conn: make(chan net.Conn, 1)}
+	b := &Broker{ln: ln.(*net.TCPListener), Addr: ln.Addr().String(), Pkts: make(chan []byte, 64), Conn: make(chan net.Conn, 1)}
 	go func() {
 		c, err := ln.Accept()
 		if err != nil {
 			return
 		}
 		t.Cleanup(func() { c.Close() })
-		b.conn <- c
+		b.Conn <- c
 		r := bufio.NewReader(c)
 		for {
 			p, err := readRaw(r)
 			if err != nil {
 				return
 			}
-			b.pkts <- p
+			b.Pkts <- p
 			switch p[0] >> 4 {
 			case 1: // CONNECT
 				_, _ = c.Write([]byte{0x20, 2, 0, 0})
@@ -77,12 +92,12 @@ func readRaw(r *bufio.Reader) ([]byte, error) {
 	return p, err
 }
 
-// publish sends the client a PUBLISH at QoS 0.
-func (b *broker) publish(t *testing.T, topic, payload string, retained bool) {
+// Publish sends the client a PUBLISH at QoS 0.
+func (b *Broker) Publish(t *testing.T, topic, payload string, retained bool) {
 	t.Helper()
-	c := <-b.conn
-	b.conn <- c
-	body := append(mqttString(topic), payload...)
+	c := <-b.Conn
+	b.Conn <- c
+	body := append(String(topic), payload...)
 	h := byte(0x30)
 	if retained {
 		h |= 0x01
@@ -92,48 +107,22 @@ func (b *broker) publish(t *testing.T, topic, payload string, retained bool) {
 	}
 }
 
-// next returns the next packet of the given type that the client sent.
-func (b *broker) next(t *testing.T, kind byte) []byte {
+// Next returns the next packet of the given type that the client sent.
+func (b *Broker) Next(t *testing.T, kind byte) []byte {
 	t.Helper()
 	for {
 		select {
-		case p := <-b.pkts:
+		case p := <-b.Pkts:
 			if p[0]>>4 == kind {
 				return p
 			}
-		case <-time.After(testWait):
+		case <-time.After(Wait):
 			t.Fatalf("no packet of type %d", kind)
 		}
 	}
 }
 
-func mqttString(s string) []byte {
+// String encodes s as MQTT does: a two-byte length, then the bytes.
+func String(s string) []byte {
 	return append(binary.BigEndian.AppendUint16(nil, uint16(len(s))), s...)
-}
-
-func dial(t *testing.T, b *broker, o Options) *Client {
-	t.Helper()
-	c, err := Dial(b.addr, o)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { c.Close() })
-	return c
-}
-
-// inbox collects the payloads a handler gets.
-type inbox chan string
-
-func (in inbox) handle(_ string, p []byte, _ time.Time) { in <- string(p) }
-
-func (in inbox) want(t *testing.T, payload string) {
-	t.Helper()
-	select {
-	case got := <-in:
-		if got != payload {
-			t.Fatalf("got %q, want %q", got, payload)
-		}
-	case <-time.After(testWait):
-		t.Fatalf("no message, want %q", payload)
-	}
 }

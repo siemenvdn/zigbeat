@@ -13,7 +13,7 @@ const minLeadPct = 90
 
 // bar is the length of a bar at the track's tempo, in µs on MA's clock.
 func (s *session) bar() int64 {
-	return music.PerBar * music.Track{BPM: s.g.bpm()}.Period().Microseconds()
+	return (music.PerBar * music.Track{BPM: s.g.bpm()}.Period()).Microseconds()
 }
 
 // arm sets the timer for the next beat, one lead before it sounds. Nothing is
