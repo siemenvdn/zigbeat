@@ -134,7 +134,7 @@ zigbeat logs in to the broker as its own user, `zigbeat` by default.
   topic write homeassistant/device/zigbeat/config
   ```
 
-  A friendly name with a `/` needs `topic write zigbee2mqtt/#` instead of the two `+` lines. Another `base_topic` in Zigbee2MQTT replaces `zigbee2mqtt`.
+  A friendly name with a `/` needs `topic write zigbee2mqtt/#` instead of the two `+` lines. Another `base_topic` in Zigbee2MQTT replaces `zigbee2mqtt`. The user of Home Assistant needs `topic read homeassistant/#` and `topic readwrite zigbeat/#` in the same file, or Home Assistant does not find the device or cannot switch the show.
 - **Home Assistant's Mosquitto app:** add a Home Assistant user `zigbeat` under Settings, People, Users. The app does not limit the topics of a user.
 
 ### Addresses
