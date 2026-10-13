@@ -49,6 +49,12 @@ How zigbeat works and why. To use it, start with the [README](README.md).
 | MQTT through `eclipse/paho.mqtt.golang` (under EDL-1.0), behind `internal/mqtt`'s own small API | About 300 fewer own lines. The adapter turns off paho's reconnect (the commands dial again themselves), keeps every handler in order on one goroutine and dials the broker directly, never through `ALL_PROXY` |
 | The frame budget is `golang.org/x/time/rate` | The own token bucket did the same; `AllowN` takes the loop's time, so the show still has no clock of its own |
 | The Music Assistant relay through `gorilla/websocket`, behind `internal/ws`'s own small API | About 200 fewer own lines. paho links it already, so it adds almost nothing to the binary; `coder/websocket` is better maintained but made it about 650 KB bigger. A read waits for a message: pings no longer count, the time sync's answers every 10 s do |
+| The image is the released binary on `gcr.io/distroless/static-debian13:nonroot`, without an init | Time zones, a non-root user and no shell to patch. Go handles SIGTERM and a second SIGINT as PID 1, and zigbeat starts no child processes, so an init adds nothing |
+| A minute to stop: `stop_grace_period: 60s` in the compose example, `TimeoutStopSec=60` in the systemd unit | A restore takes up to about 30 s: 5 s to drain, 15 s for each light that does not answer, 30 s to redial a broker that went away. Docker waits 10 s by default, and systemd kills dockerd after 90 s, which cuts any grace period above 85 s |
+| The compose example runs on the host network and mounts a directory | Home Assistant Container and Music Assistant already run on the host network, so the broker and Music Assistant are on 127.0.0.1 in any compose project. The config is saved with a rename, which fails onto a file mounted on its own |
+| The systemd unit starts after Docker, Mosquitto and Zigbee2MQTT, and 5 s after a failed start | systemd stops in the reverse order, so at a reboot zigbeat restores before the broker goes; Docker has no such order between containers. serve exits when the broker is not up yet at boot, and 5 s keeps systemd's limit of 5 starts in 10 s from giving up |
+| A pushed tag `v*` releases: GoReleaser builds the binaries, archives, checksums and the image for amd64 and arm64, on GitHub Releases and `ghcr.io/siemenvdn/zigbeat` | One tool, and the image holds exactly the released binary. ghcr.io is free for public packages, takes `GITHUB_TOKEN`, and is where Zigbee2MQTT and Music Assistant publish too |
+| The version is the tag: GoReleaser stamps it, and the build info gives it after `go install …@v1.0.0` | Home Assistant shows it as `sw_version`; no build flag needed outside a release |
 
 ## Roles and fixtures
 
@@ -276,8 +282,8 @@ Small known issues that are not planned yet: [BACKLOG.md](BACKLOG.md). Ideas for
 
 ### Phase 4: release
 
-- Container image, example `compose.yml` with a stop grace period long enough for a restore (Docker waits only 10 s by default), documentation for Zigbee2MQTT and Home Assistant users.
-- Releases for linux/amd64 and linux/arm64.
+- **Built:** a container image for amd64 and arm64, a compose example that restores every light on stop, restart and update, release binaries with checksums and a systemd unit, the install guide for Zigbee2MQTT and Home Assistant users, and a workflow that publishes it all from a tag. Tested with the image against `cmd/fake-z2m`, `cmd/fake-ma` and `mosquitto` in Docker.
+- **To do:** the check on the Raspberry Pi, then the tag `v1.0.0`.
 
 ## Open questions
 
@@ -298,6 +304,8 @@ Small known issues that are not planned yet: [BACKLOG.md](BACKLOG.md). Ideas for
 | Do the album colours look like the cover on real bulbs, at saturation 0.75 and 30° apart? | Album colours |
 | Does the energy follow intro, drop and breakdown on more real music than one EDM track? | The quiet part at 0.3 |
 | Which variants look good on real lights, and is 16 bars the right phrase? | The rotation |
+| Does the restore finish at a reboot of a Pi that runs the broker in Docker too? | Whether the README needs more than a warning |
+| Is uid 1000 the owner of the compose directory on most Raspberry Pi OS installs? | The `user` line of the compose example |
 | Does a fixture of more than three bulbs look good when it changes three at a time? | Large fixtures |
 | Does the user's broker keep retained messages over its restart? | Choices surviving a broker and zigbeat restart together |
 | Is a new brightness, which each bulb takes at its next change, seen fast enough, also in `build`? | The brightness from Home Assistant |
@@ -435,6 +443,10 @@ Three small interfaces over it keep the callers testable with a fake:
 ### Code layout
 
 ```
+Dockerfile          the image: the released binary on distroless, as a non-root user
+.goreleaser.yaml    the release: binaries, archives, checksums and the image
+compose.example.yml the zigbeat service for Docker compose
+.github/workflows/  release.yml: a tag v* tests and publishes
 cmd/
   zigbeat/        the binary: zigbeat setup, probe, run, serve and beats
   fake-z2m/       simulated Zigbee2MQTT: one coordinator queue, time per frame, optional loss, groups, kinds of device, a landing log

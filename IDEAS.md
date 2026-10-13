@@ -40,6 +40,16 @@ Ideas for later, grouped by topic. Nothing here is planned yet; plans live in th
 - **A sensor with the variant that plays now,** from the planner's variant note.
 - **Presets per kind of party,** such as "dinner" and "dance": a select that sets several choices at once.
 
+## Release and install
+
+- **A Home Assistant app**, for the 80 % on Home Assistant OS: its own repository with `repository.yaml` and the app's `config.yaml`, `image: ghcr.io/siemenvdn/zigbeat`, `timeout: 60`, `services: mqtt:need` and `map: app_config:rw`. zigbeat would read the broker login from the Supervisor (`http://supervisor/services/mqtt` with `SUPERVISOR_TOKEN`) and its options from `/data/options.json`. Setup and probe from a laptop, because an app has no terminal; `io.hass.*` labels on the image.
+- **A restore at the next start after a hard kill:** the state from before the show on disk at its start, removed after the restore. Only when it is fresh: a state restored hours later would undo what people did with their lights in between.
+- **Docker secrets:** a `password_file` next to `password_env`.
+- **linux/arm/v7** for 32-bit Raspberry Pi OS; distroless has it.
+- **A restore before the broker stops at a reboot under Docker,** for example zigbeat under systemd ordered before `docker.service`, as the README's unit does for the binary.
+- **CI on every push:** gofmt, vet, test and govulncheck.
+- **An SBOM and a cosign signature** on the image; GoReleaser supports both.
+
 ## Interface
 
 - **A settings page** for everything in the config: the lights and fixtures, their roles and modes, which effect plays at which energy, the palette. Served by `zigbeat serve` next to Zigbee2MQTT, writing `config.yaml`; Home Assistant keeps the knobs for during the show. First the effect model has to settle: what can be set per energy level and per fixture.

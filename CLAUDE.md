@@ -23,6 +23,11 @@ Keep the README short and about what works today. Plans, rationale and research 
 
 All lowercase, English, descriptive, no conventional-commit prefixes. Example: `add token bucket rate limiter`.
 
+## Releases
+
+- A release is an annotated tag `vX.Y.Z` on `main`, pushed by a human after the checks on real hardware. `.github/workflows/release.yml` then tests and publishes the binaries and the image.
+- Never push a tag, an image or a GitHub release yourself. `goreleaser release --snapshot --clean` stays local.
+
 ## Zigbee: hard rules
 
 - Never use Zigbee groups or broadcasts. Unicast only, to `<base_topic>/<friendly name>/set`.
