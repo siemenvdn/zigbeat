@@ -17,7 +17,7 @@ func renderFixtures(fs []config.Fixture) string {
 	b.WriteString("fixtures:\n")
 	for _, f := range fs {
 		fmt.Fprintf(&b, "  - name: %s\n    role: %s\n", yamlName(f.Name), f.Role)
-		if f.Mode != "" && f.Mode != config.Alternate { // the default is left out {
+		if f.Mode != "" && f.Mode != config.Alternate { // the default is left out
 			fmt.Fprintf(&b, "    mode: %s\n", f.Mode)
 		}
 		names := make([]string, len(f.Lights))
