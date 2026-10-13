@@ -85,7 +85,7 @@ zigbeat cannot put the lights back after `docker kill`, a crash or a power cut; 
 
    ```bash
    sha256sum -c --ignore-missing checksums.txt
-   tar xzf zigbeat_*_linux_arm64.tar.gz zigbeat
+   tar xzf zigbeat_*_linux_*.tar.gz zigbeat
    sudo install zigbeat /usr/local/bin/
    ```
 
