@@ -6,9 +6,9 @@ Ordinary Zigbee bulbs on [Zigbee2MQTT](https://www.zigbee2mqtt.io/) have no good
 
 ## Status
 
-- **Works today:** `zigbeat setup` finds your lights in Zigbee2MQTT and writes the configuration. `zigbeat probe` measures how many light commands per second your network handles and writes that budget into it. `zigbeat run` drives your lights within that budget to the beats of the music that [Music Assistant](https://www.music-assistant.io/) plays, or to a fixed-BPM metronome. `zigbeat serve` does the same as a service that Home Assistant switches on and off, and whose style it sets: the album colours, the way the bulbs change, the brightness, the pace and the breathe bulbs.
+- **Works today:** `zigbeat setup` finds your lights in Zigbee2MQTT and writes the configuration. `zigbeat probe` measures how many light commands per second your network handles and writes that budget into it. `zigbeat run` drives your lights within that budget to the beats of the music that [Music Assistant](https://www.music-assistant.io/) plays, or to a fixed-BPM metronome. `zigbeat serve` does the same as a service that Home Assistant switches on and off, and whose style it sets: the album colours, the way the bulbs change, the brightness, the pace and the breathe bulbs. It comes as a container image and as binaries for Linux on amd64 and arm64.
 - **In progress:** checking on real speakers that the lights land on the beat by ear.
-- **Later:** more effects that follow the energy of the music, a container image.
+- **Later:** more effects that follow the energy of the music.
 
 ## What it does
 
@@ -48,17 +48,112 @@ zigbeat is a single static Go binary, meant to run next to Zigbee2MQTT. Architec
 
 ### Install
 
-With Go 1.26 or later:
+zigbeat runs on Linux, amd64 or arm64, such as a Raspberry Pi 4 or 5 with a 64-bit OS, best on the host of the broker. Pick one way:
 
-```bash
-go install github.com/siemenvdn/zigbeat/cmd/zigbeat@latest
-```
+- **[Docker compose](#docker-compose)**, when Zigbee2MQTT and Home Assistant run in Docker.
+- **[A release binary](#a-release-binary)**, as a systemd service.
+- **With Go 1.26 or later:** `go install github.com/siemenvdn/zigbeat/cmd/zigbeat@latest`.
 
-To build for a Raspberry Pi or another machine, see [Build from source](#build-from-source).
+#### Docker compose
+
+In the directory of your `compose.yml`:
+
+1. Make a directory for the config: `mkdir zigbeat`.
+2. Put the MQTT password of zigbeat in `.env`, in single quotes when it holds a `$`, and run `chmod 600 .env`:
+
+   ```
+   ZIGBEAT_MQTT_PASSWORD=your-password
+   ZIGBEAT_MA_TOKEN=your-music-assistant-token
+   ```
+
+3. Add the `zigbeat` service of [`compose.example.yml`](compose.example.yml) to `compose.yml`. Set `user` to the output of `id -u` and `id -g`, the owner of `./zigbeat`.
+4. Run each `zigbeat` command of this README as `docker compose run --rm zigbeat <command>`; `config.yaml` lands in `./zigbeat`. Find your lights and measure your network first, then start the service:
+
+   ```bash
+   docker compose run --rm zigbeat setup
+   docker compose run --rm zigbeat probe -config config.yaml
+   docker compose up -d zigbeat
+   ```
+
+The service runs `zigbeat serve`, which Home Assistant switches on and off. `docker compose stop`, `restart` and `down` put every light back first: `stop_grace_period` gives that a minute, where Docker waits 10 s by default. Update with `docker compose pull zigbeat && docker compose up -d zigbeat`. After adding `stop_grace_period` to a service that already runs, give the first `up -d` `--timeout 60`: the old container still has the 10 s.
+
+zigbeat cannot put the lights back after `docker kill`, a crash or a power cut; `docker compose logs zigbeat` holds their state from before the show (`current state (for manual restore): ...`). At a reboot Docker stops the broker at the same time as zigbeat, so the lights most likely stay as the show left them. A release binary under systemd does not have that problem.
+
+#### A release binary
+
+1. Download the archive for your machine (`uname -m`: `x86_64` is amd64, `aarch64` is arm64) and `checksums.txt` from the [latest release](https://github.com/siemenvdn/zigbeat/releases/latest), then:
+
+   ```bash
+   sha256sum -c --ignore-missing checksums.txt
+   tar xzf zigbeat_*_linux_arm64.tar.gz zigbeat
+   sudo install zigbeat /usr/local/bin/
+   ```
+
+2. After [setup](#find-your-lights) and [the probe](#measure-your-network), run `zigbeat serve` as a service. Put the MQTT password in `/etc/zigbeat.env`, as in `.env` above, and run `sudo chmod 600 /etc/zigbeat.env`. Then write `/etc/systemd/system/zigbeat.service`, with your user and the directory of `config.yaml`:
+
+   ```ini
+   [Unit]
+   Description=zigbeat light show
+   Wants=network-online.target
+   After=network-online.target docker.service mosquitto.service zigbee2mqtt.service
+
+   [Service]
+   User=pi
+   WorkingDirectory=/home/pi/zigbeat
+   EnvironmentFile=/etc/zigbeat.env
+   ExecStart=/usr/local/bin/zigbeat serve
+   TimeoutStopSec=60
+   Restart=on-failure
+   RestartSec=5
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+
+3. Start it, also at every boot:
+
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now zigbeat
+   ```
+
+systemd stops services in the reverse order of `After=`, so at a reboot zigbeat puts every light back before Mosquitto, Zigbee2MQTT or Docker stop. `journalctl -u zigbeat` shows its output.
+
+### An MQTT user for zigbeat
+
+zigbeat logs in to the broker as its own user, `zigbeat` by default.
+
+- **Mosquitto (`eclipse-mosquitto`):** add the user to the `password_file` of `mosquitto.conf`, for example `docker compose exec mosquitto mosquitto_passwd /mosquitto/config/password.txt zigbeat`, and restart the broker. With an `acl_file`, zigbeat needs exactly these lines:
+
+  ```
+  user zigbeat
+  topic read zigbee2mqtt/#
+  topic write zigbee2mqtt/+/set
+  topic write zigbee2mqtt/+/get
+  topic readwrite zigbeat/#
+  topic write homeassistant/device/zigbeat/config
+  ```
+
+  A friendly name with a `/` needs `topic write zigbee2mqtt/#` instead of the two `+` lines. Another `base_topic` in Zigbee2MQTT replaces `zigbee2mqtt`.
+- **Home Assistant's Mosquitto app:** add a Home Assistant user `zigbeat` under Settings, People, Users. The app does not limit the topics of a user.
+
+### Addresses
+
+| zigbeat runs | Broker (`-broker`, `mqtt.broker`) | Music Assistant (`music_assistant.url`) |
+|---|---|---|
+| With `compose.example.yml`, on the host of the broker | `127.0.0.1:1883` | `ws://127.0.0.1:8095` |
+| As a binary on the host of the broker | `127.0.0.1:1883` | `ws://127.0.0.1:8095` |
+| On another machine, next to Home Assistant OS | `<ha-ip>:1883` | `ws://<ha-ip>:8095` |
+
+When Music Assistant runs on yet another machine, use its address: `ws://<ip>:8095`.
+
+### Home Assistant OS
+
+A container next to Home Assistant OS marks the install as unsupported. Run zigbeat on another Linux machine in your network instead, with the addresses above; the Mosquitto app takes connections on port 1883.
 
 ### Find your lights
 
-Create an MQTT user for zigbeat on your broker. Then, ideally on the same host as the broker:
+With the [MQTT user](#an-mqtt-user-for-zigbeat) of zigbeat, ideally on the host of the broker:
 
 ```bash
 read -rsp 'MQTT password for zigbeat: ' ZIGBEAT_MQTT_PASSWORD && echo && export ZIGBEAT_MQTT_PASSWORD
@@ -199,7 +294,7 @@ zigbeat follows the beats that Music Assistant's own analysis finds. It works fo
 
    ```yaml
    music_assistant:
-     url: ws://music-assistant:8095   # Music Assistant's webserver
+     url: ws://127.0.0.1:8095         # Music Assistant's webserver, see Addresses
      token_env: ZIGBEAT_MA_TOKEN
      player: ""                       # optional: one player's id; empty follows whichever player is playing
    ```
@@ -244,7 +339,7 @@ read -rsp 'MQTT password for zigbeat: ' ZIGBEAT_MQTT_PASSWORD && echo && export 
 zigbeat serve -config config.yaml
 ```
 
-It uses the same config as `zigbeat run`, with the same beat source. The show is off when serve starts, also after a restart. Switch it on in Home Assistant: zigbeat reads every light, plays, and puts every light back when you switch it off. Ctrl-C, `kill` or a closed SSH session stops serve, after a restore when a show is on. Start it with `nohup` to keep it running after you log out.
+It uses the same config as `zigbeat run`, with the same beat source. The show is off when serve starts, also after a restart. Switch it on in Home Assistant: zigbeat reads every light, plays, and puts every light back when you switch it off. Ctrl-C, `kill` or a closed SSH session stops serve, after a restore when a show is on. To keep it running, install it [with Docker compose](#docker-compose) or [as a systemd service](#a-release-binary).
 
 | Entity | Shows |
 |---|---|
@@ -282,7 +377,7 @@ mosquitto_pub -r -n -t zigbeat/style/brightness/set
 
 An older zigbeat kept the pace in seconds on `zigbeat/style/cadence/set`; serve prints the command that wipes it. A config with `effects.cadence` is refused with what to set instead.
 
-Next to the Zigbee2MQTT topics, the MQTT user for zigbeat needs write access to `homeassistant/device/zigbeat/config` and `zigbeat/#`, and read access to `zigbeat/show/set` and `zigbeat/style/+/set`. Run one `zigbeat serve` per broker, and no `zigbeat run` while its show is on.
+Run one `zigbeat serve` per broker, and no `zigbeat run` while its show is on. [An MQTT user for zigbeat](#an-mqtt-user-for-zigbeat) lists the topics it needs.
 
 To remove the device from Home Assistant, stop zigbeat and clear its discovery message and the choices (`cadence` is the pace of an older zigbeat):
 
@@ -297,6 +392,15 @@ for k in album_palette album_colors variant brightness pace breathe_variant brea
 go test ./...
 CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags "-s -w" -o zigbeat ./cmd/zigbeat
 ```
+
+The image by hand, for example for a Raspberry Pi; the `Dockerfile` copies the binary from `linux/<arch>/`:
+
+```bash
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags "-s -w" -o linux/arm64/zigbeat ./cmd/zigbeat
+docker build --platform linux/arm64 -t zigbeat:dev .
+```
+
+`goreleaser release --snapshot --clean` builds the archives into `dist/` and both images into Docker, as a release does, without publishing anything.
 
 Try the probe without real lights, against a simulated Zigbee2MQTT that handles about 10 commands per second:
 
