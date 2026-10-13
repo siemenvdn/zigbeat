@@ -13,8 +13,6 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/setup"
 )
 
-var version = "dev"
-
 const usage = `zigbeat: make your Zigbee lights move with music, without flooding your network
 
 usage: zigbeat <command> [flags]
