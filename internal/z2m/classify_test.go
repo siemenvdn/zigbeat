@@ -48,7 +48,7 @@ func TestClassify(t *testing.T) {
 	}
 	for _, d := range ds {
 		role, why := Classify(d)
-		got := role + why
+		got := string(role) + why
 		if got != want[d.Name] {
 			t.Errorf("%s: got %q, want %q", d.Name, got, want[d.Name])
 		}
@@ -101,7 +101,11 @@ func TestClassifyRules(t *testing.T) {
 
 func TestCheck(t *testing.T) {
 	ds := testDevices(t)
-	cases := []struct{ name, role, err string }{
+	cases := []struct {
+		name string
+		role Role
+		err  string
+	}{
 		{"bulb_color_2", "color", ""},
 		{"bulb_color_2", "breathe", ""},
 		{"white-bulb", "breathe", ""},

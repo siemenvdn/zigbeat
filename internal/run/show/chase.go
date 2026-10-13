@@ -1,6 +1,9 @@
 package show
 
-import "github.com/siemenvdn/zigbeat/internal/run/flow"
+import (
+	"github.com/siemenvdn/zigbeat/internal/config"
+	"github.com/siemenvdn/zigbeat/internal/run/flow"
+)
 
 const (
 	flipEvery = 4 // moments between alternate fixtures switching separate/together
@@ -14,7 +17,7 @@ func (p *Planner) unitList() [][]string {
 	together := p.moments/flipEvery%2 == 1
 	var us [][]string
 	for _, f := range p.fixtures {
-		if f.Mode == "together" || f.Mode == "alternate" && together {
+		if f.Mode == config.Together || f.Mode == config.Alternate && together {
 			us = append(us, f.Lights)
 			continue
 		}

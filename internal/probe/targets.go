@@ -23,9 +23,9 @@ func (s *session) refuseTargets() error {
 // checkTargets checks every target in the role its mode needs: brightness
 // mode drives any light, color and combo need xy colour.
 func checkTargets(devs []z2m.Device, targets []string, mode string) error {
-	role := "color"
+	role := z2m.Color
 	if mode == "brightness" {
-		role = "breathe"
+		role = z2m.Breathe
 	}
 	for _, t := range targets {
 		if err := z2m.Check(devs, t, role); err != nil {

@@ -24,7 +24,7 @@ func TestDevicesAsZigbeatSeesThem(t *testing.T) {
 		t.Fatalf("%d devices", len(ds))
 	}
 	for _, d := range ds {
-		if role, why := z2m.Classify(d); role != want[d.Name] {
+		if role, why := z2m.Classify(d); string(role) != want[d.Name] {
 			t.Errorf("%s: %q (%s), want %q", d.Name, role, why, want[d.Name])
 		}
 	}

@@ -4,6 +4,8 @@ package config
 import (
 	"fmt"
 	"time"
+
+	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
 type Config struct {
@@ -50,21 +52,21 @@ func (b Budget) CheckOffset() error {
 
 type Fixture struct {
 	Name   string   `yaml:"name"`
-	Role   string   `yaml:"role"`
-	Mode   string   `yaml:"mode"`
+	Role   z2m.Role `yaml:"role"`
+	Mode   Mode     `yaml:"mode"`
 	Lights []string `yaml:"lights"`
 }
 
 type Effects struct {
-	Pace           int      `yaml:"pace"` // beats between moments
-	Brightness     int      `yaml:"brightness"`
-	Palette        []string `yaml:"palette"`
-	BreatheRange   [2]int   `yaml:"breathe_range"`
-	BreatheVariant string   `yaml:"breathe_variant"` // how the breathe lights move, or rotation
-	AlbumPalette   bool     `yaml:"album_palette"`   // the album art's colours when the source has them
-	AlbumColors    int      `yaml:"album_colors"`    // colours made from the album art
-	Variant        string   `yaml:"variant"`         // how the colour lights change, or rotation
-	FollowEnergy   bool     `yaml:"follow_energy"`   // quiet parts of the music play calmer
+	Pace           int            `yaml:"pace"` // beats between moments
+	Brightness     int            `yaml:"brightness"`
+	Palette        []string       `yaml:"palette"`
+	BreatheRange   [2]int         `yaml:"breathe_range"`
+	BreatheVariant BreatheVariant `yaml:"breathe_variant"` // how the breathe lights move, or rotation
+	AlbumPalette   bool           `yaml:"album_palette"`   // the album art's colours when the source has them
+	AlbumColors    int            `yaml:"album_colors"`    // colours made from the album art
+	Variant        Variant        `yaml:"variant"`         // how the colour lights change, or rotation
+	FollowEnergy   bool           `yaml:"follow_energy"`   // quiet parts of the music play calmer
 }
 
 // DefaultEffects fills what the effects block leaves out; the palette comes after decoding.
@@ -72,10 +74,10 @@ var DefaultEffects = Effects{
 	Pace:           2,               // beats: twice the bar of the first show on real lights, which was too slow
 	Brightness:     60,              // percent: room for the kick above it
 	BreatheRange:   [2]int{10, 100}, // percent: a pulse needs contrast
-	BreatheVariant: "rotation",      // pulse and flip take turns per 16 bars
+	BreatheVariant: BreatheRotation, // pulse and flip take turns per 16 bars
 	AlbumPalette:   true,            // the colours follow the music when they can
 	AlbumColors:    3,               // a few colours keep the mood of the cover
-	Variant:        "rotation",      // a new way of changing every 16 bars
+	Variant:        Rotation,        // a new way of changing every 16 bars
 	FollowEnergy:   true,            // breakdowns and drops look different; the metronome has no energy
 }
 

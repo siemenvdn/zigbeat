@@ -9,13 +9,14 @@ import (
 	"strings"
 
 	"github.com/siemenvdn/zigbeat/internal/config"
+	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
 // light is a light Zigbee2MQTT offers zigbeat.
 type light struct {
 	name  string
-	role  string // color or breathe, from z2m.Classify
-	model string // vendor and model, for the table
+	role  z2m.Role // color or breathe, from z2m.Classify
+	model string   // vendor and model, for the table
 }
 
 // indexOf is the position of the light called name in ls, or -1.
@@ -55,7 +56,7 @@ func arrange(existing []config.Fixture, chosen []light) (fixtures []config.Fixtu
 			l, ok := byName[n]
 			switch {
 			case !ok:
-			case f.Role == "color" && l.role != "color":
+			case f.Role == z2m.Color && l.role != z2m.Color:
 				notes = append(notes, fmt.Sprintf("%s: no xy colour; now breathe", n))
 			default:
 				keep = append(keep, n)
@@ -103,7 +104,7 @@ func group(ls []light, taken []config.Fixture) []config.Fixture {
 	var out []config.Fixture
 	index := map[string]int{}
 	for _, l := range ls {
-		key := l.role + "/" + stem(l.name)
+		key := string(l.role) + "/" + stem(l.name)
 		if i, ok := index[key]; ok {
 			out[i].Lights = append(out[i].Lights, l.name)
 			continue

@@ -6,11 +6,13 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/siemenvdn/zigbeat/internal/config"
 )
 
 // playing returns a planner for variant over colour fixtures of the given sizes,
 // with a fixed seed.
-func playing(variant, mode string, sizes ...int) *Planner {
+func playing(variant config.Variant, mode config.Mode, sizes ...int) *Planner {
 	c := fixtures(mode, sizes...)
 	c.Effects.Variant = variant
 	p := NewPlanner(c)
@@ -119,7 +121,7 @@ func TestBuildFillsTheRoomWithOneColour(t *testing.T) {
 
 func TestRotation(t *testing.T) {
 	p := playing("rotation", "separate", 3)
-	for index, want := range map[int]string{-4: "build", 0: "build", 60: "build", 64: "walk", 128: "shuffle", 192: "swap", 256: "walk"} {
+	for index, want := range map[int]config.Variant{-4: "build", 0: "build", 60: "build", 64: "walk", 128: "shuffle", 192: "swap", 256: "walk"} {
 		if got := p.variantAt(index); got != want {
 			t.Errorf("index %d: %s, want %s", index, got, want)
 		}

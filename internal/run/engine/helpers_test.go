@@ -25,7 +25,7 @@ func lightsOf(ss []Send) string {
 }
 
 // started returns an engine whose start pass went out and was confirmed after 40 ms.
-func started(t *testing.T, mode string, maxRate float64) *Engine {
+func started(t *testing.T, mode config.Mode, maxRate float64) *Engine {
 	t.Helper()
 	cfg := testConfig(mode)
 	cfg.Budget.MaxRate = maxRate

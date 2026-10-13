@@ -10,7 +10,7 @@ import (
 
 // fixtures returns a config whose colour fixtures have the given sizes, all in
 // mode, named f0-1, f0-2, ..., and one breathe light.
-func fixtures(mode string, sizes ...int) config.Config {
+func fixtures(mode config.Mode, sizes ...int) config.Config {
 	c := testConfig(mode)
 	var fs []config.Fixture
 	for i, n := range sizes {

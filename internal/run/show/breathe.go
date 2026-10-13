@@ -1,28 +1,29 @@
 package show
 
 import (
+	"github.com/siemenvdn/zigbeat/internal/config"
 	"github.com/siemenvdn/zigbeat/internal/run/flow"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
 // breatheRotation is the order of the breathe variants per phrase, pulse first.
-var breatheRotation = []string{"pulse", "flip"}
+var breatheRotation = []config.BreatheVariant{config.Pulse, config.Flip}
 
 // whiteState is what the breathe lights keep between moments.
 type whiteState struct {
-	breatheSetting string // effects.breathe_variant
-	breathing      string // the breathe variant of the last moment; "" without breathe lights
-	lit            []bool // per breathe light: at the top of its range
-	next           int    // the breathe light whose turn comes first
+	breatheSetting config.BreatheVariant // effects.breathe_variant
+	breathing      config.BreatheVariant // the breathe variant of the last moment; "" without breathe lights
+	lit            []bool                // per breathe light: at the top of its range
+	next           int                   // the breathe light whose turn comes first
 }
 
 // breatheAt is the breathe variant of the moment at index: the one in the
 // config, or in rotation pulse and flip per phrase, pulse first.
-func (p *Planner) breatheAt(index int) string {
+func (p *Planner) breatheAt(index int) config.BreatheVariant {
 	switch {
 	case len(p.breathe) == 0:
 		return ""
-	case p.breatheSetting != "rotation":
+	case p.breatheSetting != config.BreatheRotation:
 		return p.breatheSetting
 	}
 	return breatheRotation[max(0, index/phraseBeats)%len(breatheRotation)]
@@ -36,7 +37,7 @@ func (p *Planner) white(st stroke, calm bool, room float64) []Message {
 		return nil
 	case calm:
 		return p.dim(st, room)
-	case p.breathing == "flip":
+	case p.breathing == config.Flip:
 		return p.flip(st, room)
 	}
 	return p.pulse(st, room)

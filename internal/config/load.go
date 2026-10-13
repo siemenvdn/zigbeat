@@ -59,8 +59,8 @@ func Parse(data []byte, getenv func(string) string, n Need) (Config, error) {
 		c.Effects.Palette = DefaultPalette
 	}
 	for i, f := range c.Fixtures {
-		if f.Role == "color" && f.Mode == "" {
-			c.Fixtures[i].Mode = "alternate"
+		if f.Role == z2m.Color && f.Mode == "" {
+			c.Fixtures[i].Mode = Alternate
 		}
 	}
 	if c.MQTT.PasswordEnv != "" {

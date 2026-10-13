@@ -20,7 +20,7 @@ const (
 // calm level on.
 func TestNoMomentSendsMoreThanThree(t *testing.T) {
 	var configs []config.Config
-	for _, mode := range []string{"separate", "together", "alternate"} {
+	for _, mode := range []config.Mode{config.Separate, config.Together, config.Alternate} {
 		for n := 1; n <= 8; n++ {
 			configs = append(configs, fixtures(mode, n))
 		}
@@ -31,7 +31,7 @@ func TestNoMomentSendsMoreThanThree(t *testing.T) {
 		}
 	}
 	for _, c := range configs {
-		for _, variant := range []string{"rotation", "walk", "shuffle", "swap", "build"} {
+		for _, variant := range config.Variants {
 			c.Effects.Variant = variant
 			for backoff := 0; backoff < flow.PauseLevel; backoff++ {
 				noMoreThanThree(t, c, backoff)

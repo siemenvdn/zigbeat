@@ -58,13 +58,13 @@ var settings = []setting{
 	field("album_colors", slider("Album colour count", "mdi:palette-swatch", config.MinAlbumColors, config.MaxAlbumColors, ""),
 		func(c *config.Config) *int { return &c.Effects.AlbumColors }, whole),
 	field("variant", map[string]any{"platform": "select", "name": "Variant", "icon": "mdi:shuffle-variant", "options": config.Variants},
-		func(c *config.Config) *string { return &c.Effects.Variant }, word),
+		func(c *config.Config) *config.Variant { return &c.Effects.Variant }, word[config.Variant]),
 	field("brightness", slider("Brightness", "mdi:brightness-6", config.MinPercent, config.MaxPercent, "%"),
 		func(c *config.Config) *int { return &c.Effects.Brightness }, whole),
 	field("pace", map[string]any{"platform": "select", "name": "Pace", "icon": "mdi:metronome", "options": paceLabels()},
 		func(c *config.Config) *int { return &c.Effects.Pace }, pace),
 	field("breathe_variant", map[string]any{"platform": "select", "name": "Breathe variant", "icon": "mdi:lightbulb-on-outline", "options": config.BreatheVariants},
-		func(c *config.Config) *string { return &c.Effects.BreatheVariant }, word),
+		func(c *config.Config) *config.BreatheVariant { return &c.Effects.BreatheVariant }, word[config.BreatheVariant]),
 	field("breathe_low", slider("Breathe low", "mdi:brightness-4", config.MinPercent, config.MaxPercent, "%"),
 		func(c *config.Config) *int { return &c.Effects.BreatheRange[0] }, whole),
 	field("breathe_high", slider("Breathe high", "mdi:brightness-7", config.MinPercent, config.MaxPercent, "%"),
@@ -126,7 +126,7 @@ func Value(c config.Config, key string) any {
 }
 
 // word takes a select's option as it is; Validate checks it.
-func word(p string) (string, error) { return p, nil }
+func word[T ~string](p string) (T, error) { return T(p), nil }
 
 func onOff(p string) (bool, error) {
 	switch p {

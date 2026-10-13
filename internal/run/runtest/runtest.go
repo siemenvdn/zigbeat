@@ -6,6 +6,7 @@ import (
 
 	"github.com/siemenvdn/zigbeat/internal/config"
 	"github.com/siemenvdn/zigbeat/internal/music"
+	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
 // T0 is the start of every test clock.
@@ -16,7 +17,7 @@ func At(ms int) time.Time { return T0.Add(time.Duration(ms) * time.Millisecond) 
 
 // Config has lamp-1..3 in one color fixture with mode, lamp-4 breathing,
 // a budget of 100 frames/s at 50 ms, no canary, the walk variant and a moment every bar.
-func Config(mode string) config.Config {
+func Config(mode config.Mode) config.Config {
 	effects := config.DefaultEffects
 	effects.Palette = config.DefaultPalette
 	effects.Variant = "walk"
@@ -25,8 +26,8 @@ func Config(mode string) config.Config {
 		MQTT:   config.MQTT{Broker: "b:1883", BaseTopic: "zigbee2mqtt"},
 		Budget: config.Budget{MaxRate: 100, LatencyMS: 50},
 		Fixtures: []config.Fixture{
-			{Name: "pendant", Role: "color", Mode: mode, Lights: []string{"lamp-1", "lamp-2", "lamp-3"}},
-			{Name: "floor", Role: "breathe", Lights: []string{"lamp-4"}},
+			{Name: "pendant", Role: z2m.Color, Mode: mode, Lights: []string{"lamp-1", "lamp-2", "lamp-3"}},
+			{Name: "floor", Role: z2m.Breathe, Lights: []string{"lamp-4"}},
 		},
 		Effects: effects,
 	}

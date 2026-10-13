@@ -10,7 +10,7 @@ import (
 
 // whites returns the test config with breathe lights lamp-4 up to lamp-<3+n>,
 // playing variant.
-func whites(variant string, n int) config.Config {
+func whites(variant config.BreatheVariant, n int) config.Config {
 	c := testConfig("separate")
 	c.Fixtures[1].Lights = nil
 	for i := range n {
@@ -77,7 +77,7 @@ func TestFlipInCounterPhase(t *testing.T) {
 
 func TestBreatheRotation(t *testing.T) {
 	p := NewPlanner(whites("rotation", 1))
-	for index, want := range map[int]string{-4: "pulse", 0: "pulse", 60: "pulse", 64: "flip", 128: "pulse", 192: "flip"} {
+	for index, want := range map[int]config.BreatheVariant{-4: "pulse", 0: "pulse", 60: "pulse", 64: "flip", 128: "pulse", 192: "flip"} {
 		if got := p.breatheAt(index); got != want {
 			t.Errorf("index %d: %s, want %s", index, got, want)
 		}

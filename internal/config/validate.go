@@ -3,6 +3,8 @@ package config
 import (
 	"errors"
 	"fmt"
+
+	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
 // validate checks c; without needBudget a missing budget passes.
@@ -30,11 +32,11 @@ func (c Config) validate(needBudget bool) error {
 		}
 		names[f.Name] = true
 		switch f.Role {
-		case "color":
-			if f.Mode != "alternate" && f.Mode != "separate" && f.Mode != "together" {
+		case z2m.Color:
+			if f.Mode != Alternate && f.Mode != Separate && f.Mode != Together {
 				return fmt.Errorf("fixture %q: mode must be alternate, separate or together", f.Name)
 			}
-		case "breathe":
+		case z2m.Breathe:
 			if f.Mode != "" {
 				return fmt.Errorf("fixture %q: mode is only for color fixtures", f.Name)
 			}

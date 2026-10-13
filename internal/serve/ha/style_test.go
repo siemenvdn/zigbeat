@@ -40,9 +40,9 @@ func TestStyleEntities(t *testing.T) {
 		t.Errorf("audio_offset_ms: %v", c)
 	}
 	for key, want := range map[string][]string{
-		"variant":         config.Variants,
+		"variant":         {"rotation", "walk", "shuffle", "swap", "build"},
 		"pace":            {"every beat", "every 2 beats", "every bar", "every 2 bars", "every 4 bars"},
-		"breathe_variant": config.BreatheVariants,
+		"breathe_variant": {"rotation", "pulse", "flip"},
 	} {
 		c := cs[key].(map[string]any)
 		var opts []string

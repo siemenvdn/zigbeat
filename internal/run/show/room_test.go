@@ -17,7 +17,7 @@ const roomBeats = 160
 // flow.MaxPerMoment colour and white messages, and kicks all its colour
 // changes or none.
 func TestEveryMomentFitsItsRoom(t *testing.T) {
-	for _, mode := range []string{"separate", "together", "alternate"} {
+	for _, mode := range []config.Mode{config.Separate, config.Together, config.Alternate} {
 		for n := 1; n <= 8; n++ {
 			for _, variant := range config.Variants {
 				for _, breathe := range config.BreatheVariants {

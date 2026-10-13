@@ -27,16 +27,16 @@ type State struct {
 // Style is the part of the state that Home Assistant sets, under the keys of
 // the config.
 type Style struct {
-	AlbumPalette   string `json:"album_palette"` // ON or OFF, as the switch says
-	AlbumColors    int    `json:"album_colors"`
-	Variant        string `json:"variant"`
-	Brightness     int    `json:"brightness"`
-	Pace           string `json:"pace"` // the label, as the select shows it
-	BreatheVariant string `json:"breathe_variant"`
-	BreatheLow     int    `json:"breathe_low"`
-	BreatheHigh    int    `json:"breathe_high"`
-	FollowEnergy   string `json:"follow_energy"` // ON or OFF, as the switch says
-	AudioOffsetMS  int    `json:"audio_offset_ms"`
+	AlbumPalette   string                `json:"album_palette"` // ON or OFF, as the switch says
+	AlbumColors    int                   `json:"album_colors"`
+	Variant        config.Variant        `json:"variant"`
+	Brightness     int                   `json:"brightness"`
+	Pace           string                `json:"pace"` // the label, as the select shows it
+	BreatheVariant config.BreatheVariant `json:"breathe_variant"`
+	BreatheLow     int                   `json:"breathe_low"`
+	BreatheHigh    int                   `json:"breathe_high"`
+	FollowEnergy   string                `json:"follow_energy"` // ON or OFF, as the switch says
+	AudioOffsetMS  int                   `json:"audio_offset_ms"`
 }
 
 // StyleOf is the style of c for the state.

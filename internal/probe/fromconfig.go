@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/siemenvdn/zigbeat/internal/config"
+	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
 // fromConfig takes the MQTT settings, the targets and the canary from the
@@ -29,7 +30,7 @@ func (o *options) fromConfig(set map[string]bool) error {
 	}
 	var color, breathe []string
 	for _, f := range c.Fixtures {
-		if f.Role == "color" {
+		if f.Role == z2m.Color {
 			color = append(color, f.Lights...)
 		} else {
 			breathe = append(breathe, f.Lights...)

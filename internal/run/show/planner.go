@@ -36,8 +36,8 @@ type Planner struct {
 	current      map[string]string // colour each light was last given
 	parts        []part            // the rest of a unit too large for one moment
 	cursor       int
-	setting      string // effects.variant
-	playing      string // the variant of the last moment
+	setting      config.Variant // effects.variant
+	playing      config.Variant // the variant of the last moment
 	rng          *rand.Rand
 	variantState // deck, turn and target of the variant that plays
 	whiteState   // the breathe variant, levels and turn of the breathe lights
@@ -67,7 +67,7 @@ func NewPlanner(c config.Config) *Planner {
 	}
 	p.SetEffects(c.Effects)
 	for _, f := range c.Fixtures {
-		if f.Role == "breathe" {
+		if f.Role == z2m.Breathe {
 			p.breathe = append(p.breathe, f.Lights...)
 			continue
 		}

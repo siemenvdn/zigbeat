@@ -6,6 +6,15 @@ import (
 	"slices"
 )
 
+// Role is what zigbeat does with a light; the empty role drives nothing.
+type Role string
+
+// The roles.
+const (
+	Color   Role = "color"   // a colour bulb: changes colour on the beat, with a kick
+	Breathe Role = "breathe" // a dimmable bulb: pulses or flips
+)
+
 // accessSet is the bit of an expose's access that lets it be set.
 const accessSet = 2
 
@@ -25,11 +34,11 @@ var (
 	notABulb = regexp.MustCompile(`(?i)\bdimm(?:er|ing)\b|plug|socket|outlet|relay|module|actuator|insert|in-wall|switch|micro|ballast|triac|phase|edge|power supply|transformer`)
 )
 
-// Classify says whether zigbeat may drive d, and how: "color" for a light with
-// xy colour, "breathe" for any other dimmable bulb. An empty role comes with
+// Classify says whether zigbeat may drive d, and how: Color for a light with
+// xy colour, Breathe for any other dimmable bulb. An empty role comes with
 // the reason. Every rule must hold: a bulb refused wrongly is better than a
 // relay driven.
-func Classify(d Device) (role, why string) {
+func Classify(d Device) (role Role, why string) {
 	def := d.Definition
 	switch {
 	case d.Type == "Coordinator":
@@ -79,15 +88,15 @@ func Classify(d Device) (role, why string) {
 		return "", fmt.Sprintf("looks like a plug, dimmer or module: %q", def.Description)
 	}
 	if feature(lights[0], "color_xy") != nil {
-		return "color", ""
+		return Color, ""
 	}
-	return "breathe", ""
+	return Breathe, ""
 }
 
 // Check says why the light called name may not be driven in role, or returns
 // nil; the advice is the caller's. Role breathe takes every light Classify
 // offers, color only lights with xy colour.
-func Check(devs []Device, name, role string) error {
+func Check(devs []Device, name string, role Role) error {
 	d, ok := Find(devs, name)
 	if !ok {
 		return fmt.Errorf("light %q is not a Zigbee2MQTT device", name)
@@ -96,7 +105,7 @@ func Check(devs []Device, name, role string) error {
 	switch {
 	case got == "":
 		return fmt.Errorf("light %q is not offered by zigbeat setup (%s)", name, why)
-	case role == "color" && got != "color":
+	case role == Color && got != Color:
 		return fmt.Errorf("light %q has no xy colour", name)
 	}
 	return nil

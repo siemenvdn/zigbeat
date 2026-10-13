@@ -3,6 +3,7 @@ package show
 import (
 	"fmt"
 
+	"github.com/siemenvdn/zigbeat/internal/config"
 	"github.com/siemenvdn/zigbeat/internal/music"
 )
 
@@ -16,16 +17,16 @@ const (
 
 // rotation is the order of the variants after the build that opens a
 // timeline: from many colours to two.
-var rotation = []string{"walk", "shuffle", "swap"}
+var rotation = []config.Variant{config.Walk, config.Shuffle, config.Swap}
 
 // variantAt is the variant of the moment at index: the one in the config, or
 // in rotation build for a timeline's first phrase and then one per phrase.
-func (p *Planner) variantAt(index int) string {
-	if p.setting != "rotation" {
+func (p *Planner) variantAt(index int) config.Variant {
+	if p.setting != config.Rotation {
 		return p.setting
 	}
 	if index < phraseBeats {
-		return "build"
+		return config.Build
 	}
 	return rotation[(index/phraseBeats-1)%len(rotation)]
 }
@@ -41,21 +42,21 @@ func (p *Planner) noteVariants(b music.Beat) {
 		return
 	}
 	p.playing, p.breathing = v, w
-	note := "variant " + v
+	note := "variant " + string(v)
 	if w != "" {
-		note += ", breathe " + w
+		note += ", breathe " + string(w)
 	}
 	p.notes = append(p.notes, fmt.Sprintf("%s from bar %d", note, b.Bar()))
 }
 
 // pickFor lists the units variant v changes at this moment.
-func (p *Planner) pickFor(v string) [][]string {
+func (p *Planner) pickFor(v config.Variant) [][]string {
 	switch v {
-	case "shuffle":
+	case config.Shuffle:
 		return p.shuffled()
-	case "swap":
+	case config.Swap:
 		return p.swapped()
-	case "build":
+	case config.Build:
 		return p.built()
 	}
 	return p.walk()
@@ -63,11 +64,11 @@ func (p *Planner) pickFor(v string) [][]string {
 
 // colorOf is the colour unit u takes in variant v. A swap group avoids its own
 // colour too: with as many groups as colours, the others leave it no other.
-func (p *Planner) colorOf(v string, u []string) string {
+func (p *Planner) colorOf(v config.Variant, u []string) string {
 	switch v {
-	case "build":
+	case config.Build:
 		return p.target
-	case "swap":
+	case config.Swap:
 		return p.colorFor(u, append(p.outside(u), u...))
 	}
 	return p.colorFor(u, p.fixtureOf[u[0]])

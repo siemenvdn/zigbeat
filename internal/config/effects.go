@@ -9,15 +9,47 @@ import (
 
 var hexColor = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 
+// Mode is how a color fixture changes: one bulb at a time, all at once, or by turns.
+type Mode string
+
+// The modes of a color fixture.
+const (
+	Alternate Mode = "alternate" // separate and together by turns, the default
+	Separate  Mode = "separate"
+	Together  Mode = "together"
+)
+
+// Variant is how the colour lights change at a moment.
+type Variant string
+
+// The values of effects.variant.
+const (
+	Rotation Variant = "rotation" // build, then walk, shuffle and swap per phrase
+	Walk     Variant = "walk"
+	Shuffle  Variant = "shuffle"
+	Swap     Variant = "swap"
+	Build    Variant = "build"
+)
+
 // Variants are the values of effects.variant: rotation, or one variant all the time.
-var Variants = []string{"rotation", "walk", "shuffle", "swap", "build"}
+var Variants = []Variant{Rotation, Walk, Shuffle, Swap, Build}
+
+// BreatheVariant is how the breathe lights move at a moment.
+type BreatheVariant string
+
+// The values of effects.breathe_variant.
+const (
+	BreatheRotation BreatheVariant = "rotation" // pulse, then flip and pulse per phrase
+	Pulse           BreatheVariant = "pulse"
+	Flip            BreatheVariant = "flip"
+)
 
 // Paces are the values of effects.pace, in beats between moments: powers of two
 // keep moments on bar lines, and 16 beats are four bars.
 var Paces = []int{1, 2, 4, 8, 16}
 
 // BreatheVariants are the values of effects.breathe_variant: rotation, or one all the time.
-var BreatheVariants = []string{"rotation", "pulse", "flip"}
+var BreatheVariants = []BreatheVariant{BreatheRotation, Pulse, Flip}
 
 // The bounds of the effects. Home Assistant's sliders show the same ones.
 const (
