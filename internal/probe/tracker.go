@@ -15,8 +15,8 @@ type Pending struct {
 	Rate  float64
 }
 
-// Tracker matches state echoes to commands via a value that is unique per device
-// within the timeout window (the colour x or the brightness).
+// Tracker matches state echoes to commands via a value that is unique per device within the timeout window
+// (the colour x or the brightness).
 type Tracker struct {
 	mu      sync.Mutex
 	open    map[string]map[int][]Pending

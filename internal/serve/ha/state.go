@@ -11,8 +11,7 @@ import (
 // Statuses are the values of the status sensor.
 var Statuses = []string{"off", "starting", "running", "paused", "stopping"}
 
-// State is the payload of zigbeat/state. The numbers are nil while the show
-// does not play, which Home Assistant shows as unknown.
+// State is the payload of zigbeat/state.
 type State struct {
 	Show       string   `json:"show"`
 	Status     string   `json:"status"`
@@ -21,21 +20,20 @@ type State struct {
 	Backoff    *int     `json:"backoff"`
 	Lights     *int     `json:"lights"`
 	LightsAway *int     `json:"lights_away"`
-	Style               // the style in force, also while the show is off
+	Style
 }
 
-// Style is the part of the state that Home Assistant sets, under the keys of
-// the config.
+// Style is the part of the state that Home Assistant sets, under the keys of the config.
 type Style struct {
-	AlbumPalette   string                `json:"album_palette"` // ON or OFF, as the switch says
+	AlbumPalette   string                `json:"album_palette"`
 	AlbumColors    int                   `json:"album_colors"`
 	Variant        config.Variant        `json:"variant"`
 	Brightness     int                   `json:"brightness"`
-	Pace           string                `json:"pace"` // the label, as the select shows it
+	Pace           string                `json:"pace"`
 	BreatheVariant config.BreatheVariant `json:"breathe_variant"`
 	BreatheLow     int                   `json:"breathe_low"`
 	BreatheHigh    int                   `json:"breathe_high"`
-	FollowEnergy   string                `json:"follow_energy"` // ON or OFF, as the switch says
+	FollowEnergy   string                `json:"follow_energy"`
 	AudioOffsetMS  int                   `json:"audio_offset_ms"`
 }
 
@@ -47,7 +45,6 @@ func StyleOf(c config.Config) Style {
 		AudioOffsetMS: c.Budget.AudioOffsetMS}
 }
 
-// onOffOf is a switch's state.
 func onOffOf(on bool) string {
 	if on {
 		return "ON"
@@ -55,7 +52,6 @@ func onOffOf(on bool) string {
 	return "OFF"
 }
 
-// fpsDecimals rounds frames per second for Home Assistant.
 const fpsDecimals = 1
 
 // The states while the show does not play.
@@ -65,7 +61,7 @@ var (
 	Stopping = State{Show: "OFF", Status: "stopping"}
 )
 
-// Playing turns the show's stats into a state; total is the number of lights in the config.
+// Playing turns the show's stats into a state.
 func Playing(st engine.Stats, total int) State {
 	status := "running"
 	if st.Paused() {

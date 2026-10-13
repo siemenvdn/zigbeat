@@ -12,7 +12,7 @@ import (
 
 func TestDrainSurvivesAPanickedEngine(t *testing.T) {
 	r, _ := newShell(t)
-	r.eng = &engine.Engine{} // broken: any call into it panics
+	r.eng = &engine.Engine{}
 	r.drain(50 * time.Millisecond)
 }
 
@@ -27,7 +27,6 @@ func TestPanicReasonCarriesTheStack(t *testing.T) {
 	}
 }
 
-// panicSource panics each time a show starts it.
 type panicSource struct{ starts *int }
 
 func (s panicSource) Events(context.Context) <-chan music.Event {

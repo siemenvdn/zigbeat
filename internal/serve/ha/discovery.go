@@ -1,5 +1,4 @@
-// Package ha is the Home Assistant side of zigbeat serve: the MQTT topics,
-// the device discovery message and the state payload.
+// Package ha is the Home Assistant side of zigbeat serve.
 package ha
 
 import (
@@ -15,11 +14,8 @@ const (
 	CommandTopic   = "zigbeat/show/set"
 )
 
-// template reads key from zigbeat/state.
 func template(key string) string { return "{{ value_json." + key + " }}" }
 
-// removed are settings an older zigbeat offered, with their platform. A
-// component with only its platform removes it from the device in Home Assistant.
 var removed = map[string]string{"cadence": "number"}
 
 // Discovery is the Home Assistant device discovery message for every entity.
@@ -45,7 +41,7 @@ func Discovery(version string) []byte {
 	for _, s := range settings {
 		c := maps.Clone(s.component)
 		c["command_topic"] = StyleTopic(s.key)
-		c["retain"] = true // the broker keeps the choice
+		c["retain"] = true
 		c["value_template"] = template(s.key)
 		components[s.key] = c
 	}

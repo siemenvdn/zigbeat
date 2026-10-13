@@ -1,5 +1,5 @@
-// Package probe measures how many light commands per second a Zigbee network
-// handles before commands lag or the rest of the network slows down.
+// Package probe measures how many light commands per second a Zigbee network handles before commands lag or
+// the rest of the network slows down.
 package probe
 
 import (
@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	countdown = 5 * time.Second // time to read the plan above and press Ctrl-C
-	// stepOverhead is the drain after each step, for the time estimate.
+	countdown = 5 * time.Second
+
 	stepOverhead = 2 * time.Second
 )
 
@@ -57,11 +57,9 @@ func Run(args []string) int {
 
 var (
 	errInterrupted = errors.New("interrupted")
-	errFailed      = errors.New("failed") // the reason is printed already
+	errFailed      = errors.New("failed")
 )
 
-// prepare checks the targets, saves their state, checks the canary and
-// shows the plan. Nothing is changed yet; false means stop with code.
 func (s *session) prepare() (code int, ok bool) {
 	if err := s.refuseTargets(); err != nil {
 		return cli.Fail(err), false
@@ -95,9 +93,6 @@ func (s *session) prepare() (code int, ok bool) {
 	return 0, true
 }
 
-// measure runs the baseline, the self-check and the climb. touched says
-// whether the targets changed, so they need a restore. errFailed and
-// errInterrupted come with their reason printed.
 func (s *session) measure() (results []Step, base Stats, touched bool, err error) {
 	base, ok := s.baseline()
 	switch {
@@ -146,7 +141,6 @@ func (s *session) connLost() bool {
 	return true
 }
 
-// finish stops the background work, prints the summary and writes the raw samples.
 func (s *session) finish(results []Step, base Stats) {
 	s.stopBg()
 	if len(results) > 0 {

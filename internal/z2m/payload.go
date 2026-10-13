@@ -1,7 +1,6 @@
 package z2m
 
-// Frames estimates the Zigbee frames Zigbee2MQTT sends for a set payload:
-// state and brightness share one command; color, color_temp and brightness_move take one each.
+// Frames estimates the Zigbee frames Zigbee2MQTT sends for a set payload.
 func Frames(p map[string]any) int {
 	n := 0
 	_, state := p["state"]

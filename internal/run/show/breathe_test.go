@@ -8,8 +8,6 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/config"
 )
 
-// whites returns the test config with breathe lights lamp-4 up to lamp-<3+n>,
-// playing variant.
 func whites(variant config.BreatheVariant, n int) config.Config {
 	c := testConfig("separate")
 	c.Fixtures[1].Lights = nil
@@ -20,7 +18,6 @@ func whites(variant config.BreatheVariant, n int) config.Config {
 	return c
 }
 
-// white lists the breathe messages of ps as light:level, then + when it may be dropped.
 func white(ps []Message, lights []string) []string {
 	var out []string
 	for _, m := range ps {
@@ -62,13 +59,13 @@ func TestFlipInCounterPhase(t *testing.T) {
 	lights := c.Fixtures[1].Lights
 	hi, lo := level(100), level(10)
 	want := [][]string{
-		{fmt.Sprintf("lamp-4:%d+", hi)}, // lamp-5 starts low already
+		{fmt.Sprintf("lamp-4:%d+", hi)},
 		{fmt.Sprintf("lamp-4:%d+", lo), fmt.Sprintf("lamp-5:%d+", hi)},
 		{fmt.Sprintf("lamp-4:%d+", hi), fmt.Sprintf("lamp-5:%d+", lo)},
 	}
 	for i, w := range want {
 		got := white(p.Beat(moment(4*i), false), lights)
-		slices.Sort(got) // the turn decides who goes first
+		slices.Sort(got)
 		if !slices.Equal(got, w) {
 			t.Errorf("moment %d: %v, want %v", i, got, w)
 		}
@@ -92,14 +89,13 @@ func TestBreatheRotation(t *testing.T) {
 	}
 }
 
-// TestCalmHoldsTheWhite: from the calm level a breathe light that is high gets
-// its low end once, never dropped, and then nothing.
+// TestCalmHoldsTheWhite.
 func TestCalmHoldsTheWhite(t *testing.T) {
 	c := whites("flip", 1)
 	p := NewPlanner(c)
 	p.Start(t0)
 	lights := c.Fixtures[1].Lights
-	p.Beat(moment(0), false) // lamp-4 goes high
+	p.Beat(moment(0), false)
 	if got := white(p.Beat(moment(4), true), lights); !slices.Equal(got, []string{fmt.Sprintf("lamp-4:%d", level(10))}) {
 		t.Errorf("calm: %v", got)
 	}

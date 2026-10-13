@@ -17,21 +17,19 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/ws"
 )
 
-const offset = 37 * time.Second // the fake's clock runs this far ahead
+const offset = 37 * time.Second
 
 const lead = 300 * time.Millisecond
 
-// fakeMA is a relay with its own clock. Every authenticated connection is handed to the test.
 type fakeMA struct {
 	base  time.Time
 	conns chan *ws.Conn
 	url   string
-	dials atomic.Int64 // connections opened
+	dials atomic.Int64
 }
 
 func (f *fakeMA) now() int64 { return time.Since(f.base).Microseconds() + offset.Microseconds() }
 
-// local is the time on the test's clock of ts on the fake's.
 func (f *fakeMA) local(ts int64) time.Time {
 	return f.base.Add(time.Duration(ts)*time.Microsecond - offset)
 }
@@ -88,7 +86,6 @@ func beatFrame(ts int64, down bool) []byte {
 	return append(b, 0)
 }
 
-// syncBuf collects the notes; the source writes from its own goroutine.
 type syncBuf struct {
 	mu sync.Mutex
 	b  bytes.Buffer
@@ -115,7 +112,6 @@ func (s *syncBuf) waitFor(t *testing.T, want string) {
 	t.Fatalf("notes %q lack %q", s.b.String(), want)
 }
 
-// listen starts a source; the test's cleanup waits until it stopped.
 func listen(t *testing.T, f *fakeMA, player, token string) (<-chan music.Event, *syncBuf) {
 	ctx, cancel := context.WithCancel(context.Background())
 	notes := &syncBuf{}
@@ -140,7 +136,6 @@ func nextEvent(t *testing.T, events <-chan music.Event) music.Event {
 	return nil
 }
 
-// next is the next beat; tracks are skipped, a clear fails the test.
 func next(t *testing.T, events <-chan music.Event) music.Beat {
 	t.Helper()
 	for {

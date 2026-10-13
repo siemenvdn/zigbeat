@@ -14,7 +14,7 @@ type Config struct {
 	Canary         string          `yaml:"canary"`
 	Fixtures       []Fixture       `yaml:"fixtures"`
 	Effects        Effects         `yaml:"effects"`
-	MusicAssistant *MusicAssistant `yaml:"music_assistant"` // nil: the show runs to a metronome
+	MusicAssistant *MusicAssistant `yaml:"music_assistant"`
 }
 
 type MQTT struct {
@@ -22,15 +22,13 @@ type MQTT struct {
 	Username    string `yaml:"username"`
 	PasswordEnv string `yaml:"password_env"`
 	BaseTopic   string `yaml:"base_topic"`
-	Password    string `yaml:"-"` // read from PasswordEnv
+	Password    string `yaml:"-"`
 }
 
-// Limits of budget.audio_offset_ms. Beats arrive music.Lookahead ahead, so a much
-// earlier offset would ask for messages before their beat is known; speakers
-// that lag more than 2 s are not worth a show.
+// Limits of budget.audio_offset_ms.
 const MinOffsetMS, MaxOffsetMS = -500, 2000
 
-// OffsetStepMS is the smallest change of the audio offset: about what an ear can tell apart.
+// OffsetStepMS is the smallest change of the audio offset.
 const OffsetStepMS = 10
 
 type Budget struct {
@@ -58,27 +56,27 @@ type Fixture struct {
 }
 
 type Effects struct {
-	Pace           int            `yaml:"pace"` // beats between moments
+	Pace           int            `yaml:"pace"`
 	Brightness     int            `yaml:"brightness"`
 	Palette        []string       `yaml:"palette"`
 	BreatheRange   [2]int         `yaml:"breathe_range"`
-	BreatheVariant BreatheVariant `yaml:"breathe_variant"` // how the breathe lights move, or rotation
-	AlbumPalette   bool           `yaml:"album_palette"`   // the album art's colours when the source has them
-	AlbumColors    int            `yaml:"album_colors"`    // colours made from the album art
-	Variant        Variant        `yaml:"variant"`         // how the colour lights change, or rotation
-	FollowEnergy   bool           `yaml:"follow_energy"`   // quiet parts of the music play calmer
+	BreatheVariant BreatheVariant `yaml:"breathe_variant"`
+	AlbumPalette   bool           `yaml:"album_palette"`
+	AlbumColors    int            `yaml:"album_colors"`
+	Variant        Variant        `yaml:"variant"`
+	FollowEnergy   bool           `yaml:"follow_energy"`
 }
 
-// DefaultEffects fills what the effects block leaves out; the palette comes after decoding.
+// DefaultEffects fills what the effects block leaves out.
 var DefaultEffects = Effects{
-	Pace:           2,               // beats: twice the bar of the first show on real lights, which was too slow
-	Brightness:     60,              // percent: room for the kick above it
-	BreatheRange:   [2]int{10, 100}, // percent: a pulse needs contrast
-	BreatheVariant: BreatheRotation, // pulse and flip take turns per 16 bars
-	AlbumPalette:   true,            // the colours follow the music when they can
-	AlbumColors:    3,               // a few colours keep the mood of the cover
-	Variant:        Rotation,        // a new way of changing every 16 bars
-	FollowEnergy:   true,            // breakdowns and drops look different; the metronome has no energy
+	Pace:           2,
+	Brightness:     60,
+	BreatheRange:   [2]int{10, 100},
+	BreatheVariant: BreatheRotation,
+	AlbumPalette:   true,
+	AlbumColors:    3,
+	Variant:        Rotation,
+	FollowEnergy:   true,
 }
 
 // DefaultPalette is used when effects.palette is empty.
@@ -96,7 +94,7 @@ func LightsOf(fixtures []Fixture) []string {
 	return out
 }
 
-// Keep returns c with only the lights for which keep is true; fixtures left empty are dropped.
+// Keep returns c with only the lights for which keep is true.
 func (c Config) Keep(keep func(light string) bool) Config {
 	var fs []Fixture
 	for _, f := range c.Fixtures {

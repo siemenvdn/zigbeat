@@ -17,8 +17,6 @@ type job struct {
 	body   map[string]any
 }
 
-// coordinator is the simulated Zigbee coordinator: one queue, air time per frame.
-// Only its run goroutine touches state.
 type coordinator struct {
 	c               *mqtt.Client
 	base            string
@@ -34,7 +32,6 @@ func (co *coordinator) run(jobs <-chan job) {
 	}
 }
 
-// apply sends j over the simulated air and publishes the new state, like Zigbee2MQTT.
 func (co *coordinator) apply(j job) {
 	frames := 1
 	if j.kind == "set" {
@@ -48,7 +45,7 @@ func (co *coordinator) apply(j job) {
 	echo := j.kind == "get"
 	if j.kind == "set" {
 		for k, v := range j.body {
-			// Like Zigbee2MQTT: a brightness_move alone publishes no state.
+
 			if k == "transition" || k == "brightness_move" {
 				continue
 			}

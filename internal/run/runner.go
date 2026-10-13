@@ -10,15 +10,13 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
-// event is a state message or an error line from Zigbee2MQTT.
 type event struct {
-	light string // empty for a log line
+	light string
 	st    z2m.State
 	msg   string
 	at    time.Time
 }
 
-// runner connects the engine to Zigbee2MQTT and real time.
 type runner struct {
 	cfg      config.Config
 	link     link
@@ -29,11 +27,8 @@ type runner struct {
 	snapJSON []byte
 }
 
-// eventBuffer holds seconds of state messages at any budget; push drops beyond it.
 const eventBuffer = 1024
 
-// connect dials the show's link. When ctx is done first it returns at once and
-// closes the link once the dial ends.
 func connect(ctx context.Context, cfg config.Config) (*runner, error) {
 	r := &runner{cfg: cfg, events: make(chan event, eventBuffer)}
 	type dialed struct {
@@ -53,7 +48,7 @@ func connect(ctx context.Context, cfg config.Config) (*runner, error) {
 		r.link = d.l
 		return r, nil
 	case <-ctx.Done():
-		go func() { // a dial and its subscriptions take up to seconds each
+		go func() {
 			if d := <-done; d.err == nil {
 				d.l.Close()
 			}
@@ -62,7 +57,6 @@ func connect(ctx context.Context, cfg config.Config) (*runner, error) {
 	}
 }
 
-// push hands an event to the loop without blocking the MQTT reader.
 func (r *runner) push(ev event) {
 	select {
 	case r.events <- ev:
@@ -79,7 +73,6 @@ func (r *runner) offline() bool {
 	}
 }
 
-// report hands the stats to the Status hook, if there is one.
 func (r *runner) report(st engine.Stats) {
 	if r.hooks.Status != nil {
 		r.hooks.Status(st)

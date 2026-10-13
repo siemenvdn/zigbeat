@@ -15,7 +15,7 @@ func TestRisingLatencyBacksOff(t *testing.T) {
 		e.State("lamp-1", at(i*1000+latency))
 	}
 	for i := 0; i < 20; i++ {
-		confirm(i, 80, 2) // 40 ms per frame becomes the baseline
+		confirm(i, 80, 2)
 	}
 	for i := 20; i < 29; i++ {
 		confirm(i, 100, 1)
@@ -29,14 +29,12 @@ func TestRisingLatencyBacksOff(t *testing.T) {
 	}
 }
 
-// TestBurstsAreNoRisingLatency: messages that leave together wait for each
-// other at a coordinator that sends one frame at a time. A moment of four
-// one-frame messages after a phrase of single kicks is no slower network.
+// TestBurstsAreNoRisingLatency.
 func TestBurstsAreNoRisingLatency(t *testing.T) {
 	e := New(testConfig("separate"), 0, t0)
-	const service = 90 // ms per frame, as fake-z2m's default
+	const service = 90
 	for i := 0; i < 20; i++ {
-		e.fl.Add("lamp-1", at(i*1000), 2) // a kick alone sets the baseline
+		e.fl.Add("lamp-1", at(i*1000), 2)
 		e.State("lamp-1", at(i*1000+2*service))
 	}
 	burst := func(i, service int) {
@@ -113,7 +111,7 @@ func TestZigbeeErrorKeepsTheSlot(t *testing.T) {
 	land := at(10_000)
 	e.enqueue([]show.Message{{Light: "lamp-1", Payload: map[string]any{"brightness": 10}, Land: land}})
 	e.Due(land)
-	// The error may be about an older message; only the echo or the 5 s expiry frees the slot.
+
 	e.ZigbeeError(land.Add(time.Second), "Publish 'set' to 'lamp-1' failed: 'Timeout'")
 	if !e.fl.Busy("lamp-1") || e.lights["lamp-1"].fails != 0 {
 		t.Fatalf("busy %v, fails %d", e.fl.Busy("lamp-1"), e.lights["lamp-1"].fails)
@@ -135,7 +133,7 @@ func TestPauseSendsOnlyCanaryAndResumes(t *testing.T) {
 	if !e.bo.Tick(at(60_000)) || e.bo.Level() != flow.PauseLevel-1 {
 		t.Fatalf("a quiet minute resumes one level below the pause, level %d", e.bo.Level())
 	}
-	e.Music(at(60_000), moment(240)) // 120 s, on a bar
+	e.Music(at(60_000), moment(240))
 	if len(e.lights["lamp-1"].queue)+len(e.lights["lamp-3"].queue) == 0 {
 		t.Fatal("after the pause the show plans moments again")
 	}

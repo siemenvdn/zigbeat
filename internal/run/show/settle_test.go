@@ -7,8 +7,8 @@ func TestSettle(t *testing.T) {
 	if ps := p.Settle(at(10_000)); ps != nil {
 		t.Errorf("no beat yet: %v", ps)
 	}
-	p.Beat(moment(4), false) // a moment at 2 s: lamp-4 starts up
-	p.Beat(moment(5), false) // the latest beat, at 2.5 s
+	p.Beat(moment(4), false)
+	p.Beat(moment(5), false)
 	if ps := p.Settle(at(2900)); ps != nil {
 		t.Errorf("within a beat of the latest one: %v", ps)
 	}

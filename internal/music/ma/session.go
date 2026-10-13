@@ -10,12 +10,11 @@ import (
 )
 
 const (
-	reportAfter = 200 * time.Millisecond // a burst of beats is reported once it is quiet this long
-	// noBeatsHint is well past MA's analysis of a first play: beats are not coming.
+	reportAfter = 200 * time.Millisecond
+
 	noBeatsHint = 30 * time.Second
 )
 
-// session is one connection to the relay. Only its loop goroutine touches it.
 type session struct {
 	src  Source
 	conn *ws.Conn
@@ -25,14 +24,14 @@ type session struct {
 	g    grid
 	m    *meter
 
-	synced, announced  bool // announced: the track's burst of beats is complete and reported
+	synced, announced  bool
 	pings              int
-	waveSince          time.Time // first audio since the last clear without a beat
+	waveSince          time.Time
 	beatSeen, hinted   bool
 	emit, ping, report *time.Timer
-	fade               *time.Timer  // a null palette counts when it fires
-	palette            []music.RGB  // the album art of what plays; it outlives a clear
-	sent               *music.Track // the last Track sent for this timeline
+	fade               *time.Timer
+	palette            []music.RGB
+	sent               *music.Track
 }
 
 func (s *session) loop(ctx context.Context, msgs <-chan message) time.Duration {
@@ -54,7 +53,7 @@ func (s *session) loop(ctx context.Context, msgs <-chan message) time.Duration {
 			if !s.track(ctx) {
 				return 0
 			}
-			s.arm() // the burst is complete, so the first beat can be numbered from its downbeat
+			s.arm()
 		case <-s.fade.C:
 			s.palette = nil
 			if !s.track(ctx) {
@@ -72,7 +71,6 @@ func (s *session) loop(ctx context.Context, msgs <-chan message) time.Duration {
 	}
 }
 
-// handle reacts to one message; done means the session is over.
 func (s *session) handle(ctx context.Context, m message) (wait time.Duration, done bool) {
 	switch m.kind {
 	case kindFailed:
@@ -120,14 +118,12 @@ func (s *session) handle(ctx context.Context, m message) (wait time.Duration, do
 			return 0, true
 		}
 		if s.src.Player == "" {
-			return cli.RedialEvery, true // MA picks whichever player plays when the source dials again
+			return cli.RedialEvery, true
 		}
 	}
 	return 0, false
 }
 
-// forget drops the track: its beats no longer apply, also the ones handed
-// over already. It returns false when ctx ended the wait.
 func (s *session) forget(ctx context.Context, note string) bool {
 	delivered := s.g.started
 	s.g.clear()

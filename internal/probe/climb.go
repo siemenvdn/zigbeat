@@ -10,23 +10,19 @@ import (
 )
 
 const (
-	// maxRate caps the climb after the -rates list, far above what Zigbee handles.
 	maxRate = 100
-	// climbFactor is the step after the -rates list: fine enough to find the knee.
+
 	climbFactor = 1.25
-	minClimb    = 1 // cmd/s, so that low rates still climb after rounding
-	// recoveryWait is how long a stopped probe waits for the canary to settle; a
-	// busy mesh empties its queues within seconds.
+	minClimb    = 1
+
 	recoveryWait = 60 * time.Second
-	recoveryPoll = time.Second // about one canary read
-	// settledReads is how many of the latest canary answers must be within the limit.
+	recoveryPoll = time.Second
+
 	settledReads = 3
 )
 
-// climbPercent is climbFactor as printed: "+25%".
 func climbPercent() float64 { return (climbFactor - 1) * 100 }
 
-// climb runs rate steps until the first sign of trouble and returns every step.
 func (s *session) climb(lim Limits) []Step {
 	var results []Step
 	Header(os.Stdout)
@@ -45,7 +41,7 @@ func (s *session) climb(lim Limits) []Step {
 			s.waitRecovery(lim)
 			break
 		}
-		// One warning can be noise: measure the same rate again before going higher.
+
 		if warned = res.Verdict == Warn; !warned {
 			i++
 			rate = nextRate(s.cfg.rates, i, rate)
@@ -58,7 +54,6 @@ func (s *session) climb(lim Limits) []Step {
 	return results
 }
 
-// nextRate follows the -rates list, then climbs by climbFactor per step.
 func nextRate(rates []float64, i int, prev float64) float64 {
 	if i < len(rates) {
 		return rates[i]
@@ -66,7 +61,6 @@ func nextRate(rates []float64, i int, prev float64) float64 {
 	return math.Max(prev+minClimb, math.Round(prev*climbFactor))
 }
 
-// waitRecovery waits up to recoveryWait until the canary is back within its limit.
 func (s *session) waitRecovery(lim Limits) {
 	s.ph.Set("recovery", 0)
 	fmt.Println("stopping here, waiting for the network to settle")
@@ -93,8 +87,6 @@ func (s *session) waitRecovery(lim Limits) {
 	fmt.Printf("network still slow after %s; check the Zigbee2MQTT logs\n", cli.Seconds(recoveryWait))
 }
 
-// runStep sends commands at rate for one step and evaluates the result.
-// It returns false when the step was interrupted.
 func (s *session) runStep(rate float64, lim Limits) (Step, bool) {
 	res := Step{Rate: rate}
 	s.ph.Set("step", rate)
@@ -110,7 +102,6 @@ func (s *session) runStep(rate float64, lim Limits) (Step, bool) {
 	return res, completed
 }
 
-// send paces commands at res.Rate for one step from start. It returns false when interrupted.
 func (s *session) send(res *Step, start time.Time) bool {
 	deadline := start.Add(s.cfg.step)
 	interval := time.Duration(float64(time.Second) / res.Rate)
@@ -119,7 +110,7 @@ func (s *session) send(res *Step, start time.Time) bool {
 		if !s.sleep(time.Until(next)) {
 			return false
 		}
-		// At most one command in flight per bulb: take the next target that is free.
+
 		dev := ""
 		for j := range s.cfg.targets {
 			if d := s.cfg.targets[(turn+j)%len(s.cfg.targets)]; !s.tracker.Busy(d) {
@@ -139,7 +130,6 @@ func (s *session) send(res *Step, start time.Time) bool {
 	return true
 }
 
-// judge collects the samples and log lines of the step that ran from start to end, and evaluates them.
 func (s *session) judge(res *Step, start, end time.Time, lim Limits) {
 	samples, logs := s.rec.Snapshot()
 	var cmds, canary []Sample

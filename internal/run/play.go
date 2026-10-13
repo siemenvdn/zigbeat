@@ -11,17 +11,15 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/run/engine"
 )
 
-// Hooks let a caller follow and steer one show. All are optional.
+// Hooks let a caller follow and steer one show.
 type Hooks struct {
-	Status   func(engine.Stats)    // when play starts and every statusEvery, from the show loop; must not block
-	Stopping func() string         // once, right before the restore; returns a hint for the stop line, or ""
-	Offsets  <-chan time.Duration  // new audio offsets, typed during the show
-	Effects  <-chan config.Effects // a new style, chosen in Home Assistant
+	Status   func(engine.Stats)
+	Stopping func() string
+	Offsets  <-chan time.Duration
+	Effects  <-chan config.Effects
 }
 
-// Play runs one show to the beats of src until ctx is done, then restores every
-// light. It returns 0, or 1 when the show could not start, after a panic, or
-// when the broker is gone at stop.
+// Play runs one show to the beats of src until ctx is done, then restores every light.
 func Play(ctx context.Context, cfg config.Config, src music.Source, h Hooks) int {
 	r, err := connect(ctx, cfg)
 	if err != nil {

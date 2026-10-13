@@ -14,11 +14,11 @@ var ErrUsage = errors.New("usage")
 
 // Exit codes.
 const (
-	ExitUsage       = 2   // a bad flag, as the flag package uses it
-	ExitInterrupted = 130 // 128 + SIGINT, as shells report a Ctrl-C
+	ExitUsage       = 2
+	ExitInterrupted = 130
 )
 
-// NewFlagSet returns the flag set of a subcommand; -h prints usage, about and the flags.
+// NewFlagSet returns the flag set of a subcommand.
 func NewFlagSet(name, usage, about string) *flag.FlagSet {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
 	fs.Usage = func() {
@@ -39,8 +39,7 @@ func Parse(fs *flag.FlagSet, args []string) error {
 	return ErrUsage
 }
 
-// Exit turns an error from parsing and checking flags into an exit code: 0 after
-// -h, ExitUsage for a bad flag. Other errors are printed. stop is false for nil.
+// Exit turns an error from parsing and checking flags into an exit code.
 func Exit(err error) (code int, stop bool) {
 	switch {
 	case err == nil:
@@ -53,8 +52,7 @@ func Exit(err error) (code int, stop bool) {
 	return ExitUsage, true
 }
 
-// Names splits a comma-separated list of names from a flag and drops empty
-// ones and repeats: a light named twice is still one light.
+// Names splits a comma-separated list of names from a flag and drops empty ones and repeats.
 func Names(list string) []string {
 	var out []string
 	for _, n := range strings.Split(list, ",") {

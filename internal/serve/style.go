@@ -7,10 +7,6 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/serve/ha"
 )
 
-// choose takes a style command from Home Assistant, on the MQTT reader: it
-// checks the value like the config, keeps it for the next show and hands it to
-// a running one. A kept choice that comes again after a reconnect changes
-// nothing and prints nothing. Every command gets the state back.
 func (l *haLink) choose(topic string, p []byte, _ time.Time) {
 	key := ha.StyleKey(topic)
 	l.mu.Lock()
@@ -39,7 +35,6 @@ func (l *haLink) choose(topic string, p []byte, _ time.Time) {
 	l.signal()
 }
 
-// config is the config in force: the file's, with the choices over it.
 func (l *haLink) config() config.Config {
 	l.mu.Lock()
 	defer l.mu.Unlock()

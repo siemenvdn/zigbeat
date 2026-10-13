@@ -8,9 +8,8 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
-// Restore puts each light back to its state in snaps, one at a time within rate
-// frames per second, and prints how it went. It returns the lights it could not
-// reach because the broker stayed away.
+// Restore puts each light back to its state in snaps, one at a time within rate frames per second, and prints
+// how it went.
 func Restore(c Conn, snaps map[string]z2m.State, lights []string, rate float64) (left []string) {
 	fmt.Println("restoring lights")
 	failed := 0
@@ -30,11 +29,8 @@ func Restore(c Conn, snaps map[string]z2m.State, lights []string, rate float64) 
 	return nil
 }
 
-// restoreTries gives a payload lost on a busy mesh another chance or two.
 const restoreTries = 3
 
-// restore sends the payloads for l in order, each confirmed by a state, with
-// restoreTries tries each. online is false when the broker could not be reached.
 func restore(c Conn, l string, s z2m.State, rate float64) (ok, online bool) {
 	for _, p := range payloads(s) {
 		ok = false

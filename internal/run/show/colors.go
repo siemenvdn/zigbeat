@@ -11,29 +11,27 @@ import (
 )
 
 const (
-	kickPoints = 30  // percentage points above the base brightness
-	kickFall   = 0.3 // seconds
-	flipEvery  = 4   // moments between alternate fixtures switching separate/together
+	kickPoints = 30
+	kickFall   = 0.3
+	flipEvery  = 4
 )
 
-// colorShow is the colour lights' part of the show: which change, to which colour, with a kick or not.
 type colorShow struct {
-	fixtures  []config.Fixture // color fixtures in config order
+	fixtures  []config.Fixture
 	fixtureOf map[string][]string
-	n         int // colour lights
+	n         int
 	palette   *palette
-	current   map[string]string // colour each light was last given
-	parts     []part            // the rest of a unit too large for one moment
-	cursor    int               // where walk goes on; it outlives a phrase of another variant
+	current   map[string]string
+	parts     []part
+	cursor    int
 	rng       *rand.Rand
-	setting   config.Variant // effects.variant
-	playing   config.Variant // the variant of the last moment
-	variant   variant        // its state; a new one when another variant plays
-	base      int            // Zigbee2MQTT brightness 0..z2m.MaxBrightness
+	setting   config.Variant
+	playing   config.Variant
+	variant   variant
+	base      int
 	kick      int
 }
 
-// part is the rest of a unit too large for one moment, waiting with its colour.
 type part struct {
 	lights []string
 	color  string
@@ -61,7 +59,6 @@ func (c *colorShow) style(e config.Effects) {
 	c.kick = level(min(e.Brightness+kickPoints, config.MaxPercent))
 }
 
-// start turns every colour light on at the base brightness with a first colour.
 func (c *colorShow) start(now time.Time) []Message {
 	var out []Message
 	for _, f := range c.fixtures {
@@ -75,21 +72,18 @@ func (c *colorShow) start(now time.Time) []Message {
 	return out
 }
 
-// play makes v the variant that plays, with a fresh state when it is another one.
 func (c *colorShow) play(v config.Variant) {
 	if v != c.playing {
 		c.playing, c.variant = v, newVariant(v)
 	}
 }
 
-// plan is the colour lights' part of a moment: the rest of a unit that was too
-// large, or the units the variant picks; with kicks when they all fit room.
 func (c *colorShow) plan(st stroke, calm bool, room float64) []Message {
 	if len(c.parts) > 0 {
 		pt := c.parts[0]
 		c.parts = c.parts[1:]
 		st.kick = !calm && c.fits(len(pt.lights), room)
-		return c.paint(pt.lights, pt.color, st) // the variant waits for the rest of a unit
+		return c.paint(pt.lights, pt.color, st)
 	}
 	units := c.variant.pick(c, st)
 	st.kick = !calm && c.fits(lightsIn(units), room)
@@ -100,8 +94,6 @@ func (c *colorShow) plan(st stroke, calm bool, room float64) []Message {
 	return out
 }
 
-// change gives unit u colour col. A unit of more than flow.MaxPerMoment lights
-// changes in parts, one per moment, all in this colour.
 func (c *colorShow) change(u []string, col string, st stroke) []Message {
 	ps := split(u)
 	for _, rest := range ps[1:] {
@@ -110,8 +102,6 @@ func (c *colorShow) change(u []string, col string, st stroke) []Message {
 	return c.paint(ps[0], col, st)
 }
 
-// paint gives lights colour col, with a brightness kick that falls back after
-// st.fall when the stroke kicks.
 func (c *colorShow) paint(lights []string, col string, st stroke) []Message {
 	var out []Message
 	for _, l := range lights {
@@ -125,7 +115,6 @@ func (c *colorShow) paint(lights []string, col string, st stroke) []Message {
 	return out
 }
 
-// changePayload is a colour change, with the kick's brightness when it kicks.
 func (c *colorShow) changePayload(col string, st stroke) map[string]any {
 	pl := map[string]any{"color": map[string]string{"hex": col}, "transition": st.blend}
 	if st.kick {
@@ -134,12 +123,10 @@ func (c *colorShow) changePayload(col string, st stroke) map[string]any {
 	return pl
 }
 
-// returnPayload takes a kicked light back to the base brightness.
 func (c *colorShow) returnPayload() map[string]any {
 	return map[string]any{"brightness": c.base, "transition": kickFall}
 }
 
-// missed takes back the colours of dropped messages, newest first.
 func (c *colorShow) missed(ms []Message) {
 	for _, m := range slices.Backward(ms) {
 		if col, ok := m.Payload["color"].(map[string]string); ok && c.current[m.Light] == col["hex"] {
@@ -148,8 +135,6 @@ func (c *colorShow) missed(ms []Message) {
 	}
 }
 
-// colorFor picks the next palette colour that no light in avoid shows, else
-// one the unit itself does not show.
 func (c *colorShow) colorFor(u, avoid []string) string {
 	shown, own := map[string]bool{}, map[string]bool{}
 	for _, l := range avoid {
@@ -168,7 +153,6 @@ func (c *colorShow) colorFor(u, avoid []string) string {
 	return col
 }
 
-// unitList lists the units of moment m: one per light, or one per together fixture.
 func (c *colorShow) unitList(m int) [][]string {
 	together := m/flipEvery%2 == 1
 	var us [][]string
@@ -184,7 +168,6 @@ func (c *colorShow) unitList(m int) [][]string {
 	return us
 }
 
-// shows reports whether every light of u shows colour col.
 func (c *colorShow) shows(u []string, col string) bool {
 	for _, l := range u {
 		if c.current[l] != col {
@@ -194,7 +177,6 @@ func (c *colorShow) shows(u []string, col string) bool {
 	return true
 }
 
-// outside lists the colour lights that are not in u.
 func (c *colorShow) outside(u []string) []string {
 	var out []string
 	for _, f := range c.fixtures {
@@ -207,16 +189,12 @@ func (c *colorShow) outside(u []string) []string {
 	return out
 }
 
-// fits reports whether lights colour changes with their kicks fit room.
 func (c *colorShow) fits(lights int, room float64) bool {
 	return float64(lights*c.changeFrames(true)) <= room
 }
 
-// minFrames is the least a moment's colour changes cost: without kicks.
 func (c *colorShow) minFrames() int { return min(flow.MaxPerMoment, c.n) * c.changeFrames(false) }
 
-// changeFrames is what one light's colour change costs, counted as the rate
-// limiter counts it: with its kick, also the return.
 func (c *colorShow) changeFrames(kick bool) int {
 	n := z2m.Frames(c.changePayload("", stroke{blend: colorBlend, kick: kick}))
 	if kick {
@@ -225,8 +203,6 @@ func (c *colorShow) changeFrames(kick bool) int {
 	return n
 }
 
-// lightsIn counts the lights units change at this moment: a unit too large
-// changes its first part now.
 func lightsIn(units [][]string) int {
 	n := 0
 	for _, u := range units {

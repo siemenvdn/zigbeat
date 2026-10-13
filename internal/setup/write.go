@@ -11,13 +11,12 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/config"
 )
 
-// renderFixtures is the fixtures block of the configuration.
 func renderFixtures(fs []config.Fixture) string {
 	var b strings.Builder
 	b.WriteString("fixtures:\n")
 	for _, f := range fs {
 		fmt.Fprintf(&b, "  - name: %s\n    role: %s\n", yamlName(f.Name), f.Role)
-		if f.Mode != "" && f.Mode != config.Alternate { // the default is left out
+		if f.Mode != "" && f.Mode != config.Alternate {
 			fmt.Fprintf(&b, "    mode: %s\n", f.Mode)
 		}
 		names := make([]string, len(f.Lights))
@@ -29,11 +28,8 @@ func renderFixtures(fs []config.Fixture) string {
 	return b.String()
 }
 
-// flowUnsafe are characters a plain name cannot hold in a flow sequence.
 const flowUnsafe = ",[]{}#&*!|>'\"%@`"
 
-// yamlName writes a Zigbee2MQTT name plain when YAML reads it back unchanged,
-// as a value and in a flow sequence, else in double quotes; JSON strings are valid YAML.
 func yamlName(s string) string {
 	var flow []string
 	if out, err := yaml.Marshal(s); err == nil && string(out) == s+"\n" && !strings.ContainsAny(s, flowUnsafe) &&
@@ -44,14 +40,10 @@ func yamlName(s string) string {
 	return string(q)
 }
 
-// canaryLine is the canary of a config setup writes.
 func canaryLine(canary string) string {
 	return "canary: " + yamlName(canary) + "  # read only, never changed"
 }
 
-// newConfig is the text of a new configuration at path: the MQTT settings, a
-// budget for zigbeat probe to fill in, the canary, the fixtures, and the
-// optional blocks as comments.
 func newConfig(path string, m config.MQTT, canary string, fs []config.Fixture, today time.Time) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# zigbeat configuration, written by zigbeat setup on %s.\n", today.Format(time.DateOnly))

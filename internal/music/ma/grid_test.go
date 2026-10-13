@@ -8,7 +8,6 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/music"
 )
 
-// track returns n beats 500 ms apart, with downbeats at the given beat numbers.
 func track(n int, downs ...int) []frame {
 	fs := make([]frame, n)
 	for i := range fs {
@@ -55,7 +54,7 @@ func TestInBarAndTempo(t *testing.T) {
 	for _, f := range track(9, 2, 6) {
 		g.add(f)
 	}
-	g.add(frame{ts: 9*500_000 + 400_000}) // one odd interval does not move the tempo
+	g.add(frame{ts: 9*500_000 + 400_000})
 	if b := g.deliver(time.Time{}); b.Index != -2 || b.InBar != 2 || g.bpm() != 120 || b.Energy != music.UnknownEnergy {
 		t.Errorf("first beat %+v at %g BPM", b, g.bpm())
 	}

@@ -17,7 +17,6 @@ const (
 
 var navyRGB = []music.RGB{{32, 45, 89}, {219, 128, 52}}
 
-// nextTrack is the next track; beats are skipped, a clear fails the test.
 func nextTrack(t *testing.T, events <-chan music.Event) music.Track {
 	t.Helper()
 	for {
@@ -30,7 +29,6 @@ func nextTrack(t *testing.T, events <-chan music.Event) music.Track {
 	}
 }
 
-// burst sends the beats of a short track, beginning on a downbeat 600 ms ahead.
 func burst(f *fakeMA, c *ws.Conn) {
 	start := f.now() + 600_000
 	for i := range 4 {
@@ -117,7 +115,7 @@ func TestClearKeepsThePalette(t *testing.T) {
 	burst(f, c)
 	nextTrack(t, events)
 	next(t, events)
-	_ = c.WriteText([]byte(`{"type": "stream/clear"}`)) // a seek: MA sends no colour
+	_ = c.WriteText([]byte(`{"type": "stream/clear"}`))
 	if ev := nextEvent(t, events); ev != (music.Clear{}) {
 		t.Fatalf("the clear: %+v", ev)
 	}

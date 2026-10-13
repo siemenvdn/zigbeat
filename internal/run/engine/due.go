@@ -32,8 +32,6 @@ func (e *Engine) Due(now time.Time) []Send {
 	return append(out, e.send(now)...)
 }
 
-// expire counts the messages and the canary read without an answer as lost,
-// and steps the backoff down after a quiet while.
 func (e *Engine) expire(now time.Time) {
 	for _, l := range e.fl.Expire(now) {
 		if !e.failed(now, l) {
@@ -48,8 +46,6 @@ func (e *Engine) expire(now time.Time) {
 	}
 }
 
-// send takes the due messages of each free light, merged into one, while the
-// in-flight cap and the frame budget allow.
 func (e *Engine) send(now time.Time) []Send {
 	var out []Send
 	for _, name := range e.ready(now) {

@@ -1,4 +1,4 @@
-// Package run is the light show: `zigbeat run`.
+// Package run is the light show.
 package run
 
 import (
@@ -16,8 +16,6 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
-// drainWait lets every message in flight be confirmed or count as lost, so the
-// restore never sends a light a second command.
 const drainWait = z2m.LostAfter
 
 // Run executes `zigbeat run` and returns an exit code.
@@ -33,8 +31,7 @@ func Run(args []string) int {
 	ctx, stopSignals := cli.StopContext()
 	defer stopSignals()
 	fmt.Println(offsetHelp)
-	// Started in the background, reading the terminal would stop the whole show;
-	// with SIGTTIN ignored the read fails and calibration is off instead.
+
 	signal.Ignore(syscall.SIGTTIN)
 	cal := newCalibration(o.Config, cfg.Budget.AudioOffset())
 	offsets := make(chan time.Duration)
@@ -46,14 +43,11 @@ func Run(args []string) int {
 	return code
 }
 
-// quitOnInterrupt is the Stopping hook of zigbeat run.
 func quitOnInterrupt() string {
 	cli.QuitOnInterrupt()
 	return cli.QuitHint
 }
 
-// show plays until ctx is done or the source ends. A panic ends the show with
-// exit code 1; the stack goes to stderr.
 func (r *runner) show(ctx context.Context, src music.Source, limit time.Duration) (reason string, code int) {
 	r.eng = engine.New(r.cfg, limit, time.Now())
 	why, panicked := r.play(ctx, src)
@@ -64,8 +58,6 @@ func (r *runner) show(ctx context.Context, src music.Source, limit time.Duration
 	return "panic; this is a bug, please report it", 1
 }
 
-// stop lets the messages in flight land and puts every light back. It returns
-// 1 when the broker stayed away, else code.
 func (r *runner) stop(code int) int {
 	r.drain(drainWait)
 	if !r.restore() {

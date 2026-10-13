@@ -8,16 +8,15 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/music"
 )
 
-// The tempos -bpm takes: the range of music, halved or doubled by a count.
 const minBPM, maxBPM = 30, 300
 
-// Options are the flags of the commands that play the show: run and serve.
+// Options are the flags of the commands that play the show.
 type Options struct {
 	Config string
-	BPM    float64 // 0: the beat source in the config
+	BPM    float64
 }
 
-// ParseOptions parses -config and -bpm for the command name; about goes in -h.
+// ParseOptions parses -config and -bpm for the command name.
 func ParseOptions(name, about string, args []string) (Options, error) {
 	var o Options
 	fs := cli.NewFlagSet(name, fmt.Sprintf("usage: zigbeat %s [-config %s] [-bpm %d]", name, config.DefaultPath, music.DefaultBPM), about)

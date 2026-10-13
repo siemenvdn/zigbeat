@@ -15,17 +15,12 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/config"
 )
 
-// offsetStep is one + or -.
 const offsetStep = config.OffsetStepMS * time.Millisecond
 
-// saveWord, typed during the show, writes the offset into the config.
 const saveWord = "save"
 
 var offsetHelp = fmt.Sprintf("type + or - and Enter to move the lights %d ms later or earlier, +N or -N to move them N ms, a number in ms to set the offset, or %s to keep it in the config", offsetStep.Milliseconds(), saveWord)
 
-// nextOffset is the audio offset after a line typed during the show: each +
-// or - moves it offsetStep, a signed number moves it that many ms, a number
-// sets it, an empty line keeps it.
 func nextOffset(line string, cur time.Duration) (time.Duration, error) {
 	line = strings.TrimSpace(line)
 	next := cur
@@ -50,8 +45,6 @@ func nextOffset(line string, cur time.Duration) (time.Duration, error) {
 	return next, nil
 }
 
-// calibration follows the audio offset typed during the show and the one last
-// saved to the config. Its reader runs in a goroutine of its own.
 type calibration struct {
 	path       string
 	mu         sync.Mutex
@@ -62,8 +55,6 @@ func newCalibration(path string, offset time.Duration) *calibration {
 	return &calibration{path: path, cur: offset, saved: offset}
 }
 
-// read sends every new offset typed on r to out until r ends; save writes the
-// current one into the config.
 func (c *calibration) read(r io.Reader, out chan<- time.Duration) {
 	sc := bufio.NewScanner(r)
 	for sc.Scan() {
@@ -89,7 +80,6 @@ func (c *calibration) read(r io.Reader, out chan<- time.Duration) {
 	}
 }
 
-// save writes the current offset into budget.audio_offset_ms of the config.
 func (c *calibration) save() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -112,7 +102,6 @@ func (c *calibration) save() {
 	cli.Say("audio offset %d ms saved to %s", ms, c.path)
 }
 
-// unsaved is the hint after the show when the offset changed since the last save.
 func (c *calibration) unsaved() string {
 	c.mu.Lock()
 	defer c.mu.Unlock()

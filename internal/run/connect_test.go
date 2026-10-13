@@ -13,7 +13,7 @@ func TestConnectStopsOnCtrlC(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer ln.Close()
-	go func() { // a broker that accepts and never answers the CONNECT
+	go func() {
 		c, err := ln.Accept()
 		if err == nil {
 			t.Cleanup(func() { c.Close() })

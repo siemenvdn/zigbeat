@@ -1,4 +1,4 @@
-// Package beats prints the beats from Music Assistant without touching a light: `zigbeat beats`.
+// Package beats prints the beats from Music Assistant without touching a light.
 package beats
 
 import (
@@ -23,7 +23,7 @@ func Run(args []string) int {
 	if code, stop := cli.Exit(cli.Parse(fs, args)); stop {
 		return code
 	}
-	cfg, err := config.Load(path, config.ForBeats) // beats never connects to MQTT
+	cfg, err := config.Load(path, config.ForBeats)
 	if err != nil {
 		return cli.Fail(err)
 	}
@@ -39,11 +39,9 @@ func Run(args []string) int {
 	return 0
 }
 
-// print writes one line per track when it arrives and one line per beat at the
-// moment it should sound, beats arriving ahead, until ctx is done or the source ends.
 func print(ctx context.Context, events <-chan music.Event, offset time.Duration, e config.Effects, w io.Writer) {
 	var due []music.Beat
-	t := time.NewTimer(time.Hour) // stopped at once; any duration works
+	t := time.NewTimer(time.Hour)
 	t.Stop()
 	for {
 		select {

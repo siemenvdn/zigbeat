@@ -8,9 +8,7 @@ import (
 	"time"
 )
 
-// RetainedWait is how long a command waits for a retained bridge message after
-// subscribing. The broker sends it right after the SUBACK; the margin is for a
-// bridge/devices of 1.5 MB from a busy Raspberry Pi.
+// RetainedWait is how long a command waits for a retained bridge message after subscribing.
 const RetainedWait = 5 * time.Second
 
 // ErrNoRetained is the start of the error when no retained message came within RetainedWait.
@@ -28,8 +26,6 @@ func (b *Bridge) Devices(ctx context.Context) ([]Device, error) {
 	})
 }
 
-// first subscribes to topic, decodes the first message and unsubscribes again,
-// so later updates (bridge/devices is up to 1.5 MB) are not read during a show.
 func first[T any](ctx context.Context, b *Bridge, topic string, decode func([]byte) (T, error)) (T, error) {
 	var none T
 	topic = b.base + "/" + topic

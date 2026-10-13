@@ -1,4 +1,4 @@
-// Package show plans the light show: which lights change at each moment, and how.
+// Package show plans the light show.
 package show
 
 import (
@@ -17,22 +17,19 @@ type Message struct {
 	Light   string
 	Payload map[string]any
 	Land    time.Time
-	Drop    bool   // may be dropped when it cannot leave on time
-	before  string // a colour change: the light's colour until it lands
+	Drop    bool
+	before  string
 }
 
-// stroke is how a moment paints: when it lands, when its kicks fall back, how
-// long its colours blend, whether it kicks, and which moment it is.
 type stroke struct {
 	at     time.Time
 	fall   time.Duration
-	blend  float64 // seconds
+	blend  float64
 	kick   bool
-	moment int // moments planned before this one
+	moment int
 }
 
-// Planner decides per moment which lights change and how. The colour lights,
-// the breathe lights, the pace, the palette and the energy each keep their own state.
+// Planner decides per moment which lights change and how.
 type Planner struct {
 	pace    pace
 	palette palette
@@ -54,7 +51,6 @@ func NewPlanner(c config.Config) *Planner {
 	return p
 }
 
-// level converts percent to Zigbee2MQTT brightness.
 func level(percent int) int {
 	return int(math.Round(float64(percent) * z2m.MaxBrightness / 100))
 }
@@ -64,10 +60,7 @@ func (p *Planner) Start(now time.Time) []Message {
 	return append(p.colors.start(now), p.breathe.start(now)...)
 }
 
-// Beat returns the messages for b, or nothing when b is not a moment: the
-// colour changes, their kicks when they fit the room, then the breathe lights.
-// calm leaves out the kicks and holds the breathe lights; a quiet part plays
-// calm too, one pace slower.
+// Beat returns the messages for b, or nothing when b is not a moment.
 func (p *Planner) Beat(b music.Beat, calm bool) []Message {
 	p.breathe.heard(b.At, p.pace.period())
 	if p.energy.hear(b) {
@@ -90,14 +83,10 @@ func (p *Planner) Beat(b music.Beat, calm bool) []Message {
 	return out
 }
 
-// interval is the beats between moments: the pace that plays, stretched while
-// the colour changes of a moment without kicks do not fit its room.
 func (p *Planner) interval() int {
 	return p.pace.interval(p.energy.quiet, float64(p.colors.minFrames()))
 }
 
-// rotate starts the variants of the moment at b and notes a change of either:
-// one line for the colour and the breathe variant.
 func (p *Planner) rotate(b music.Beat) {
 	v, w := p.colors.variantAt(b.Index), p.breathe.at(b.Index)
 	if v == p.colors.playing && w == p.breathe.playing {
@@ -112,16 +101,13 @@ func (p *Planner) rotate(b music.Beat) {
 	p.note("%s from bar %d", note, b.Bar())
 }
 
-// Track takes the properties of the track that plays now: its tempo, and its
-// album colours when the style wants them. A new track is full until a bar says otherwise.
+// Track takes the properties of the track that plays now.
 func (p *Planner) Track(t music.Track) {
 	p.pace.bpm, p.palette.art, p.energy.lowPart = t.BPM, t.Palette, false
 	p.choose()
 }
 
-// SetEffects takes the style of the show from the next moment on: the album
-// colours, the variants, the brightness, the breathe range, the pace and
-// whether it follows the energy. The same style again changes nothing.
+// SetEffects takes the style of the show from the next moment on.
 func (p *Planner) SetEffects(e config.Effects) {
 	p.palette.fallback, p.palette.album, p.palette.n = e.Palette, e.AlbumPalette, e.AlbumColors
 	p.pace.beats, p.energy.follow = e.Pace, e.FollowEnergy
@@ -130,7 +116,6 @@ func (p *Planner) SetEffects(e config.Effects) {
 	p.choose()
 }
 
-// choose plays the palette the style and the last track call for, with a note when it changes.
 func (p *Planner) choose() {
 	if note := p.palette.choose(); note != "" {
 		p.note("%s", note)
@@ -140,9 +125,7 @@ func (p *Planner) choose() {
 // Settle gives every breathe light its low end once per gap in the beats.
 func (p *Planner) Settle(now time.Time) []Message { return p.breathe.settle(now) }
 
-// Missed takes back the colours of messages the engine dropped, given in queue
-// order, newest first: while it is still the light's latest, the light counts
-// as showing its colour from before.
+// Missed takes back the colours of messages the engine dropped, given in queue order, newest first.
 func (p *Planner) Missed(ms ...Message) { p.colors.missed(ms) }
 
 // Moments counts the moments planned so far.
@@ -159,7 +142,6 @@ func (p *Planner) TakeNotes() []string {
 	return n
 }
 
-// framesOf is what messages cost, counted as the rate limiter counts them.
 func framesOf(ms []Message) int {
 	n := 0
 	for _, m := range ms {
@@ -168,7 +150,6 @@ func framesOf(ms []Message) int {
 	return n
 }
 
-// split cuts u into parts of at most flow.MaxPerMoment lights, in order.
 func split(u []string) [][]string {
 	var ps [][]string
 	for len(u) > flow.MaxPerMoment {

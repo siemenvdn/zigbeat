@@ -8,7 +8,6 @@ import (
 	"testing"
 )
 
-// edit opens a copy of yaml in a temporary directory.
 func edit(t *testing.T, yaml string) *File {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "config.yaml")

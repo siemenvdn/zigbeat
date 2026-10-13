@@ -18,15 +18,15 @@ const DefaultPath = "config.yaml"
 
 // Need says what a command needs from the configuration.
 type Need struct {
-	Password bool // the MQTT password must be set
-	Budget   bool // budget.max_rate and budget.latency_ms must be set
+	Password bool
+	Budget   bool
 }
 
 // What the commands need.
 var (
-	ForShow  = Need{Password: true, Budget: true} // zigbeat run and serve
-	ForDraft = Need{Password: true}               // setup and probe: the budget may still be zeros
-	ForBeats = Need{Budget: true}                 // zigbeat beats never connects to MQTT
+	ForShow  = Need{Password: true, Budget: true}
+	ForDraft = Need{Password: true}
+	ForBeats = Need{Budget: true}
 )
 
 // Load reads and validates the configuration at path.

@@ -6,12 +6,12 @@ import (
 	"net/url"
 )
 
-// MusicAssistant is the beat source: the visualizer relay on Music Assistant's webserver.
+// MusicAssistant is the beat source.
 type MusicAssistant struct {
 	URL      string `yaml:"url"`
 	TokenEnv string `yaml:"token_env"`
-	Player   string `yaml:"player"` // MA player id; empty follows whichever player is playing
-	Token    string `yaml:"-"`      // read from TokenEnv
+	Player   string `yaml:"player"`
+	Token    string `yaml:"-"`
 }
 
 func (m *MusicAssistant) validate() error {

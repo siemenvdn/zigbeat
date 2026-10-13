@@ -1,6 +1,4 @@
-// Package mqtt adapts paho.mqtt.golang to zigbeat's small client API: QoS 0,
-// retained publish and will, live-only subscribe, keepalive, no automatic
-// reconnect (the commands dial again themselves).
+// Package mqtt adapts paho.mqtt.golang to zigbeat's small client API.
 package mqtt
 
 import (
@@ -18,21 +16,18 @@ import (
 const DefaultBroker = "127.0.0.1:1883"
 
 const (
-	// defaultKeepAlive notices a dead broker within about 35 s: paho pings after
-	// this long without traffic, checks every 5 s and waits pingWait for the answer.
 	defaultKeepAlive = 20 * time.Second
 	pingWait         = defaultKeepAlive / 2
-	// ioWait bounds a dial, a write and a broker's answer: a LAN broker answers in
-	// milliseconds, so this long means it is gone.
+
 	ioWait        = 5 * time.Second
-	quiesceMS     = 250 // paho's time to send the DISCONNECT
+	quiesceMS     = 250
 	qos0          = 0
 	subackFailure = 0x80
-	protocolLevel = 4 // MQTT 3.1.1
+	protocolLevel = 4
 )
 
-// Handler is called on paho's router goroutine, one message at a time in the
-// order they arrive, and must not block.
+// Handler is called on paho's router goroutine, one message at a time in the order they arrive, and must not
+// block.
 type Handler func(topic string, payload []byte, received time.Time)
 
 type Options struct {
@@ -40,7 +35,7 @@ type Options struct {
 	Username  string
 	Password  string
 	KeepAlive time.Duration
-	// WillTopic, when set, gets WillPayload retained if the connection drops without a DISCONNECT.
+
 	WillTopic   string
 	WillPayload []byte
 }
@@ -61,7 +56,7 @@ func Dial(addr string, o Options) (*Client, error) {
 	po := paho.NewClientOptions().AddBroker("tcp://" + addr).SetClientID(o.ClientID).
 		SetUsername(o.Username).SetPassword(o.Password).SetProtocolVersion(protocolLevel).
 		SetKeepAlive(o.KeepAlive).SetPingTimeout(pingWait).SetConnectTimeout(ioWait).SetWriteTimeout(ioWait).
-		SetAutoReconnect(false).SetOrderMatters(true). // one handler at a time, in order
+		SetAutoReconnect(false).SetOrderMatters(true).
 		SetConnectionLostHandler(func(_ paho.Client, err error) { cl.shutdown(fmt.Errorf("connection lost: %w", err)) }).
 		SetCustomOpenConnectionFn(dialDirect)
 	if o.WillTopic != "" {
@@ -107,7 +102,6 @@ func (c *Client) Err() error {
 	return c.err
 }
 
-// shutdown records why the connection ended; paho calls nothing on a local close.
 func (c *Client) shutdown(err error) {
 	c.once.Do(func() {
 		c.mu.Lock()
@@ -117,8 +111,6 @@ func (c *Client) shutdown(err error) {
 	})
 }
 
-// dialDirect opens the TCP connection itself: paho's own would take a proxy
-// from ALL_PROXY, also for a broker on the LAN.
 func dialDirect(u *url.URL, _ paho.ClientOptions) (net.Conn, error) {
 	return net.DialTimeout("tcp", u.Host, ioWait)
 }

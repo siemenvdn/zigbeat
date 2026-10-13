@@ -11,7 +11,7 @@ func TestLatencyPerFrameAndRising(t *testing.T) {
 	if f.Estimate() != 50*ms {
 		t.Fatalf("before minSamples the budget's latency counts: %v", f.Estimate())
 	}
-	// A moment of two lights at once: the second joined a queue of 3 frames.
+
 	for i := range samples {
 		now := at(i * 1000)
 		f.Add("lamp-1", now, 1)

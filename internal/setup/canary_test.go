@@ -22,7 +22,7 @@ func TestCanaryAgainAndNone(t *testing.T) {
 }
 
 func TestCanaryWithoutDefinition(t *testing.T) {
-	// Zigbee2MQTT 1.x lists an unsupported router with "definition": null.
+
 	devs := append(home(), z2m.Device{Name: "repeater", Type: "Router", Interviewed: true})
 	code, out := start(t, &fakeBridge{devs: devs}, filepath.Join(t.TempDir(), "config.yaml"), "", "1\n7\n")
 	if code != 0 || !strings.Contains(out, "  7  repeater") || !strings.Contains(out, "canary: repeater)") {
@@ -31,7 +31,7 @@ func TestCanaryWithoutDefinition(t *testing.T) {
 }
 
 func TestCanaryReplacedWhenQuotedOrEmpty(t *testing.T) {
-	// setup itself writes an unrenamed IEEE name in quotes.
+
 	devs := append(home(), dev("0x0017880104e45518", "plug"))
 	for _, line := range []string{`canary: "0x0017880104e45518"   # in the hallway`, `canary:   # in the hallway`} {
 		path := filepath.Join(t.TempDir(), "config.yaml")
@@ -50,7 +50,7 @@ func TestCtrlCDuringCanaryReads(t *testing.T) {
 		flags  []string
 		stopAt int
 	}{
-		{"1\n6\n", nil, 3}, // far-lamp answered twice already
+		{"1\n6\n", nil, 3},
 		{"", []string{"-lights", "pendant-1", "-canary", "far-lamp"}, 1},
 	}
 	for _, c := range cases {

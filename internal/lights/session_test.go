@@ -16,9 +16,7 @@ const (
 	subscribePacket = 8
 )
 
-// TestSessionAwaitsReadsAndNoticesADrop drives one session over the fake
-// broker: a live state wakes Await, a retained one does not count, Read
-// watches a new device on the spot, and a cut connection ends every wait.
+// TestSessionAwaitsReadsAndNoticesADrop drives one session over the fake broker.
 func TestSessionAwaitsReadsAndNoticesADrop(t *testing.T) {
 	b := mqtttest.Start(t)
 	seen := make(chan string, 4)
@@ -30,7 +28,7 @@ func TestSessionAwaitsReadsAndNoticesADrop(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(s.Close)
-	b.Next(t, subscribePacket) // lamp-1
+	b.Next(t, subscribePacket)
 
 	type answer struct {
 		st z2m.State
@@ -42,7 +40,7 @@ func TestSessionAwaitsReadsAndNoticesADrop(t *testing.T) {
 		st, ok := s.Await(context.Background(), "lamp-1", since, mqtttest.Wait)
 		got <- answer{st, ok}
 	}()
-	b.Publish(t, "zigbee2mqtt/lamp-1", `{"state":"OFF"}`, true) // old news from the broker
+	b.Publish(t, "zigbee2mqtt/lamp-1", `{"state":"OFF"}`, true)
 	b.Publish(t, "zigbee2mqtt/lamp-1", `{"state":"ON","brightness":100}`, false)
 	select {
 	case a := <-got:
@@ -64,7 +62,7 @@ func TestSessionAwaitsReadsAndNoticesADrop(t *testing.T) {
 		_, ok := s.Read(context.Background(), "far-lamp", mqtttest.Wait)
 		read <- ok
 	}()
-	b.Next(t, subscribePacket) // far-lamp, watched from now on
+	b.Next(t, subscribePacket)
 	if p := b.Next(t, publishPacket); !bytes.Contains(p, []byte("zigbee2mqtt/far-lamp/get")) {
 		t.Fatalf("Read must ask far-lamp for its state, sent %q", p)
 	}
@@ -88,7 +86,6 @@ func TestSessionAwaitsReadsAndNoticesADrop(t *testing.T) {
 	}
 }
 
-// fakeReader answers in order from answers, false for a 0.
 type fakeReader struct{ answers []time.Duration }
 
 func (f *fakeReader) Read(context.Context, string, time.Duration) (time.Duration, bool) {

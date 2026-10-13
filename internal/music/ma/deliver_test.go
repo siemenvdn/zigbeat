@@ -17,7 +17,7 @@ func TestBeatsAheadAndOnTime(t *testing.T) {
 	for i := range 4 {
 		ts := start + int64(i)*100_000
 		want = append(want, ts)
-		_ = c.WriteBinary(beatFrame(ts, i == 1)) // one beat of pickup
+		_ = c.WriteBinary(beatFrame(ts, i == 1))
 	}
 	if tr, ok := nextEvent(t, events).(music.Track); !ok || tr.BPM != 600 {
 		t.Fatalf("the track at 600 BPM comes before its first beat: %+v", tr)
@@ -43,7 +43,7 @@ func TestLateBeatIsSkipped(t *testing.T) {
 	c := <-f.conns
 	notes.waitFor(t, "connected")
 	now := f.now()
-	_ = c.WriteBinary(beatFrame(now+100_000, true)) // known only 100 ms ahead
+	_ = c.WriteBinary(beatFrame(now+100_000, true))
 	_ = c.WriteBinary(beatFrame(now+700_000, false))
 	if b := next(t, events); b.Index != 1 {
 		t.Errorf("the late downbeat is skipped but counted: %+v", b)
@@ -94,8 +94,8 @@ func TestNumbersTheBurstAsAWhole(t *testing.T) {
 	c := <-f.conns
 	notes.waitFor(t, "connected")
 	now := f.now()
-	_ = c.WriteBinary(beatFrame(now+lead.Microseconds()*95/100, false)) // a pickup, due at once
-	time.Sleep(30 * time.Millisecond)                                   // the rest of the burst comes a little later
+	_ = c.WriteBinary(beatFrame(now+lead.Microseconds()*95/100, false))
+	time.Sleep(30 * time.Millisecond)
 	_ = c.WriteBinary(beatFrame(now+600_000, true))
 	_ = c.WriteBinary(beatFrame(now+700_000, false))
 	first, second := next(t, events), next(t, events)

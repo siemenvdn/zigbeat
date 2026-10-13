@@ -8,8 +8,6 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/config"
 )
 
-// fixtures returns a config whose colour fixtures have the given sizes, all in
-// mode, named f0-1, f0-2, ..., and one breathe light.
 func fixtures(mode config.Mode, sizes ...int) config.Config {
 	c := testConfig(mode)
 	var fs []config.Fixture
@@ -20,11 +18,10 @@ func fixtures(mode config.Mode, sizes ...int) config.Config {
 		}
 		fs = append(fs, f)
 	}
-	c.Fixtures = append(fs, c.Fixtures[len(c.Fixtures)-1]) // and lamp-4, breathing
+	c.Fixtures = append(fs, c.Fixtures[len(c.Fixtures)-1])
 	return c
 }
 
-// colours lists the colour each light got in ps.
 func colours(ps []Message) map[string]string {
 	got := map[string]string{}
 	for _, m := range ps {

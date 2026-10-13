@@ -6,12 +6,11 @@ import (
 )
 
 const (
-	burstSize  = 8                     // enough answers that one has a short round trip
-	burstGap   = 25 * time.Millisecond // the requests do not queue behind each other
-	burstEvery = 10 * time.Second      // follows clock drift; keepBursts of them span half a minute
+	burstSize  = 8
+	burstGap   = 25 * time.Millisecond
+	burstEvery = 10 * time.Second
 )
 
-// startBurst sends burstSize time requests, burstGap apart; the answers feed the clock.
 func (s *session) startBurst() {
 	s.clk.burst()
 	s.pings = burstSize

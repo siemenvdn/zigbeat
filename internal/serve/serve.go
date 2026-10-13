@@ -1,4 +1,4 @@
-// Package serve runs the show as a service that Home Assistant switches on and off: `zigbeat serve`.
+// Package serve runs the show as a service that Home Assistant switches on and off.
 package serve
 
 import (
@@ -23,7 +23,7 @@ func Run(args []string, version string) int {
 
 	ctx, stopSignals := cli.StopContext()
 	defer stopSignals()
-	// After the first signal a second Ctrl-C quits at once, without restoring.
+
 	go func() { <-ctx.Done(); cli.QuitOnInterrupt() }()
 
 	l := newHALink(cfg, version)
@@ -38,7 +38,7 @@ func Run(args []string, version string) int {
 
 	s := &server{
 		show: func(ctx context.Context, h run.Hooks) int {
-			return run.Play(ctx, l.config(), src, h) // with the choices made while no show played
+			return run.Play(ctx, l.config(), src, h)
 		},
 		cmds:    l.cmds,
 		styles:  l.styles,

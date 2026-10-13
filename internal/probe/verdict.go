@@ -12,7 +12,7 @@ import (
 type Step struct {
 	Rate    float64
 	Sent    int
-	Skipped int // ticks where every target still had a command in flight
+	Skipped int
 	Cmd     Stats
 	Drift   bool
 	Canary  Stats
@@ -28,9 +28,9 @@ type Verdict string
 // The verdicts.
 const (
 	OK      Verdict = "OK"
-	Warn    Verdict = "WARN"    // borderline: measured again once
-	Stop    Verdict = "STOP"    // overloaded: the climb ends
-	Partial Verdict = "PARTIAL" // interrupted
+	Warn    Verdict = "WARN"
+	Stop    Verdict = "STOP"
+	Partial Verdict = "PARTIAL"
 )
 
 // Limits come from the canary at rest.
@@ -44,16 +44,15 @@ func (l Limits) CanaryLimit() time.Duration {
 	return z2m.CanaryLimit(l.CanaryP95)
 }
 
-// The thresholds of a step's verdict.
 const (
-	maxLost      = 0.05                    // share of commands unanswered: more is not radio noise
-	maxSkipped   = 0.1                     // share of ticks with every target busy: more and the targets are the limit
-	maxP95       = 1500 * time.Millisecond // command p95 that stops: far too late for any beat
-	driftStopP95 = 800 * time.Millisecond  // a growing queue this slow stops; a faster one warns
-	canarySlower = 100 * time.Millisecond  // canary p50 above rest that warns: beyond a quiet canary's jitter
-	// canaryLostStop lost canary reads stop a step; one can be noise.
+	maxLost      = 0.05
+	maxSkipped   = 0.1
+	maxP95       = 1500 * time.Millisecond
+	driftStopP95 = 800 * time.Millisecond
+	canarySlower = 100 * time.Millisecond
+
 	canaryLostStop = 2
-	// errStop Zigbee2MQTT errors stop a step; one or two can be one bad device.
+
 	errStop = 3
 )
 

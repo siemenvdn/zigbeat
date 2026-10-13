@@ -1,19 +1,18 @@
 package probe
 
-// Headroom divides the highest clean rate into the suggested budget: the probe
-// ran minutes on a quiet network, a show runs hours next to the rest of the house.
+// Headroom divides the highest clean rate into the suggested budget.
 const Headroom = 2
 
 // Budget is what a probe run suggests.
 type Budget struct {
-	Clean       Step    // the highest step that ran clean before any STOP
-	Rate        float64 // the suggested sustained rate in commands per second
-	Ref         Step    // the highest step at or below Rate, for the latency at that load
-	Interrupted bool    // the run ended before the ceiling was found
-	AllClean    bool    // every step was clean: the ceiling is higher than tested
+	Clean       Step
+	Rate        float64
+	Ref         Step
+	Interrupted bool
+	AllClean    bool
 }
 
-// Suggest finds the budget in the steps of a run; false when no step ran clean.
+// Suggest finds the budget in the steps of a run.
 func Suggest(results []Step) (Budget, bool) {
 	clean := -1
 	for i, r := range results {

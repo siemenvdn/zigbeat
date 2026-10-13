@@ -4,15 +4,13 @@ package palette
 import "github.com/siemenvdn/zigbeat/internal/z2m"
 
 const (
-	hueStep   = 5  // degrees between the candidate hues
-	maxColors = 36 // plenty: one command per light is in flight at a time
-	// KeySlack is how far an echoed key may be off the key sent: the bulb rounds
-	// the colour into its own range.
+	hueStep   = 5
+	maxColors = 36
+
 	KeySlack = 1
-	// The levels of brightness mode, levelStep apart: more than twice KeySlack,
-	// so an echo never matches a neighbouring level.
+
 	minLevel, maxLevel, levelStep = 40, 250, 6
-	// comboLow alternates with z2m.MaxBrightness, so every combo command changes the level too.
+
 	comboLow = 140
 )
 
@@ -21,9 +19,9 @@ type Mode string
 
 // The modes.
 const (
-	Color      Mode = "color"      // a colour per command
-	Brightness Mode = "brightness" // a level per command, for lights without colour
-	Combo      Mode = "combo"      // a colour and a level per command
+	Color      Mode = "color"
+	Brightness Mode = "brightness"
+	Combo      Mode = "combo"
 )
 
 // Command is a set payload and the key its echo is matched by.
@@ -32,8 +30,7 @@ type Command struct {
 	Payload map[string]any
 }
 
-// Generator hands out commands whose echo can be told apart: no key repeats
-// for a device until the whole palette has been used.
+// Generator hands out commands whose echo can be told apart.
 type Generator struct {
 	mode   Mode
 	colors []z2m.XY
@@ -41,7 +38,7 @@ type Generator struct {
 	next   map[string]int
 }
 
-// New returns a generator for mode: color, brightness or combo.
+// New returns a generator for mode.
 func New(mode Mode) *Generator {
 	g := &Generator{mode: mode, next: map[string]int{}}
 	seen := map[int]bool{}

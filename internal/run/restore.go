@@ -12,8 +12,6 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
-// restore puts every light back within the budget. It returns false when the
-// broker stayed away, after printing what is left to restore by hand.
 func (r *runner) restore() bool {
 	left := lights.Restore(restoreConn{r.link, r}, r.snaps, restoreOrder(r.cfg.Lights(), r.away), r.cfg.Budget.MaxRate)
 	if len(left) > 0 {
@@ -23,11 +21,8 @@ func (r *runner) restore() bool {
 	return true
 }
 
-// away reports whether the show left light alone.
 func (r *runner) away(light string) bool { return r.eng != nil && r.eng.Away(light) }
 
-// restoreOrder puts the lights that are left alone last: each takes all its
-// tries, which would hold up the lights behind it.
 func restoreOrder(ls []string, away func(string) bool) []string {
 	var first, last []string
 	for _, l := range ls {
@@ -40,11 +35,8 @@ func restoreOrder(ls []string, away func(string) bool) []string {
 	return append(first, last...)
 }
 
-// restoreRedial is how long the restore dials a lost broker: a restart is back
-// within it, and a stop does not seem to hang.
 const restoreRedial = 30 * time.Second
 
-// online reports whether the broker is there, dialling again for up to restoreRedial when it is not.
 func (r *runner) online() bool {
 	if !r.offline() {
 		return true

@@ -39,9 +39,8 @@ func pct(sorted []time.Duration, p float64) time.Duration {
 }
 
 const (
-	minDrift = 9 // answers needed to judge drift: three in each third
-	// A step drifts when the median of its last third is driftFactor times that
-	// of its first, and driftMin more: a doubled tiny latency is noise.
+	minDrift = 9
+
 	driftFactor = 2
 	driftMin    = 200 * time.Millisecond
 )

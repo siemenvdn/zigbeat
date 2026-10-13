@@ -8,7 +8,6 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
-// chooseLights returns the lights for the show: from -lights, or asked.
 func (s *session) chooseLights(ctx context.Context, devs []z2m.Device, offered []light, marked map[string]bool) ([]light, int) {
 	if s.o.lights != nil {
 		var out []light
@@ -53,7 +52,6 @@ func (s *session) chooseLights(ctx context.Context, devs []z2m.Device, offered [
 	}
 }
 
-// whyNot says why zigbeat setup does not offer the light called name.
 func whyNot(devs []z2m.Device, name string) string {
 	d, ok := z2m.Find(devs, name)
 	if !ok {

@@ -1,5 +1,5 @@
-// fake-z2m simulates Zigbee2MQTT with a single coordinator queue of limited
-// throughput, so zigbeat can be tested without real lights.
+// fake-z2m simulates Zigbee2MQTT with a single coordinator queue of limited throughput, so zigbeat can be
+// tested without real lights.
 package main
 
 import (
@@ -16,15 +16,13 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
-// Flag defaults: a network a bit busier than a real one, so zigbeat's limits
-// and backoff get exercised.
 const (
-	defaultService = 90 * time.Millisecond // about 10 frames/s
-	defaultJitter  = 20 * time.Millisecond // spreads the latencies, like a mesh
-	defaultQueue   = 64                    // deep enough that only an overload fills it
+	defaultService = 90 * time.Millisecond
+	defaultJitter  = 20 * time.Millisecond
+	defaultQueue   = 64
 )
 
-const topicParts = 3 // base/device/set or base/device/get
+const topicParts = 3
 
 func main() {
 	broker := flag.String("broker", mqtt.DefaultBroker, "MQTT broker")
@@ -55,7 +53,7 @@ func main() {
 		known[d] = true
 		state[d] = initialState(kindOf[d])
 	}
-	var devs []byte // empty clears the retained message
+	var devs []byte
 	if *retainDevices {
 		devs = bridgeDevices(names, kindOf)
 	}

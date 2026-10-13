@@ -1,6 +1,4 @@
-// Package ws adapts github.com/gorilla/websocket to zigbeat's small API: ws://
-// only, text and binary messages, close codes, a read deadline and an idle
-// timeout. The server side is for tests and fake-ma.
+// Package ws adapts github.com/gorilla/websocket to zigbeat's small API.
 package ws
 
 import (
@@ -15,18 +13,16 @@ import (
 )
 
 const (
-	// maxMessage caps what a bad peer can make us hold, far above MA's largest frame of about 1 KiB.
 	maxMessage = 4 << 20
-	// writeTimeout gives up on a peer that stopped reading.
+
 	writeTimeout = 5 * time.Second
 )
 
-// Conn is one WebSocket connection. Read, SetReadDeadline and SetIdleTimeout
-// belong to one goroutine; writes may come from any.
+// Conn is one WebSocket connection.
 type Conn struct {
 	c    *websocket.Conn
-	idle time.Duration // zero, or how long Read waits for each message
-	wmu  sync.Mutex    // gorilla takes one writer at a time
+	idle time.Duration
+	wmu  sync.Mutex
 }
 
 // Message is one text or binary message.
@@ -51,8 +47,7 @@ type StatusError struct {
 
 func (e *StatusError) Error() string { return "ws: " + e.Status }
 
-// Dial opens a client connection to a ws:// URL, giving up after timeout. A
-// Dialer without Proxy keeps HTTP_PROXY away from a connection on the LAN.
+// Dial opens a client connection to a ws:// URL, giving up after timeout.
 func Dial(rawURL string, timeout time.Duration) (*Conn, error) {
 	u, err := url.Parse(rawURL)
 	if err != nil {
@@ -86,8 +81,7 @@ func newConn(c *websocket.Conn) *Conn {
 	return &Conn{c: c}
 }
 
-// Read returns the next text or binary message. It answers pings and returns
-// a *CloseError when the peer closes. After a timeout the connection is done.
+// Read returns the next text or binary message.
 func (c *Conn) Read() (Message, error) {
 	if c.idle > 0 {
 		_ = c.c.SetReadDeadline(time.Now().Add(c.idle))
@@ -116,8 +110,7 @@ func (c *Conn) write(typ int, p []byte) error {
 	return c.c.WriteMessage(typ, p)
 }
 
-// Ping sends a ping; the peer's Read answers it. Like CloseWith, it may run
-// next to a write.
+// Ping sends a ping.
 func (c *Conn) Ping() error {
 	return c.c.WriteControl(websocket.PingMessage, nil, time.Now().Add(writeTimeout))
 }
@@ -125,8 +118,7 @@ func (c *Conn) Ping() error {
 // SetReadDeadline makes Read fail after t.
 func (c *Conn) SetReadDeadline(t time.Time) error { return c.c.SetReadDeadline(t) }
 
-// SetIdleTimeout makes Read fail when no message arrives for d; it wins over
-// SetReadDeadline, and pings do not count.
+// SetIdleTimeout makes Read fail when no message arrives for d.
 func (c *Conn) SetIdleTimeout(d time.Duration) { c.idle = d }
 
 // CloseWith sends a close frame with code and reason and closes the connection.

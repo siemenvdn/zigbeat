@@ -34,14 +34,13 @@ func Run(args []string) int {
 	return s.run(ctx)
 }
 
-// session is one run of zigbeat setup.
 type session struct {
 	o        options
 	br       zigbee
 	in       *input
 	out, err io.Writer
 	today    time.Time
-	gap      time.Duration // between canary reads; tests use 0
+	gap      time.Duration
 }
 
 func (s *session) run(ctx context.Context) int {
@@ -100,7 +99,6 @@ func (s *session) run(ctx context.Context) int {
 	return 0
 }
 
-// nothing ends setup after Ctrl-C or the end of the input.
 func (s *session) nothing() int {
 	fmt.Fprintln(s.out, "\nnothing was written")
 	return cli.ExitInterrupted

@@ -6,11 +6,8 @@ import (
 	"text/tabwriter"
 )
 
-// columnGap is the space between table columns.
 const columnGap = 2
 
-// printTable shows the lights zigbeat may drive, numbered for the question,
-// and why the other lights and switches are left out.
 func printTable(w io.Writer, devices int, offered []light, fixture map[string]string, marked map[string]bool, refused []refusal, others int) {
 	fmt.Fprintf(w, "zigbeat setup: %d devices, %d lights offered\n\n", devices, len(offered))
 	tw := tabwriter.NewWriter(w, 0, 0, columnGap, ' ', 0)
@@ -37,8 +34,6 @@ func printTable(w io.Writer, devices int, offered []light, fixture map[string]st
 	fmt.Fprintln(w)
 }
 
-// moved notes the chosen lights that are not in the fixture the table showed:
-// the table assumes every offered light is chosen.
 func moved(chosen []light, shown, got map[string]string) []string {
 	var out []string
 	for _, l := range chosen {

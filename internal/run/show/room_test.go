@@ -9,13 +9,9 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/run/flow"
 )
 
-// roomBeats is how many beats each case plays: more than two phrases.
 const roomBeats = 160
 
-// TestEveryMomentFitsItsRoom: whatever the fixtures, variants, budget, tempo
-// and backoff, a moment plans no more frames than its room, at most
-// flow.MaxPerMoment colour and white messages, and kicks all its colour
-// changes or none.
+// TestEveryMomentFitsItsRoom.
 func TestEveryMomentFitsItsRoom(t *testing.T) {
 	for _, mode := range []config.Mode{config.Separate, config.Together, config.Alternate} {
 		for n := 1; n <= 8; n++ {

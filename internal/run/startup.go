@@ -15,8 +15,6 @@ import (
 
 const cancelled = "cancelled before the show started, nothing was changed"
 
-// start checks the config against Zigbee2MQTT, takes the snapshot and measures
-// the canary. Nothing is changed yet, so a stop here needs no restore.
 func (r *runner) start(ctx context.Context) (limit time.Duration, code int, ok bool) {
 	if err := r.refuse(ctx); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -37,8 +35,6 @@ func (r *runner) start(ctx context.Context) (limit time.Duration, code int, ok b
 	return limit, 0, true
 }
 
-// refuse runs refuseGroups and refuseDevices at once, so a Zigbee2MQTT without
-// retain costs one RetainedWait, not two.
 func (r *runner) refuse(ctx context.Context) error {
 	var wg sync.WaitGroup
 	refusals := []func(context.Context) error{r.refuseGroups, r.refuseDevices}
@@ -54,8 +50,6 @@ func (r *runner) refuse(ctx context.Context) error {
 	return errors.Join(errs...)
 }
 
-// refuseGroups stops the show before it starts when a light or the canary is a
-// Zigbee2MQTT group. Without bridge/groups it warns and goes on.
 func (r *runner) refuseGroups(ctx context.Context) error {
 	groups, err := r.link.Groups(ctx)
 	if err != nil {
@@ -67,9 +61,6 @@ func (r *runner) refuseGroups(ctx context.Context) error {
 	return r.cfg.RejectGroups(groups)
 }
 
-// refuseDevices stops the show before it starts when a light may not be driven
-// in its role, by the rules of zigbeat setup: they also hold for a config
-// edited by hand. Without bridge/devices it warns and goes on.
 func (r *runner) refuseDevices(ctx context.Context) error {
 	devs, err := r.link.Devices(ctx)
 	if err != nil {
@@ -89,12 +80,10 @@ func (r *runner) refuseDevices(ctx context.Context) error {
 }
 
 const (
-	canaryReads = 5           // reads at rest: the slowest sets the limit
-	canaryGap   = time.Second // about as often as the probe's canary
+	canaryReads = 5
+	canaryGap   = time.Second
 )
 
-// canaryBaseline reads the canary canaryReads times, canaryGap apart, and returns its limit.
-// A canary that does not answer is dropped with a warning.
 func (r *runner) canaryBaseline(ctx context.Context) time.Duration {
 	if r.cfg.Canary == "" {
 		return 0

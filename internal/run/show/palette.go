@@ -10,19 +10,15 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/music"
 )
 
-// palette is the colours that play and whose turn is next.
 type palette struct {
-	colors   []string    // the colours that play
-	i        int         // the next colour to try
-	fallback []string    // effects.palette, without album colours
-	album    bool        // effects.album_palette
-	n        int         // effects.album_colors
-	art      []music.RGB // the last track's album colours, as the source sent them
+	colors   []string
+	i        int
+	fallback []string
+	album    bool
+	n        int
+	art      []music.RGB
 }
 
-// choose plays the album colours of the last track when they are on and the
-// track has them, else effects.palette. A new palette restarts the index;
-// lights keep their colour until their turn. It returns a note when the palette changed.
 func (pl *palette) choose() string {
 	colors, note := pl.fallback, "album colours off; the palette plays"
 	if pl.album {
@@ -38,7 +34,6 @@ func (pl *palette) choose() string {
 	return note
 }
 
-// take returns the next colour that is not in avoid, and moves past it.
 func (pl *palette) take(avoid map[string]bool) (string, bool) {
 	for i := range pl.colors {
 		c := pl.colors[(pl.i+i)%len(pl.colors)]
@@ -51,23 +46,19 @@ func (pl *palette) take(avoid map[string]bool) (string, bool) {
 }
 
 const (
-	minValue       = 0.15 // below it the hue of a cover is noise: JPEG artefacts, text outlines
-	greySaturation = 0.25 // below it white, grey or black; Music Assistant's Hue plugin draws the line here
-	hueSpacing     = 30   // degrees: closer hues look like one colour on a bulb
-	minSaturation  = 0.75 // vivid: below it a bulb shows a pastel tint of white
-	fullValue      = 1    // Zigbee2MQTT sets brightness apart; a hex colour only brings hue and saturation
-	fullCircle     = 360  // degrees of hue
+	minValue       = 0.15
+	greySaturation = 0.25
+	hueSpacing     = 30
+	minSaturation  = 0.75
+	fullValue      = 1
+	fullCircle     = 360
 )
 
-// fillSteps are the neighbours of the dominant hue that fill up a short list, nearest first.
 var fillSteps = []float64{hueSpacing, -hueSpacing, 2 * hueSpacing, -2 * hueSpacing, 3 * hueSpacing, -3 * hueSpacing}
 
 type hueSat struct{ h, s float64 }
 
-// AlbumColors turns the colours of an album's art into n hex colours for
-// colour bulbs: greys and near-black dropped, hues at least hueSpacing apart,
-// saturation lifted to minSaturation, filled up with neighbours of the most
-// dominant hue. It returns nil when no colour is left.
+// AlbumColors turns the colours of an album's art into n hex colours for colour bulbs.
 func AlbumColors(p []music.RGB, n int) []string {
 	var kept []hueSat
 	for _, c := range p {
@@ -96,7 +87,6 @@ func AlbumColors(p []music.RGB, n int) []string {
 	return out
 }
 
-// near reports whether a kept hue lies within hueSpacing of h.
 func near(kept []hueSat, h float64) bool {
 	for _, k := range kept {
 		d := math.Abs(k.h - h)

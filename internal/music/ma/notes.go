@@ -12,9 +12,8 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/ws"
 )
 
-const tokenRefused = 4001 // MA's close code for a bad token
+const tokenRefused = 4001
 
-// notes reports what the source does, once per change.
 type notes struct {
 	w    io.Writer
 	last string
@@ -36,7 +35,6 @@ func (n *notes) say(format string, args ...any) {
 	fmt.Fprintf(n.w, "%s  music assistant: %s\n", cli.Stamp(), s)
 }
 
-// failed reports a connection that did not work and returns how long to wait.
 func (n *notes) failed(err error) time.Duration {
 	var ce *ws.CloseError
 	var se *ws.StatusError

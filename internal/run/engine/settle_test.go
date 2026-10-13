@@ -2,7 +2,6 @@ package engine
 
 import "testing"
 
-// gap plays one moment and its next beat, then lets the music stop.
 func gap(e *Engine) {
 	e.Music(at(1000), moment(4))
 	e.Music(at(1500), moment(5))
@@ -35,7 +34,7 @@ func TestNoSettleWhilePausedOrStopping(t *testing.T) {
 		stop(e)
 		e.Due(at(5000))
 		for _, q := range e.lights["lamp-4"].queue {
-			if q.Land.After(moment(5).At) { // the pulse's fall lands on beat 5; a settle later
+			if q.Land.After(moment(5).At) {
 				t.Errorf("%s: settle queued: %+v", name, q)
 			}
 		}

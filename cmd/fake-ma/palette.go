@@ -8,7 +8,6 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/cli"
 )
 
-// palette holds the fields of MA's MediaItemPalette in its order; nil is null.
 type palette struct {
 	BackgroundDark  *[3]int `json:"background_dark"`
 	BackgroundLight *[3]int `json:"background_light"`
@@ -18,10 +17,8 @@ type palette struct {
 	OnLight         *[3]int `json:"on_light"`
 }
 
-// noArt is the palette of a track without artwork, and of one MA is still looking up.
 var noArt = palette{}
 
-// palettes go round per track: a navy cover with an orange title, no artwork, one red.
 var palettes = []palette{
 	{BackgroundDark: &[3]int{20, 28, 56}, BackgroundLight: &[3]int{200, 205, 220}, Primary: &[3]int{32, 45, 89},
 		Accent: &[3]int{219, 128, 52}, OnDark: &[3]int{240, 220, 200}, OnLight: &[3]int{60, 30, 20}},
@@ -37,8 +34,6 @@ func colorMessage(p palette) []byte {
 	return b
 }
 
-// cover starts a track's artwork as MA does: all null while it looks up the
-// palette, the palette itself after delay.
 func (tl *timeline) cover(p palette, delay time.Duration) {
 	tl.color(noArt)
 	if p != noArt {
@@ -46,7 +41,6 @@ func (tl *timeline) cover(p palette, delay time.Duration) {
 	}
 }
 
-// color sends a palette when it differs from the last one, as MA's tap does.
 func (tl *timeline) color(p palette) {
 	m := colorMessage(p)
 	tl.mu.Lock()

@@ -13,15 +13,14 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/serve/ha"
 )
 
-// fakeShow plays until ctx is done, then holds its restore until release gets a token.
 type fakeShow struct {
 	release chan struct{}
-	hints   chan string    // what the Stopping hook returned
-	start   chan struct{}  // when set, the start waits for it to close
-	status  chan struct{}  // when set, the first status waits for it to close, also after OFF
-	ends    chan struct{}  // when set, the show also ends when it closes, like after a panic
-	code    int            // when not 0, returned at once, like a show that could not start
-	hooks   chan run.Hooks // the hooks each start got
+	hints   chan string
+	start   chan struct{}
+	status  chan struct{}
+	ends    chan struct{}
+	code    int
+	hooks   chan run.Hooks
 }
 
 func (f *fakeShow) run(ctx context.Context, h run.Hooks) int {
@@ -33,7 +32,7 @@ func (f *fakeShow) run(ctx context.Context, h run.Hooks) int {
 		<-f.start
 	}
 	if ctx.Err() != nil {
-		return 0 // like run.Play: cancelled before the show started, nothing was changed
+		return 0
 	}
 	if f.status != nil {
 		<-f.status
@@ -64,10 +63,10 @@ func serveFake(t *testing.T, code int) *harness {
 		show: &fakeShow{release: make(chan struct{}, 4), hints: make(chan string, 4), code: code, hooks: make(chan run.Hooks, 4)}}
 	var mu sync.Mutex
 	last := ""
-	put := func(st ha.State) { // called from several goroutines, like link.put
+	put := func(st ha.State) {
 		mu.Lock()
 		defer mu.Unlock()
-		if st.Status != last { // a repeated state is harmless; the tests check the order
+		if st.Status != last {
 			h.got <- st.Status
 		}
 		last = st.Status

@@ -10,7 +10,7 @@ type Sample struct {
 	Sent    time.Time
 	Phase   string
 	Rate    float64
-	Kind    string // cmd or canary
+	Kind    string
 	Device  string
 	Latency time.Duration
 	OK      bool
@@ -49,7 +49,7 @@ func (r *Recorder) Snapshot() ([]Sample, []LogEvent) {
 	return append([]Sample(nil), r.samples...), append([]LogEvent(nil), r.logs...)
 }
 
-// Phase is what the probe is doing now; samples are tagged with it.
+// Phase is what the probe is doing now.
 type Phase struct {
 	mu   sync.Mutex
 	name string

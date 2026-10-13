@@ -11,8 +11,6 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
-// saveBudget writes the budget of results into the config of -config, when
-// there is one and a step ran clean. It returns false when writing failed.
 func (s *session) saveBudget(results []Step) bool {
 	b, ok := Suggest(results)
 	if !ok || s.cfg.config == "" {
@@ -29,13 +27,10 @@ func (s *session) saveBudget(results []Step) bool {
 	return true
 }
 
-// writeBudget puts b into the config at path in Zigbee frames, as the show
-// counts them: a command of mode is that many frames. The comments say when
-// and from what. It returns the values, also when writing failed.
 func writeBudget(path string, b Budget, mode palette.Mode, now time.Time) (rate float64, latency time.Duration, err error) {
 	frames := z2m.Frames(palette.New(mode).Next("").Payload)
 	rate = b.Rate * float64(frames)
-	latency = b.Ref.Cmd.P50 / time.Duration(frames) // whole ms below, as the summary prints them
+	latency = b.Ref.Cmd.P50 / time.Duration(frames)
 	f, err := config.OpenFile(path)
 	if err != nil {
 		return rate, latency, err

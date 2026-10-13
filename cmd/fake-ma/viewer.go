@@ -8,16 +8,14 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/ws"
 )
 
-// As MA's relay does it.
 const (
-	authWait     = 10 * time.Second // for the auth message
-	tokenRefused = 4001             // close code for a bad token
-	pingEvery    = 25 * time.Second // aiohttp's heartbeat
-	// viewerBuffer is about 95 s of waveform frames before a slow viewer loses frames.
+	authWait     = 10 * time.Second
+	tokenRefused = 4001
+	pingEvery    = 25 * time.Second
+
 	viewerBuffer = 4096
 )
 
-// viewer is one connected client; a writer goroutine drains out.
 type viewer struct {
 	c   *ws.Conn
 	out chan outMsg
@@ -28,7 +26,6 @@ type outMsg struct {
 	data []byte
 }
 
-// fan sends a frame to every viewer; a viewer that falls behind loses it, as in MA.
 func (tl *timeline) fan(data []byte, text bool) {
 	tl.mu.Lock()
 	defer tl.mu.Unlock()
@@ -40,7 +37,6 @@ func (tl *timeline) fan(data []byte, text bool) {
 	}
 }
 
-// serve is the relay route: auth, the target check, stream/start, the pending beats, then live frames.
 func (tl *timeline) serve(w http.ResponseWriter, r *http.Request, token, player string) {
 	c, err := ws.Upgrade(w, r)
 	if err != nil {
@@ -65,11 +61,11 @@ func (tl *timeline) serve(w http.ResponseWriter, r *http.Request, token, player 
 	}
 	types := `"waveform","beat"`
 	if tl.colors {
-		types += `,"color"` // MA lists it only when its color_tint option is on
+		types += `,"color"`
 	}
 	_ = c.WriteText([]byte(`{"type":"stream/start","payload":{"visualizer":{"types":[` + types + `]}}}`))
 	v := &viewer{c: c, out: make(chan outMsg, viewerBuffer)}
-	go v.write() // first, so join never blocks on a full buffer while it holds the lock
+	go v.write()
 	tl.join(v)
 	defer func() {
 		tl.mu.Lock()
@@ -80,7 +76,6 @@ func (tl *timeline) serve(w http.ResponseWriter, r *http.Request, token, player 
 	tl.answer(c)
 }
 
-// answer replies to client/time until the connection ends.
 func (tl *timeline) answer(c *ws.Conn) {
 	for {
 		_ = c.SetReadDeadline(time.Time{})
@@ -104,7 +99,6 @@ func (tl *timeline) answer(c *ws.Conn) {
 	}
 }
 
-// write sends the viewer's frames and a ping every pingEvery.
 func (v *viewer) write() {
 	ping := time.NewTicker(pingEvery)
 	defer ping.Stop()

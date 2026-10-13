@@ -11,7 +11,7 @@ import (
 
 func TestLateKickIsDroppedItsReturnStays(t *testing.T) {
 	e := started(t, "separate", 100)
-	e.Music(t0, moment(8)) // At t0+4s: kicks for lamp-1 and lamp-2, a pulse for lamp-4
+	e.Music(t0, moment(8))
 	sendAt := e.lights["lamp-1"].queue[0].sendAt
 	got := lightsOf(e.Due(sendAt.Add(200 * time.Millisecond)))
 	if got != "" {
@@ -44,7 +44,7 @@ func TestDueMessagesMerge(t *testing.T) {
 
 func TestStaleBeatIsSkipped(t *testing.T) {
 	e := started(t, "separate", 100)
-	e.Music(at(5_000), moment(8)) // At t0+4s, already past
+	e.Music(at(5_000), moment(8))
 	if len(e.lights["lamp-1"].queue)+len(e.lights["lamp-4"].queue) != 0 {
 		t.Fatal("a beat in the past must not be planned")
 	}
@@ -66,7 +66,7 @@ func TestSetOffsetMovesTheSendTime(t *testing.T) {
 
 func TestClearDropsPlannedMoments(t *testing.T) {
 	e := started(t, "separate", 100)
-	e.Music(t0, moment(8)) // kicks for lamp-1 and lamp-2, a pulse for lamp-4
+	e.Music(t0, moment(8))
 	e.Music(t0, music.Clear{})
 	if len(e.lights["lamp-1"].queue) != 1 || len(e.lights["lamp-2"].queue) != 1 || len(e.lights["lamp-4"].queue) == 0 {
 		t.Errorf("a seek drops the planned kicks and keeps their returns and the pulse's fall: %v %v %v",
@@ -78,15 +78,14 @@ func TestClearDropsPlannedMoments(t *testing.T) {
 
 	e = started(t, "separate", 100)
 	e.Music(t0, moment(8))
-	e.Due(e.lights["lamp-1"].queue[0].sendAt) // the kicks leave
+	e.Due(e.lights["lamp-1"].queue[0].sendAt)
 	e.Music(t0, music.Clear{})
 	if len(e.lights["lamp-1"].queue) != 1 || len(e.lights["lamp-2"].queue) != 1 {
 		t.Errorf("a kick that left keeps its return: %v %v", e.lights["lamp-1"].queue, e.lights["lamp-2"].queue)
 	}
 }
 
-// TestBuildPaintsADroppedKickAgain: a light whose kick was dropped does not
-// show the colour, so build gives it that colour again.
+// TestBuildPaintsADroppedKickAgain.
 func TestBuildPaintsADroppedKickAgain(t *testing.T) {
 	e := started(t, "separate", 100)
 	eff := testConfig("separate").Effects
@@ -104,7 +103,6 @@ func TestBuildPaintsADroppedKickAgain(t *testing.T) {
 	}
 }
 
-// kicked is a light with a colour change in the queue, or "".
 func kicked(e *Engine) string {
 	for l, lt := range e.lights {
 		q := lt.queue
@@ -117,8 +115,7 @@ func kicked(e *Engine) string {
 	return ""
 }
 
-// TestAClearedKickIsPaintedAgain: a pause, a dropped connection and a light
-// left alone clear the queue; build still paints the light whose kick never left.
+// TestAClearedKickIsPaintedAgain.
 func TestAClearedKickIsPaintedAgain(t *testing.T) {
 	for name, clearIt := range map[string]func(e *Engine, light string){
 		"paused":       func(e *Engine, _ string) { e.paused(t0, "test") },
@@ -126,7 +123,7 @@ func TestAClearedKickIsPaintedAgain(t *testing.T) {
 		"left alone": func(e *Engine, l string) {
 			e.lights[l].fails = awayAfter - 1
 			e.failed(t0, l)
-			e.lights[l].away = false // it answers again
+			e.lights[l].away = false
 		},
 	} {
 		e := started(t, "separate", 100)

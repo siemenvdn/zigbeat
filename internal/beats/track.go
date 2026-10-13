@@ -9,7 +9,6 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/run/show"
 )
 
-// trackLine says what a track brings: its tempo and the colours the show would play.
 func trackLine(t music.Track, e config.Effects) string {
 	s := fmt.Sprintf("track %.1f BPM, ", t.BPM)
 	colors := show.AlbumColors(t.Palette, e.AlbumColors)

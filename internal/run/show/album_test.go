@@ -7,7 +7,6 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/music"
 )
 
-// Covers as Music Assistant's roles could describe them, most dominant first.
 var (
 	navyCover = []music.RGB{{32, 45, 89}, {219, 128, 52}, {240, 220, 200}, {60, 30, 20}, {20, 28, 56}, {200, 205, 220}}
 	greyPhoto = []music.RGB{{30, 30, 30}, {200, 200, 200}, {240, 240, 240}, {10, 10, 10}}
@@ -19,7 +18,7 @@ func TestAlbumColors(t *testing.T) {
 	for _, c := range []struct {
 		name  string
 		cover []music.RGB
-		want  []string // for n = 2 to 6
+		want  []string
 	}{
 		{"navy, orange title", navyCover, []string{
 			"#406cff #ff943d",

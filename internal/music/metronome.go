@@ -9,7 +9,7 @@ import (
 // Metronome is a fixed-tempo 4/4 source for development.
 type Metronome struct {
 	BPM       float64
-	Lookahead time.Duration // how long before At each beat is delivered
+	Lookahead time.Duration
 }
 
 func (m Metronome) String() string { return fmt.Sprintf("metronome at %g BPM", m.BPM) }

@@ -12,7 +12,6 @@ import (
 
 const testTimeout = 2 * time.Second
 
-// pair returns both ends of a connection through a real HTTP handshake.
 func pair(t *testing.T) (client, server *Conn) {
 	t.Helper()
 	servers := make(chan *Conn, 1)
@@ -137,7 +136,7 @@ func TestIdleTimeoutRenewsPerMessage(t *testing.T) {
 			t.Fatalf("messages 60 ms apart keep a 100 ms idle timeout alive: message %d: %q, %v", i, m.Data, err)
 		}
 	}
-	_ = c.SetReadDeadline(time.Now().Add(testTimeout)) // only a bound: the idle timeout wins
+	_ = c.SetReadDeadline(time.Now().Add(testTimeout))
 	start := time.Now()
 	if _, err := c.Read(); err == nil || time.Since(start) > testTimeout/2 {
 		t.Errorf("silence must end the read within the idle timeout: %v after %s", err, time.Since(start))

@@ -65,7 +65,7 @@ func TestChoose(t *testing.T) {
 	cur.Budget.AudioOffsetMS = 150
 	for _, c := range []struct {
 		key, payload string
-		want         string // the value in config form, or the error
+		want         string
 	}{
 		{"album_palette", "OFF", "false"},
 		{"album_palette", "off", "not ON or OFF"},
@@ -109,8 +109,7 @@ func TestChoose(t *testing.T) {
 	}
 }
 
-// TestWipeOfAnUnknownSettingIsSilent: wiping a kept choice of a setting that is
-// gone, such as cadence, arrives as an empty command and changes nothing.
+// TestWipeOfAnUnknownSettingIsSilent.
 func TestWipeOfAnUnknownSettingIsSilent(t *testing.T) {
 	e := defaults()
 	got, err := Choose(e, e, "cadence", "")

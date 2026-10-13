@@ -1,6 +1,5 @@
-// fake-ma simulates the visualizer relay of Music Assistant (the MilkDrop
-// Visualizer plugin, providers/milkdrop_visualizer in MA 2.10), so zigbeat's
-// beat source can be tested without Music Assistant.
+// fake-ma simulates the visualizer relay of Music Assistant (the MilkDrop Visualizer plugin,
+// providers/milkdrop_visualizer in MA 2.10), so zigbeat's beat source can be tested without Music Assistant.
 package main
 
 import (
@@ -15,15 +14,13 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/cli"
 )
 
-// Flag defaults.
 const (
-	defaultListen = "127.0.0.1:8095" // MA's webserver port
-	defaultTracks = "124:60s"        // a minute at a common dance tempo
-	analysisDelay = 6 * time.Second  // MA analyses a first play for seconds before beats come
-	// clockOffset is far from zero, so a client that skips the clock sync is visibly off.
+	defaultListen = "127.0.0.1:8095"
+	defaultTracks = "124:60s"
+	analysisDelay = 6 * time.Second
+
 	clockOffset = 37 * time.Second
-	// paletteDelay: MA finds a cached palette in milliseconds; a little longer
-	// shows the all-null message before it.
+
 	paletteDelay = 300 * time.Millisecond
 )
 
@@ -32,7 +29,6 @@ type track struct {
 	length time.Duration
 }
 
-// period is the time between two beats of tr.
 func (tr track) period() time.Duration { return time.Duration(float64(time.Minute) / tr.bpm) }
 
 func main() {

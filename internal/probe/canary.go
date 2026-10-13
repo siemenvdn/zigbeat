@@ -6,7 +6,6 @@ import (
 )
 
 // Canary asks one far-away device for its state once per interval and times the answer.
-// NewCanary watches device; a read without answer after timeout is lost.
 func NewCanary(device string, rec *Recorder, timeout time.Duration) *Canary {
 	return &Canary{device: device, rec: rec, timeout: timeout}
 }

@@ -14,13 +14,11 @@ import (
 )
 
 const (
-	canaryReads = 3           // enough to see it answers; the show measures it at every start
-	minAnswers  = 2           // one lost read is noise
-	readGap     = time.Second // about as often as the show reads the canary
+	canaryReads = 3
+	minAnswers  = 2
+	readGap     = time.Second
 )
 
-// chooseCanary returns the canary: from -canary, or asked from the routers
-// that are not in the show. code is not 0 when setup must stop.
 func (s *session) chooseCanary(ctx context.Context, devs []z2m.Device, chosen []light, current string) (canary string, code int) {
 	cands := canaryCandidates(devs, chosen)
 	switch {
@@ -44,7 +42,6 @@ func (s *session) chooseCanary(ctx context.Context, devs []z2m.Device, chosen []
 	return s.askCanary(ctx, cands, current)
 }
 
-// canaryCandidates are the routers that can watch the network, without the lights of the show.
 func canaryCandidates(devs []z2m.Device, chosen []light) []z2m.Device {
 	var out []z2m.Device
 	for _, d := range devs {
@@ -55,8 +52,6 @@ func canaryCandidates(devs []z2m.Device, chosen []light) []z2m.Device {
 	return out
 }
 
-// askCanary lists cands and asks until a chosen one answers its reads; Enter
-// keeps current when it is one of them.
 func (s *session) askCanary(ctx context.Context, cands []z2m.Device, current string) (canary string, code int) {
 	fmt.Fprintln(s.out, "canary candidates:")
 	tw := tabwriter.NewWriter(s.out, 0, 0, columnGap, ' ', 0)
@@ -95,8 +90,6 @@ func (s *session) askCanary(ctx context.Context, cands []z2m.Device, current str
 	}
 }
 
-// answers reads name canaryReads times, s.gap apart, and says whether it
-// answered at least minAnswers times; false when ctx is done.
 func (s *session) answers(ctx context.Context, name string) bool {
 	got := lights.ReadTimes(ctx, s.br, name, canaryReads, s.gap)
 	if ctx.Err() != nil {

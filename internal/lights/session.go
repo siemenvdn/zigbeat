@@ -16,26 +16,23 @@ import (
 
 // Watch is what a session subscribes to on every dial.
 type Watch struct {
-	Devices []string                                        // whose states to keep; Read adds more
-	OnState func(device string, st z2m.State, at time.Time) // optional; on the MQTT reader, must not block
-	OnLog   func(z2m.LogEntry, time.Time)                   // optional; Zigbee2MQTT's log, on the MQTT reader
+	Devices []string
+	OnState func(device string, st z2m.State, at time.Time)
+	OnLog   func(z2m.LogEntry, time.Time)
 }
 
-// Session is a command's connection to Zigbee2MQTT: the MQTT client, the
-// devices it watches and the last state of each. It is the Conn of the
-// snapshot and the restore. One goroutine calls its methods; the Watch
-// callbacks run on the MQTT reader.
+// Session is a command's connection to Zigbee2MQTT.
 type Session struct {
 	broker, base string
 	opts         mqtt.Options
 	watch        Watch
 	client       *mqtt.Client
 	bridge       *z2m.Bridge
-	dialed       time.Time // the last dial, kept one cli.RedialEvery from the next
+	dialed       time.Time
 
 	mu      sync.Mutex
 	last    map[string]stateAt
-	changed chan struct{} // closed and replaced at every state, so Await wakes up
+	changed chan struct{}
 }
 
 type stateAt struct {
@@ -87,9 +84,7 @@ func (s *Session) subscribe(b *z2m.Bridge, device string) error {
 	})
 }
 
-// Reconnect dials again every cli.RedialEvery until it works or ctx is done,
-// and subscribes again. The first dial goes at once when the last one is that
-// long ago, so a stop after the broker came back does not wait.
+// Reconnect dials again every cli.RedialEvery until it works or ctx is done, and subscribes again.
 func (s *Session) Reconnect(ctx context.Context) bool {
 	s.client.Close()
 	if ctx.Err() == nil && time.Since(s.dialed) >= cli.RedialEvery && s.dial() == nil {
@@ -101,8 +96,7 @@ func (s *Session) Reconnect(ctx context.Context) bool {
 func (s *Session) Get(device string, p any) error { return s.bridge.Get(device, p) }
 func (s *Session) Set(device string, p any) error { return s.bridge.Set(device, p) }
 
-// Await waits up to d for a state of device that arrived after since. It is
-// false when none came, the connection dropped or ctx is done.
+// Await waits up to d for a state of device that arrived after since.
 func (s *Session) Await(ctx context.Context, device string, since time.Time, d time.Duration) (z2m.State, bool) {
 	v, ok := s.await(ctx, device, since, d)
 	return v.st, ok
@@ -131,8 +125,7 @@ func (s *Session) await(ctx context.Context, device string, since time.Time, d t
 	}
 }
 
-// Read asks device for its state and returns how long the answer took, waiting
-// up to d. A device it did not watch yet is watched from now on.
+// Read asks device for its state and returns how long the answer took, waiting up to d.
 func (s *Session) Read(ctx context.Context, device string, d time.Duration) (time.Duration, bool) {
 	if !slices.Contains(s.watch.Devices, device) {
 		if s.subscribe(s.bridge, device) != nil {
@@ -148,7 +141,7 @@ func (s *Session) Read(ctx context.Context, device string, d time.Duration) (tim
 	return v.at.Sub(sent), ok
 }
 
-// Last is the latest state of device and when it came; false before the first.
+// Last is the latest state of device and when it came.
 func (s *Session) Last(device string) (z2m.State, time.Time, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -174,9 +167,7 @@ type Reader interface {
 	Read(ctx context.Context, device string, d time.Duration) (time.Duration, bool)
 }
 
-// ReadTimes reads device n times, a read every gap, and returns how long each
-// answer took; a read without an answer within z2m.LostAfter is left out. It
-// stops early when ctx is done.
+// ReadTimes reads device n times, a read every gap, and returns how long each answer took.
 func ReadTimes(ctx context.Context, r Reader, device string, n int, gap time.Duration) []time.Duration {
 	var got []time.Duration
 	for i := range n {

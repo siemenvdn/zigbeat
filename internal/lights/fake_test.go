@@ -7,8 +7,6 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
-// fakeConn answers at once, except for the first misses of a light, and goes
-// offline at the offlineAt-th call to Online.
 type fakeConn struct {
 	misses    map[string]int
 	offlineAt int

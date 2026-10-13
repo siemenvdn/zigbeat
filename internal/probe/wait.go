@@ -9,13 +9,11 @@ import (
 )
 
 const (
-	// pollEvery is far below the latencies measured, and cheap.
 	pollEvery = 20 * time.Millisecond
-	// drainGrace is more than expireEvery, so the expiry runs once more past -timeout.
+
 	drainGrace = 300 * time.Millisecond
 )
 
-// sleep waits for d and returns false when interrupted or the connection drops.
 func (s *session) sleep(d time.Duration) bool {
 	if d <= 0 {
 		select {
@@ -39,7 +37,6 @@ func (s *session) sleep(d time.Duration) bool {
 	}
 }
 
-// drain waits until every command is answered, then counts the rest as lost.
 func (s *session) drain() {
 	waitFor(s.cfg.timeout+drainGrace, func() bool { return s.tracker.InFlight() == 0 })
 	s.tracker.Expire(time.Now().Add(s.cfg.timeout))
@@ -72,15 +69,12 @@ func every(ctx context.Context, d time.Duration, fn func(time.Time)) {
 }
 
 const (
-	// The canary is read every canaryMin to canaryMin+canarySpread: about once a
-	// second, and irregular so the reads never lock in phase with the command rate.
 	canaryMin    = 700 * time.Millisecond
 	canarySpread = 600 * time.Millisecond
-	// expireEvery checks unanswered commands against -timeout, which is seconds.
+
 	expireEvery = 200 * time.Millisecond
 )
 
-// startBackground starts the canary probes and the expiry of unanswered commands.
 func (s *session) startBackground() {
 	bg, stop := context.WithCancel(context.Background())
 	s.stopBg = stop

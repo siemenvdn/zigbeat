@@ -11,26 +11,21 @@ import (
 )
 
 const (
-	// checkLevel turns the targets on, clearly visible, before the self-check.
 	checkLevel = 200
-	// warmUp lets the echoes of turning on arrive, so the self-check does not
-	// take them for its own answers.
+
 	warmUp = 2 * time.Second
 )
 
-// canaryAnswers checks that the canary replies to a state request.
 func (s *session) canaryAnswers() bool {
 	if _, ok := s.Read(s.ctx, s.cfg.canary, s.cfg.timeout); ok {
 		return true
 	}
-	if s.ctx.Err() == nil { // not Ctrl-C: the canary itself
+	if s.ctx.Err() == nil {
 		fmt.Fprintf(os.Stderr, "canary %s does not answer; pick another device with -canary\n", s.cfg.canary)
 	}
 	return false
 }
 
-// baseline measures the canary alone, with nothing else from us on the air.
-// It returns false when interrupted.
 func (s *session) baseline() (Stats, bool) {
 	s.ph.Set("baseline", 0)
 	fmt.Printf("measuring baseline for %s\n", s.cfg.baseline)
@@ -47,7 +42,6 @@ func (s *session) baseline() (Stats, bool) {
 	return StatsOf(base), true
 }
 
-// selfCheck turns the targets on and checks that each one echoes a command we can match.
 func (s *session) selfCheck() bool {
 	s.ph.Set("prep", 0)
 	for _, t := range s.cfg.targets {
@@ -83,8 +77,6 @@ func (s *session) selfCheck() bool {
 	return false
 }
 
-// refuseTargets stops the probe before anything changes when a target may not
-// be driven by the rules of zigbeat setup. Without bridge/devices it warns and goes on.
 func (s *session) refuseTargets() error {
 	devs, err := s.Devices(s.ctx)
 	if err != nil {
@@ -96,8 +88,6 @@ func (s *session) refuseTargets() error {
 	return checkTargets(devs, s.cfg.targets, s.cfg.mode)
 }
 
-// checkTargets checks every target in the role its mode needs: brightness
-// mode drives any light, color and combo need xy colour.
 func checkTargets(devs []z2m.Device, targets []string, mode palette.Mode) error {
 	role := z2m.Color
 	if mode == palette.Brightness {

@@ -12,18 +12,15 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/serve/ha"
 )
 
-// server switches the show on and off for Home Assistant.
 type server struct {
-	show    func(ctx context.Context, h run.Hooks) int // run.Play in production
-	cmds    chan bool                                  // switch commands, ON is true; newest wins
-	styles  <-chan config.Effects                      // the style after a choice in Home Assistant
-	offsets <-chan time.Duration                       // the audio offset after a choice in Home Assistant
-	put     func(ha.State)                             // hands a state to the link; never blocks
-	total   int                                        // lights in the config
+	show    func(ctx context.Context, h run.Hooks) int
+	cmds    chan bool
+	styles  <-chan config.Effects
+	offsets <-chan time.Duration
+	put     func(ha.State)
+	total   int
 }
 
-// newest puts v in a channel of one, replacing what is waiting there.
-// Only one goroutine may send on ch.
 func newest[T any](ch chan T, v T) {
 	select {
 	case <-ch:
@@ -32,8 +29,6 @@ func newest[T any](ch chan T, v T) {
 	ch <- v
 }
 
-// loop serves until ctx is done, which only a signal does. A running show is
-// stopped and restored before it returns.
 func (s *server) loop(ctx context.Context) {
 	for {
 		s.put(ha.Off)
@@ -45,7 +40,6 @@ func (s *server) loop(ctx context.Context) {
 	}
 }
 
-// waitOn waits for ON and reports false when ctx is done first.
 func (s *server) waitOn(ctx context.Context) bool {
 	for {
 		select {
@@ -59,8 +53,6 @@ func (s *server) waitOn(ctx context.Context) bool {
 	}
 }
 
-// play runs one show. OFF cancels it at once, also during the start, and ON is
-// ignored while it runs. From OFF or the restore on, commands wait in cmds for the loop.
 func (s *server) play(ctx context.Context) {
 	cli.Say("switched on in Home Assistant")
 	s.put(ha.Starting)
@@ -75,7 +67,7 @@ func (s *server) play(ctx context.Context) {
 			Offsets: s.offsets,
 			Status:  func(stats engine.Stats) { st.playing(ha.Playing(stats, s.total)) },
 			Stopping: func() string {
-				stopping <- struct{}{} // returns once play no longer reads cmds
+				stopping <- struct{}{}
 				st.stopping()
 				if ctx.Err() != nil {
 					return cli.QuitHint
@@ -102,8 +94,6 @@ func (s *server) play(ctx context.Context) {
 	}
 }
 
-// states passes a show's states on to Home Assistant. Once it is stopping, a
-// running state that the show loop sent late is held back.
 type states struct {
 	mu   sync.Mutex
 	put  func(ha.State)

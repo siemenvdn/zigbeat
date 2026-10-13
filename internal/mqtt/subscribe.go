@@ -7,16 +7,12 @@ import (
 	paho "github.com/eclipse/paho.mqtt.golang"
 )
 
-// Subscribe registers fn for messages matching filter (QoS 0) and waits for
-// the SUBACK. One handler per filter: a second one replaces the first.
+// Subscribe registers fn for messages matching filter (QoS 0) and waits for the SUBACK.
 func (c *Client) Subscribe(filter string, fn Handler) error { return c.subscribe(filter, fn, false) }
 
-// SubscribeLive is Subscribe without the retained messages the broker sends
-// for a new subscription: fn only gets what is published from now on.
+// SubscribeLive is Subscribe without the retained messages the broker sends for a new subscription.
 func (c *Client) SubscribeLive(filter string, fn Handler) error { return c.subscribe(filter, fn, true) }
 
-// subscribe waits for the SUBACK. paho routes filter to fn before it asks the
-// broker, so a refusal or a timeout takes the route away again.
 func (c *Client) subscribe(filter string, fn Handler, live bool) error {
 	t := c.c.Subscribe(filter, qos0, func(_ paho.Client, m paho.Message) {
 		if !live || !m.Retained() {

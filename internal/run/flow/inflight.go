@@ -10,25 +10,24 @@ import (
 type flight struct {
 	sent   time.Time
 	frames int
-	queued int // frames in flight when it left, its own included
+	queued int
 }
 
-// InFlight holds at most one unconfirmed message per light and measures latency
-// per Zigbee frame, the unit zigbeat probe measured in.
+// InFlight holds at most one unconfirmed message per light and measures latency per Zigbee frame, the unit
+// zigbeat probe measured in.
 type InFlight struct {
 	open    map[string]flight
-	lat     []time.Duration // per frame of the message: when to send early
-	served  []time.Duration // per frame of the queue the message joined: how fast the coordinator is
+	lat     []time.Duration
+	served  []time.Duration
 	initial time.Duration
-	base    time.Duration // median of the show's first served samples; 0 until known
+	base    time.Duration
 }
 
 func NewInFlight(initial time.Duration) *InFlight {
 	return &InFlight{open: map[string]flight{}, initial: initial}
 }
 
-// Add holds light's slot for a message of frames sent now, behind the frames
-// already in flight.
+// Add holds light's slot for a message of frames sent now, behind the frames already in flight.
 func (f *InFlight) Add(light string, now time.Time, frames int) {
 	fl := flight{sent: now, frames: max(1, frames)}
 	fl.queued = fl.frames
@@ -45,8 +44,7 @@ func (f *InFlight) Busy(light string) bool {
 
 func (f *InFlight) Count() int { return len(f.open) }
 
-// Confirm frees light on its first state after the send and records its
-// latency per frame. It returns false for a state that confirms nothing.
+// Confirm frees light on its first state after the send and records its latency per frame.
 func (f *InFlight) Confirm(light string, at time.Time) bool {
 	fl, ok := f.open[light]
 	if !ok || !at.After(fl.sent) {

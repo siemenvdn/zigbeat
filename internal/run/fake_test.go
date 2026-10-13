@@ -8,18 +8,16 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
-// fakeLink answers every command with a state and every wait at once, can drop the connection at a
-// given Set, and reconnects or not.
 type fakeLink struct {
 	events     chan event
-	silent     bool // never answer
+	silent     bool
 	lost       chan struct{}
-	dropAt     int // close lost at this Set instead of answering; 0 never
+	dropAt     int
 	reconnect  bool
 	sets       int
 	reconnects int
-	groups     []string     // nil: bridge/groups never arrives
-	devices    []z2m.Device // nil: bridge/devices never arrives
+	groups     []string
+	devices    []z2m.Device
 }
 
 func newShell(t *testing.T) (*runner, *fakeLink) {

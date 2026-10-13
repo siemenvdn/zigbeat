@@ -10,8 +10,6 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/config"
 )
 
-// playing returns a planner for variant over colour fixtures of the given sizes,
-// with a fixed seed.
 func playing(variant config.Variant, mode config.Mode, sizes ...int) *Planner {
 	c := fixtures(mode, sizes...)
 	c.Effects.Variant = variant
@@ -26,7 +24,7 @@ func TestShuffleChangesEveryUnitOnceBeforeAnyRepeats(t *testing.T) {
 	var orders []string
 	for round := 0; round < 3; round++ {
 		var seen []string
-		for i := 0; i < 2; i++ { // 3 lights per moment, 6 lights
+		for i := 0; i < 2; i++ {
 			seen = append(seen, strings.Split(changed(p.Beat(moment(4*(2*round+i)), false)), ",")...)
 		}
 		sorted := slices.Clone(seen)
@@ -77,8 +75,8 @@ func TestSwapChangesTheColourOfEachGroup(t *testing.T) {
 		lights  int
 		palette []string
 	}{
-		{8, []string{"#406cff", "#ff943d", "#7340ff"}}, // 3 groups, 3 colours
-		{4, []string{"#406cff", "#ff943d"}},            // 2 groups, 2 colours
+		{8, []string{"#406cff", "#ff943d", "#7340ff"}},
+		{4, []string{"#406cff", "#ff943d"}},
 	} {
 		cfg := fixtures("separate", c.lights)
 		cfg.Effects.Variant, cfg.Effects.Palette = "swap", c.palette
@@ -88,7 +86,7 @@ func TestSwapChangesTheColourOfEachGroup(t *testing.T) {
 			before := maps.Clone(p.colors.current)
 			ls := strings.Split(changed(p.Beat(moment(4*i), false)), ",")
 			if i < firstRound {
-				continue // the groups take one colour each
+				continue
 			}
 			for _, l := range ls {
 				if p.colors.current[l] == before[l] {

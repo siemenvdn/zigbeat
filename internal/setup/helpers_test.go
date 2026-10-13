@@ -13,11 +13,11 @@ import (
 )
 
 type fakeBridge struct {
-	devs   []z2m.Device // nil: bridge/devices never comes
+	devs   []z2m.Device
 	silent map[string]bool
 	reads  []string
-	stopAt int    // the read during which Ctrl-C comes; 0 never
-	stop   func() // cancels the context of setup
+	stopAt int
+	stop   func()
 }
 
 func (f *fakeBridge) Devices(context.Context) ([]z2m.Device, error) {
@@ -36,7 +36,6 @@ func (f *fakeBridge) Read(_ context.Context, name string, _ time.Duration) (time
 	return 40 * time.Millisecond, !f.silent[name]
 }
 
-// dev is a Zigbee2MQTT device of kind color, white, plug or sensor.
 func dev(name, kind string) z2m.Device {
 	fs := []z2m.Expose{{Name: "state", Access: 7}, {Name: "brightness", Access: 7}}
 	exposes := []z2m.Expose{{Type: "light", Features: fs}}
@@ -66,8 +65,6 @@ func home() []z2m.Device {
 
 var today = time.Date(2026, 10, 12, 21, 0, 0, 0, time.UTC)
 
-// start runs setup on the config at path (made from existing when that is not
-// empty) with stdin and flags, and returns the exit code and everything printed.
 func start(t *testing.T, br *fakeBridge, path, existing, stdin string, flags ...string) (int, string) {
 	t.Helper()
 	t.Setenv("ZIGBEAT_MQTT_PASSWORD", "secret")

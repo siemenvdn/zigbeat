@@ -6,8 +6,7 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/music/ma"
 )
 
-// Source is the show's beat source: Music Assistant when the config has it and
-// bpm is 0, else a metronome at bpm, or at music.DefaultBPM when bpm is 0.
+// Source is the show's beat source.
 func Source(cfg config.Config, bpm float64) music.Source {
 	if m := cfg.MusicAssistant; m != nil && bpm == 0 {
 		return ma.Source{URL: m.URL, Token: m.Token, Player: m.Player}

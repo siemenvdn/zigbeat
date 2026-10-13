@@ -10,27 +10,21 @@ import (
 )
 
 const (
-	// phraseBars: dance music is built in sections of 8 and 16 bars.
 	phraseBars  = 16
 	phraseBeats = phraseBars * music.PerBar
-	// chaseShare: a moment changes about 1 in chaseShare of the colour lights, so
-	// the chase moves and the room keeps its colour.
+
 	chaseShare = 2
-	// minSwapGroups: two groups dealt round-robin, so each group spans the room.
+
 	minSwapGroups = 2
-	// buildPasses: when every unit shows the target, a second pass looks for one
-	// that does not show the next.
+
 	buildPasses = 2
 )
 
-// rotation is the order of the variants after the build that opens a
-// timeline: from many colours to two.
 var rotation = []config.Variant{config.Walk, config.Shuffle, config.Swap}
 
-// variant is one way the colour lights change; it keeps its own state between moments.
 type variant interface {
-	pick(c *colorShow, st stroke) [][]string // the units that change at this moment
-	color(c *colorShow, u []string) string   // the colour unit u takes
+	pick(c *colorShow, st stroke) [][]string
+	color(c *colorShow, u []string) string
 }
 
 func newVariant(v config.Variant) variant {
@@ -45,8 +39,6 @@ func newVariant(v config.Variant) variant {
 	return walk{}
 }
 
-// variantAt is the variant of the moment at index: the one in the config, or
-// in rotation build for a timeline's first phrase and then one per phrase.
 func (c *colorShow) variantAt(index int) config.Variant {
 	if c.setting != config.Rotation {
 		return c.setting
@@ -57,8 +49,6 @@ func (c *colorShow) variantAt(index int) config.Variant {
 	return rotation[(index/phraseBeats-1)%len(rotation)]
 }
 
-// fill takes units in order until 1 in chaseShare colour lights are covered,
-// at most flow.MaxPerMoment messages; the first unit always goes, whatever its size.
 func (c *colorShow) fill(units [][]string) [][]string {
 	want := (c.n + chaseShare - 1) / chaseShare
 	var picked [][]string
@@ -73,10 +63,8 @@ func (c *colorShow) fill(units [][]string) [][]string {
 	return picked
 }
 
-// fixtureColor is a colour that no other light of u's fixture shows.
 func fixtureColor(c *colorShow, u []string) string { return c.colorFor(u, c.fixtureOf[u[0]]) }
 
-// walk takes units in config order from where the last moment stopped.
 type walk struct{}
 
 func (walk) pick(c *colorShow, st stroke) [][]string {
@@ -92,14 +80,11 @@ func (walk) pick(c *colorShow, st stroke) [][]string {
 
 func (walk) color(c *colorShow, u []string) string { return fixtureColor(c, u) }
 
-// shuffle takes as many units as walk from a shuffled deck: every unit once
-// before any comes back.
 type shuffle struct {
-	deck  [][]string // the units still to come
-	dealt string     // the unit list the deck was dealt from
+	deck  [][]string
+	dealt string
 }
 
-// pick deals a new deck when it is empty or the unit list changed, after the flip of alternate.
 func (s *shuffle) pick(c *colorShow, st stroke) [][]string {
 	us := c.unitList(st.moment)
 	if key := fmt.Sprint(us); len(s.deck) == 0 || key != s.dealt {
@@ -113,7 +98,6 @@ func (s *shuffle) pick(c *colorShow, st stroke) [][]string {
 
 func (*shuffle) color(c *colorShow, u []string) string { return fixtureColor(c, u) }
 
-// swap changes one group of units at a time; the groups take turns, each in one colour.
 type swap struct{ turn int }
 
 func (s *swap) pick(c *colorShow, st stroke) [][]string {
@@ -126,12 +110,8 @@ func (s *swap) pick(c *colorShow, st stroke) [][]string {
 	return [][]string{g}
 }
 
-// color avoids the group's own colour too: with as many groups as colours, the
-// others leave it no other.
 func (*swap) color(c *colorShow, u []string) string { return c.colorFor(u, append(c.outside(u), u...)) }
 
-// groups deals units round-robin over at least minSwapGroups groups, adding
-// groups until none has more than flow.MaxPerMoment lights or each holds one unit.
 func groups(us [][]string) [][]string {
 	for n := min(minSwapGroups, len(us)); n > 0; n++ {
 		gs := make([][]string, n)
@@ -146,8 +126,6 @@ func groups(us [][]string) [][]string {
 	return nil
 }
 
-// build changes the first unit, in unit order, that does not show the target;
-// once every unit shows it, the target moves on to the next palette colour.
 type build struct{ target string }
 
 func (b *build) pick(c *colorShow, st stroke) [][]string {

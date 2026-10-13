@@ -2,26 +2,22 @@ package ma
 
 import "time"
 
-const keepBursts = 3 // bursts of time answers the estimate looks back on
+const keepBursts = 3
 
-// estimate is one time answer: MA's clock minus zigbeat's, and the round trip, in µs.
 type estimate struct{ offset, rtt int64 }
 
-// clock maps MA's monotonic clock onto zigbeat's. zigbeat's clock is µs since base.
 type clock struct {
 	base   time.Time
-	bursts []estimate // the best answer of each recent burst, newest last; rtt -1 while empty
+	bursts []estimate
 }
 
 func newClock() *clock { return &clock{base: time.Now()} }
 
-// now is zigbeat's clock in µs.
 func (c *clock) now() int64 { return time.Since(c.base).Microseconds() }
 
-// burst starts a new burst of answers; the oldest beyond keepBursts is forgotten.
 func (c *clock) burst() {
 	if n := len(c.bursts); n > 0 && c.bursts[n-1].rtt < 0 {
-		return // the last burst got no answer: keep the older ones rather than lose the estimate
+		return
 	}
 	c.bursts = append(c.bursts, estimate{rtt: -1})
 	if len(c.bursts) > keepBursts {
@@ -29,7 +25,6 @@ func (c *clock) burst() {
 	}
 }
 
-// add records an answer: t1 and t4 are zigbeat's send and receive times, t2 and t3 MA's.
 func (c *clock) add(t1, t2, t3, t4 int64) {
 	if len(c.bursts) == 0 {
 		c.burst()
@@ -40,7 +35,6 @@ func (c *clock) add(t1, t2, t3, t4 int64) {
 	}
 }
 
-// best is the answer with the shortest round trip; false before the first answer.
 func (c *clock) best() (estimate, bool) {
 	var best estimate
 	ok := false
@@ -52,7 +46,6 @@ func (c *clock) best() (estimate, bool) {
 	return best, ok
 }
 
-// at is the local time of ts on MA's clock; ok is false before the first answer.
 func (c *clock) at(ts int64) (time.Time, bool) {
 	e, ok := c.best()
 	return c.base.Add(time.Duration(ts-e.offset) * time.Microsecond), ok

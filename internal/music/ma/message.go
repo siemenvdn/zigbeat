@@ -9,10 +9,10 @@ import (
 )
 
 const (
-	beatTag   = 17            // [17][ts:8][flags], bit 0 of flags is a downbeat
-	waveTag   = 22            // [22][ts:8][1024 samples]
-	headerLen = 1 + 8         // tag and timestamp
-	beatLen   = headerLen + 1 // and the flags
+	beatTag   = 17
+	waveTag   = 22
+	headerLen = 1 + 8
+	beatLen   = headerLen + 1
 	downBit   = 1
 )
 
@@ -30,13 +30,12 @@ const (
 	kindFailed
 )
 
-// message is one parsed message from the relay.
 type message struct {
 	kind           kind
 	f              frame
-	t1, t2, t3, t4 int64 // a time answer, in µs
+	t1, t2, t3, t4 int64
 	palette        []music.RGB
-	samples        []byte // of a waveform frame, which ends at f.ts
+	samples        []byte
 	err            error
 }
 
@@ -66,7 +65,7 @@ func parse(m ws.Message, now int64) message {
 		switch {
 		case m.Data[0] == beatTag && len(m.Data) >= beatLen:
 			return message{kind: kindBeat, f: frame{ts: ts, down: m.Data[headerLen]&downBit != 0}}
-		case m.Data[0] == waveTag && len(m.Data) > headerLen: // a frame without samples has no level
+		case m.Data[0] == waveTag && len(m.Data) > headerLen:
 			return message{kind: kindWave, f: frame{ts: ts}, samples: m.Data[headerLen:]}
 		}
 		return message{}

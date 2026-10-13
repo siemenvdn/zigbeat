@@ -8,12 +8,10 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
-// snapshotTries reads a light once more before it is left out of the show.
 const snapshotTries = 2
 
-// Snapshot reads the state of each light, one at a time within rate frames per second,
-// snapshotTries tries of answerWait each. Lights that do not answer are left out.
-// It stops early when ctx is done.
+// Snapshot reads the state of each light, one at a time within rate frames per second, snapshotTries tries of
+// answerWait each.
 func Snapshot(ctx context.Context, c Conn, lights []string, rate float64) map[string]z2m.State {
 	snaps := map[string]z2m.State{}
 	for _, l := range lights {

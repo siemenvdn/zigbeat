@@ -40,7 +40,7 @@ func TestUnreachableLightIsLeftAlone(t *testing.T) {
 
 func TestDisconnectedRetriesLightsLeftAlone(t *testing.T) {
 	e := started(t, "separate", 100)
-	for _, ms := range []int{10_000, 30_000} { // two losses, maybe the connection's
+	for _, ms := range []int{10_000, 30_000} {
 		e.enqueue([]show.Message{{Light: "lamp-3", Payload: map[string]any{"brightness": 10}, Land: at(ms)}})
 		e.Due(at(ms))
 		e.Due(at(ms + 5_000))

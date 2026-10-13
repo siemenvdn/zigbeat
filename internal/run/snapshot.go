@@ -9,9 +9,6 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/lights"
 )
 
-// snapshot reads every light within the budget. A light that does not answer is
-// left out of the show: without its state it cannot be restored. It returns
-// false when no light answered or ctx was cancelled.
 func (r *runner) snapshot(ctx context.Context) bool {
 	r.snaps = lights.Snapshot(ctx, restoreConn{r.link, r}, r.cfg.Lights(), r.cfg.Budget.MaxRate)
 	if ctx.Err() != nil {

@@ -6,23 +6,17 @@ import (
 	"strings"
 )
 
-// defaultDevices: three colour lights and a white one for the show, a colour
-// light as canary, and devices zigbeat must never drive.
 const defaultDevices = "lamp-1,lamp-2,lamp-3,lamp-4:white,far-lamp,plug-1:plug,relay-1:relay,dimmer-1:dimmer,sensor-1:sensor"
 
-// Access bits of an expose, as in herdsman-converters: state, set, get.
 const (
 	accessState = 1
 	accessAll   = 7
 )
 
-// kind is a device as Zigbee2MQTT describes it in bridge/devices. The kinds are
-// written from Zigbee2MQTT's test fixtures and herdsman-converters' device
-// definitions, not from zigbeat's parser.
 type kind struct {
 	typ, power, modelID, model, vendor, description string
 	exposes                                         []any
-	color                                           bool // the state has a colour
+	color                                           bool
 }
 
 const mains, battery = "Mains (single phase)", "Battery"
@@ -69,7 +63,6 @@ func numeric(name string, access int) map[string]any {
 
 func enum(name string) map[string]any { return feature("enum", name) }
 
-// parseDevices reads -devices: names, each with an optional :kind.
 func parseDevices(list string) (names []string, kindOf map[string]string, err error) {
 	kindOf = map[string]string{}
 	for _, d := range strings.Split(list, ",") {
@@ -86,7 +79,6 @@ func parseDevices(list string) (names []string, kindOf map[string]string, err er
 	return names, kindOf, nil
 }
 
-// bridgeDevices is the bridge/devices message: the coordinator, then every device.
 func bridgeDevices(names []string, kindOf map[string]string) []byte {
 	ds := []map[string]any{{
 		"ieee_address": "0x00124b00120144ae", "friendly_name": "Coordinator", "type": "Coordinator",
@@ -105,8 +97,6 @@ func bridgeDevices(names []string, kindOf map[string]string) []byte {
 	return b
 }
 
-// initialState is a device before the show: on at about 70 %, in a warm white
-// when it has colour, like a light that was on.
 func initialState(k string) map[string]any {
 	st := map[string]any{"state": "ON", "brightness": 180, "linkquality": 120}
 	if kinds[k].color {

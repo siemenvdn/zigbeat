@@ -13,7 +13,6 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
-// Flag defaults for a new config: the MQTT user and variable the README suggests.
 const (
 	defaultUser        = "zigbeat"
 	defaultPasswordEnv = "ZIGBEAT_MQTT_PASSWORD"
@@ -22,10 +21,10 @@ const (
 
 type options struct {
 	config       string
-	lights       []string // -lights; nil asks
-	canary       string   // -canary; empty asks, noCanary for none
+	lights       []string
+	canary       string
 	mqtt         config.MQTT
-	existing     *config.Config // the config at -config, nil when there is none
+	existing     *config.Config
 	mqttFlagsSet []string
 }
 
@@ -60,8 +59,6 @@ func parseFlags(args []string) (options, error) {
 	return o, nil
 }
 
-// load reads the config at -config when it exists, and settles the MQTT
-// settings: from that config, or from the flags and the environment.
 func (o *options) load() error {
 	if _, err := os.Stat(o.config); err == nil {
 		c, err := config.Load(o.config, config.ForDraft)

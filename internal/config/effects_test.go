@@ -42,7 +42,7 @@ func TestPaceAndBreatheVariant(t *testing.T) {
 	}
 }
 
-// TestCadenceIsGone: a config from before the pace in beats says what to set instead.
+// TestCadenceIsGone.
 func TestCadenceIsGone(t *testing.T) {
 	_, err := Parse([]byte(minimal+"effects: {cadence: 2s}\n"), env(nil), ForShow)
 	if err == nil || err.Error() != "config: effects.cadence is gone: set effects.pace in beats, such as pace: 2" {
@@ -50,8 +50,8 @@ func TestCadenceIsGone(t *testing.T) {
 	}
 }
 
-// TestBoundsAreTheChecks pins the exported bounds, which Home Assistant's
-// sliders and list show, to what Validate accepts.
+// TestBoundsAreTheChecks pins the exported bounds, which Home Assistant's sliders and list show, to what
+// Validate accepts.
 func TestBoundsAreTheChecks(t *testing.T) {
 	for i, c := range []struct{ in, out func(*Effects) }{
 		{func(e *Effects) { e.Pace = Paces[0] }, func(e *Effects) { e.Pace = 0 }},

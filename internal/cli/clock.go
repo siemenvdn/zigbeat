@@ -16,7 +16,7 @@ const ClockMS = Clock + ".000"
 // Stamp is the time now in the Clock format.
 func Stamp() string { return time.Now().Format(Clock) }
 
-// Seconds prints d as output lines do: "5 s", "1.5 s".
+// Seconds prints d as output lines do.
 func Seconds(d time.Duration) string {
 	return strconv.FormatFloat(d.Seconds(), 'f', -1, 64) + " s"
 }
@@ -26,7 +26,7 @@ func Say(format string, args ...any) {
 	fmt.Printf("%s  %s\n", Stamp(), fmt.Sprintf(format, args...))
 }
 
-// Sleep waits d, or less when ctx is done; it reports whether ctx is still live.
+// Sleep waits d, or less when ctx is done.
 func Sleep(ctx context.Context, d time.Duration) bool {
 	t := time.NewTimer(max(0, d))
 	defer t.Stop()

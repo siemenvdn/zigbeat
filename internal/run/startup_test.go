@@ -36,7 +36,6 @@ func TestStartupRefusesGroups(t *testing.T) {
 	}
 }
 
-// bulb is a Zigbee2MQTT light with colour or only brightness.
 func bulb(name string, color bool) z2m.Device {
 	fs := []z2m.Expose{{Name: "state", Access: 7}, {Name: "brightness", Access: 7}}
 	if color {

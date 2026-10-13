@@ -8,22 +8,19 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/music"
 )
 
-// beatWith is beat i of a bar with energy e.
 func beatWith(i int, e float64) music.Beat {
 	b := moment(i)
 	b.Energy = e
 	return b
 }
 
-// kicks tells whether a colour change in ps kicks, or a breathe light goes to the top of its range.
 func kicks(p *Planner, ps []Message) bool {
 	return slices.ContainsFunc(ps, func(m Message) bool {
 		return m.Payload["color"] != nil && m.Payload["brightness"] != nil || m.Light == "lamp-4" && m.Payload["brightness"] == p.breathe.high
 	})
 }
 
-// TestQuietPartPlaysCalmer: a bar below quietEnergy changes colour without
-// kicks or white pulses, at half the pace, until a loud bar; each change is noted.
+// TestQuietPartPlaysCalmer.
 func TestQuietPartPlaysCalmer(t *testing.T) {
 	c := testConfig("separate")
 	c.Effects.BreatheVariant = "pulse"
@@ -56,7 +53,7 @@ func TestFollowEnergyOff(t *testing.T) {
 	}
 }
 
-// TestNewTrackIsFull: a quiet end of one track does not hold the pickup of the next.
+// TestNewTrackIsFull.
 func TestNewTrackIsFull(t *testing.T) {
 	p := NewPlanner(testConfig("separate"))
 	p.Start(t0)
@@ -70,7 +67,7 @@ func TestNewTrackIsFull(t *testing.T) {
 	}
 }
 
-// TestSwitchOffInAQuietPart: switching follow_energy off ends a quiet part at the next beat.
+// TestSwitchOffInAQuietPart.
 func TestSwitchOffInAQuietPart(t *testing.T) {
 	c := testConfig("separate")
 	p := NewPlanner(c)
@@ -85,8 +82,7 @@ func TestSwitchOffInAQuietPart(t *testing.T) {
 	}
 }
 
-// TestQuietPartHolds: energy between the thresholds keeps what plays, as in a
-// build-up after a breakdown measured on real music: 0.38, 0.31, 0.21, 0.30.
+// TestQuietPartHolds.
 func TestQuietPartHolds(t *testing.T) {
 	p := NewPlanner(testConfig("separate"))
 	p.Start(t0)

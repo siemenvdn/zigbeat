@@ -1,5 +1,4 @@
-// Package mqtttest plays an MQTT broker for one client, for the tests of the
-// packages that speak to one.
+// Package mqtttest plays an MQTT broker for one client, for the tests of the packages that speak to one.
 package mqtttest
 
 import (
@@ -15,18 +14,15 @@ import (
 // Wait is how long a test waits for a packet or a message.
 const Wait = 2 * time.Second
 
-// Broker plays an MQTT broker for one client. It answers CONNECT, SUBSCRIBE
-// (refusing filters under refused/) and UNSUBSCRIBE, and hands every packet it
-// reads to Pkts: the first byte, then the body.
+// Broker plays an MQTT broker for one client.
 type Broker struct {
-	ln   *net.TCPListener // the first connection is served; Dialled reports a second one
+	ln   *net.TCPListener
 	Addr string
 	Pkts chan []byte
-	Conn chan net.Conn // the client's connection, for a test that cuts it
+	Conn chan net.Conn
 }
 
-// Dialled reports whether a second client dialled within d: a client that
-// reconnects by itself does, zigbeat's do not.
+// Dialled reports whether a second client dialled within d.
 func (b *Broker) Dialled(d time.Duration) bool {
 	_ = b.ln.SetDeadline(time.Now().Add(d))
 	again, err := b.ln.Accept()
@@ -36,7 +32,7 @@ func (b *Broker) Dialled(d time.Duration) bool {
 	return err == nil
 }
 
-// Start listens on a free port; the broker stops with the test.
+// Start listens on a free port.
 func Start(t *testing.T) *Broker {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -60,15 +56,15 @@ func Start(t *testing.T) *Broker {
 			}
 			b.Pkts <- p
 			switch p[0] >> 4 {
-			case 1: // CONNECT
+			case 1:
 				_, _ = c.Write([]byte{0x20, 2, 0, 0})
-			case 8: // SUBSCRIBE
+			case 8:
 				code := byte(0)
 				if strings.HasPrefix(string(p[5:]), "refused/") {
 					code = 0x80
 				}
 				_, _ = c.Write([]byte{0x90, 3, p[1], p[2], code})
-			case 10: // UNSUBSCRIBE
+			case 10:
 				_, _ = c.Write([]byte{0xb0, 2, p[1], p[2]})
 			}
 		}
@@ -76,13 +72,12 @@ func Start(t *testing.T) *Broker {
 	return b
 }
 
-// readRaw reads one packet: its first byte and its body.
 func readRaw(r *bufio.Reader) ([]byte, error) {
 	h, err := r.ReadByte()
 	if err != nil {
 		return nil, err
 	}
-	n, err := binary.ReadUvarint(r) // MQTT's remaining length is a uvarint
+	n, err := binary.ReadUvarint(r)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +117,7 @@ func (b *Broker) Next(t *testing.T, kind byte) []byte {
 	}
 }
 
-// String encodes s as MQTT does: a two-byte length, then the bytes.
+// String encodes s as MQTT does.
 func String(s string) []byte {
 	return append(binary.BigEndian.AppendUint16(nil, uint16(len(s))), s...)
 }

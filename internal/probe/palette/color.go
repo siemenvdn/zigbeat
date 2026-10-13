@@ -6,11 +6,8 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
-// xyScale rounds xy to 4 decimals, as Zigbee2MQTT reports it.
 const xyScale = 10000
 
-// hueToXY converts a fully saturated sRGB hue (degrees) to CIE xy, rounded by xyScale.
-// The constants are those of sRGB (IEC 61966-2-1) with its D65 white.
 func hueToXY(h float64) z2m.XY {
 	r, g, b := hsvToRGB(h, 1, 1)
 	lin := func(c float64) float64 {

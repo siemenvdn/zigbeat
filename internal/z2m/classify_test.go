@@ -66,7 +66,7 @@ func TestClassifyRules(t *testing.T) {
 		t.Errorf("metering: %q", why)
 	}
 	d = bulb()
-	d.Definition.Exposes[0].Features[1].Access = 5 // brightness read only
+	d.Definition.Exposes[0].Features[1].Access = 5
 	if _, why := Classify(d); why != "on/off only" {
 		t.Errorf("read-only brightness: %q", why)
 	}
@@ -76,7 +76,7 @@ func TestClassifyRules(t *testing.T) {
 		t.Errorf("two lights: %q", why)
 	}
 	d = bulb()
-	d.Definition.Source = "generated" // the one in testdata is refused earlier, as an end device
+	d.Definition.Source = "generated"
 	if _, why := Classify(d); why != "generated definition" {
 		t.Errorf("generated: %q", why)
 	}

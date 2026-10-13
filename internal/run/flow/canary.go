@@ -10,7 +10,6 @@ import (
 const CanaryEvery = 5 * time.Second
 
 // Canary reads a far-away device now and then to see how the rest of the network is doing.
-// NewCanary watches the device name, with no canary when name is empty.
 func NewCanary(name string, limit time.Duration, now time.Time) Canary {
 	return Canary{name: name, limit: limit, next: now}
 }

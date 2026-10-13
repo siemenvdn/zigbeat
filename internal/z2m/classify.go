@@ -6,38 +6,30 @@ import (
 	"slices"
 )
 
-// Role is what zigbeat does with a light; the empty role drives nothing.
+// Role is what zigbeat does with a light.
 type Role string
 
 // The roles.
 const (
-	Color   Role = "color"   // a colour bulb: changes colour on the beat, with a kick
-	Breathe Role = "breathe" // a dimmable bulb: pulses or flips
+	Color   Role = "color"
+	Breathe Role = "breathe"
 )
 
-// accessSet is the bit of an expose's access that lets it be set.
 const accessSet = 2
 
-// tuyaDatapoint is the model id of Tuya lights driven through datapoints: they
-// have no brightness_move, and a transition can drop their whole message.
 const tuyaDatapoint = "TS0601"
 
 var (
-	// neverDriven are expose types of devices that switch or move something.
 	neverDriven = []string{"switch", "cover", "fan", "lock", "climate"}
-	// metering marks a plug or a module: bulbs do not measure their power.
+
 	metering = []string{"power", "energy", "current", "voltage", "power_factor"}
-	// inWall are settings of a module behind a wall switch.
+
 	inWall = []string{"switch_type", "external_switch_type", "light_type", "dimmer_mode", "operation_mode", "overload_protection"}
-	// notABulb matches the description or model of a plug, dimmer or module.
-	// "dimmable" passes on purpose: bulbs say it.
+
 	notABulb = regexp.MustCompile(`(?i)\bdimm(?:er|ing)\b|plug|socket|outlet|relay|module|actuator|insert|in-wall|switch|micro|ballast|triac|phase|edge|power supply|transformer`)
 )
 
-// Classify says whether zigbeat may drive d, and how: Color for a light with
-// xy colour, Breathe for any other dimmable bulb. An empty role comes with
-// the reason. Every rule must hold: a bulb refused wrongly is better than a
-// relay driven.
+// Classify says whether zigbeat may drive d, and how.
 func Classify(d Device) (role Role, why string) {
 	def := d.Definition
 	switch {
@@ -93,9 +85,7 @@ func Classify(d Device) (role Role, why string) {
 	return Breathe, ""
 }
 
-// Check says why the light called name may not be driven in role, or returns
-// nil; the advice is the caller's. Role breathe takes every light Classify
-// offers, color only lights with xy colour.
+// Check says why the light called name may not be driven in role, or returns nil.
 func Check(devs []Device, name string, role Role) error {
 	d, ok := Find(devs, name)
 	if !ok {
@@ -111,8 +101,7 @@ func Check(devs []Device, name string, role Role) error {
 	return nil
 }
 
-// CanaryCandidate says whether d can watch the network: a router that is
-// enabled and interviewed. It is only read, so plugs and relays qualify.
+// CanaryCandidate says whether d can watch the network.
 func CanaryCandidate(d Device) bool {
 	return d.Type == "Router" && !d.Disabled && interviewed(d)
 }
@@ -135,7 +124,6 @@ func settable(e Expose, name string) bool {
 	return f != nil && f.Access&accessSet != 0
 }
 
-// named returns the first expose name in es that is one of names.
 func named(es []Expose, names []string) string {
 	for _, e := range es {
 		if slices.Contains(names, e.Name) {

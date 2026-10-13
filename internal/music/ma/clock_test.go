@@ -10,7 +10,7 @@ func TestClockAnswer(t *testing.T) {
 	if _, ok := c.at(5); ok {
 		t.Fatal("no estimate before the first answer")
 	}
-	// MA's clock is 37 s ahead; 100 µs each way, 100 µs inside MA.
+
 	c.add(1000, 37_000_000+1100, 37_000_000+1200, 1300)
 	e, ok := c.best()
 	if !ok || e.offset != 37_000_000 || e.rtt != 200 {
@@ -24,16 +24,16 @@ func TestClockAnswer(t *testing.T) {
 func TestClockShortestRoundTripWins(t *testing.T) {
 	c := &clock{}
 	c.burst()
-	c.add(0, 1_000_500, 1_000_500, 1000) // rtt 1000, offset 1_000_000
-	c.add(0, 2_000_050, 2_000_050, 100)  // rtt 100, offset 2_000_000
+	c.add(0, 1_000_500, 1_000_500, 1000)
+	c.add(0, 2_000_050, 2_000_050, 100)
 	c.burst()
-	c.add(0, 3_000_250, 3_000_250, 500) // rtt 500
+	c.add(0, 3_000_250, 3_000_250, 500)
 	if e, _ := c.best(); e.offset != 2_000_000 {
 		t.Errorf("best %+v, want the 100 µs answer", e)
 	}
 	for range keepBursts {
 		c.burst()
-		c.add(0, 4_000_400, 4_000_400, 800) // rtt 800
+		c.add(0, 4_000_400, 4_000_400, 800)
 	}
 	if e, _ := c.best(); e.offset != 4_000_000 {
 		t.Errorf("best %+v: bursts older than %d are forgotten", e, keepBursts)
@@ -42,9 +42,9 @@ func TestClockShortestRoundTripWins(t *testing.T) {
 
 func TestClockKeepsTheLastAnswer(t *testing.T) {
 	c := &clock{}
-	c.add(0, 1_000_100, 1_000_100, 200) // offset 1_000_000, rtt 200
+	c.add(0, 1_000_100, 1_000_100, 200)
 	for range keepBursts + 1 {
-		c.burst() // no answers: the network stalls but the connection holds
+		c.burst()
 	}
 	if e, ok := c.best(); !ok || e.offset != 1_000_000 {
 		t.Errorf("unanswered bursts must keep the last estimate: %+v, %v", e, ok)

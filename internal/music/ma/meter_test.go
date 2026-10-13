@@ -7,10 +7,8 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/music"
 )
 
-const second = 1_000_000 // µs
+const second = 1_000_000
 
-// sine is a frame of a sine at hz and amplitude a, quantised as MA's tap does,
-// for the samples from n on at rate.
 func sine(hz, a, rate float64, n int) []byte {
 	out := make([]byte, waveSamples)
 	for i := range out {
@@ -20,8 +18,6 @@ func sine(hz, a, rate float64, n int) []byte {
 	return out
 }
 
-// feed adds seconds of a sine to m from µs start on, frame by frame, and
-// returns the end.
 func feed(m *meter, hz, a, rate float64, start int64, seconds float64) int64 {
 	frame := int64(waveSamples * second / rate)
 	n := int(float64(start) * rate / second)
@@ -33,8 +29,6 @@ func feed(m *meter, hz, a, rate float64, start int64, seconds float64) int64 {
 	return ts
 }
 
-// db is the mean level of the frames m keeps, in dB, after the first: that one
-// is filtered at assumedRate, before two frames give the real rate.
 func db(m *meter) float64 {
 	var sum float64
 	for _, f := range m.frames[1:] {
@@ -46,7 +40,7 @@ func db(m *meter) float64 {
 func TestTheLowBand(t *testing.T) {
 	const a = 0.5
 	in := 10 * math.Log10(a*a/2)
-	for _, rate := range []float64{44100, 192000} { // at 192 kHz a frame is 5333 µs, in whole µs
+	for _, rate := range []float64{44100, 192000} {
 		low, high := newMeter(), newMeter()
 		feed(low, 55, a, rate, 0, 1)
 		feed(high, 2000, a, rate, 0, 1)
@@ -62,9 +56,9 @@ func TestTheLowBand(t *testing.T) {
 
 func TestEnergyWithinTheTrack(t *testing.T) {
 	m := newMeter()
-	loud := feed(m, 55, 0.05, 44100, 0, 2)        // quiet, 20 dB below
-	lower := feed(m, 55, 0.5, 44100, loud, 2)     // loud
-	silent := feed(m, 55, 0.158, 44100, lower, 2) // 10 dB below loud
+	loud := feed(m, 55, 0.05, 44100, 0, 2)
+	lower := feed(m, 55, 0.5, 44100, loud, 2)
+	silent := feed(m, 55, 0.158, 44100, lower, 2)
 	end := feed(m, 55, 0, 44100, silent, 2)
 	if e := m.energy(0, second); e != music.UnknownEnergy {
 		t.Errorf("no contrast yet: %.2f", e)
@@ -108,7 +102,7 @@ func TestMeterKeepsItsCoefficientAndBounds(t *testing.T) {
 	m := newMeter()
 	end := feed(m, 55, 0.5, 96000, 0, 0.1)
 	a := m.a
-	m.add(end+5*second, sine(55, 0.5, 96000, 0)) // a gap after dropped frames
+	m.add(end+5*second, sine(55, 0.5, 96000, 0))
 	if m.a != a {
 		t.Errorf("a gap changed the coefficient: %g, was %g", m.a, a)
 	}

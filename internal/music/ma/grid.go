@@ -8,25 +8,22 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/music"
 )
 
-const sameBeat = 1000 // µs: a beat this close to a known one is a replay
+const sameBeat = 1000
 
-// frame is one beat from the relay.
 type frame struct {
-	ts   int64 // µs on MA's clock
-	down bool  // the first beat of a bar
+	ts   int64
+	down bool
 }
 
-// grid holds the beats of the current track and numbers them as they are delivered.
 type grid struct {
-	known   []frame // every beat of the track, sorted
-	next    int     // the first beat not delivered yet
-	last    int     // Index of the last delivered beat
-	started bool    // a beat of this track was delivered
-	tempo   float64 // 0 until computed for the current beats
-	prev    float64 // tempo of the previous track
+	known   []frame
+	next    int
+	last    int
+	started bool
+	tempo   float64
+	prev    float64
 }
 
-// add inserts f unless it is a replay of a known beat; it reports whether f was new.
 func (g *grid) add(f frame) bool {
 	i, _ := slices.BinarySearchFunc(g.known, f.ts, func(k frame, ts int64) int { return cmp.Compare(k.ts, ts) })
 	if i > 0 && f.ts-g.known[i-1].ts < sameBeat || i < len(g.known) && g.known[i].ts-f.ts < sameBeat {
@@ -34,13 +31,12 @@ func (g *grid) add(f frame) bool {
 	}
 	g.known = slices.Insert(g.known, i, f)
 	if i < g.next {
-		g.next++ // behind what was delivered; never delivered
+		g.next++
 	}
 	g.tempo = 0
 	return true
 }
 
-// peek is the next beat to deliver.
 func (g *grid) peek() (frame, bool) {
 	if g.next >= len(g.known) {
 		return frame{}, false
@@ -48,9 +44,6 @@ func (g *grid) peek() (frame, bool) {
 	return g.known[g.next], true
 }
 
-// deliver numbers the next beat, landing at at, and moves past it. A downbeat
-// gets the next multiple of music.PerBar, so moments stay on the first beat of a bar; the
-// first beat of a track counts back from the first downbeat.
 func (g *grid) deliver(at time.Time) music.Beat {
 	f := g.known[g.next]
 	var idx int
@@ -74,7 +67,6 @@ func (g *grid) deliver(at time.Time) music.Beat {
 	return music.Beat{At: at, Index: idx, InBar: (idx%music.PerBar + music.PerBar) % music.PerBar, Energy: music.UnknownEnergy}
 }
 
-// bpm is the tempo of the track: a minute over the median interval of its beats.
 func (g *grid) bpm() float64 {
 	if g.tempo == 0 {
 		var iv []int64
@@ -94,7 +86,6 @@ func (g *grid) bpm() float64 {
 	return g.tempo
 }
 
-// ahead counts the beats and downbeats not delivered yet.
 func (g *grid) ahead() (beats, downs int) {
 	for _, f := range g.known[g.next:] {
 		if f.down {
@@ -104,7 +95,6 @@ func (g *grid) ahead() (beats, downs int) {
 	return len(g.known) - g.next, downs
 }
 
-// clear forgets the track; its tempo stays for a next track of a single beat.
 func (g *grid) clear() {
 	if len(g.known) > 1 {
 		g.prev = g.bpm()

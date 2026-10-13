@@ -5,8 +5,7 @@ import (
 	"testing"
 )
 
-// TestPasswordHintPrompts: the hint for a missing password reads it with a
-// prompt, so the shell does not look like it hangs.
+// TestPasswordHintPrompts.
 func TestPasswordHintPrompts(t *testing.T) {
 	t.Setenv("ZIGBEAT_MQTT_PASSWORD", "")
 	o, err := parseFlags([]string{"-config", filepath.Join(t.TempDir(), "config.yaml")})

@@ -15,17 +15,17 @@ type Stats struct {
 	Dropped      int
 	FramesPerSec float64
 	InFlight     int
-	P50          time.Duration // latency estimate per frame
+	P50          time.Duration
 	Backoff      int
-	Canary       time.Duration // last canary answer, 0 before the first
-	Errors       int           // Zigbee2MQTT errors
-	Lights       int           // lights in the show minus those left alone
+	Canary       time.Duration
+	Errors       int
+	Lights       int
 }
 
-// Paused reports the deepest backoff level: nothing goes out but canary reads.
+// Paused reports the deepest backoff level.
 func (s Stats) Paused() bool { return s.Backoff >= flow.PauseLevel }
 
-// Stats reports the show since the last call; it resets the frame counter.
+// Stats reports the show since the last call.
 func (e *Engine) Stats(now time.Time) Stats {
 	rate := 0.0
 	if secs := now.Sub(e.lastStatus).Seconds(); secs > 0 {

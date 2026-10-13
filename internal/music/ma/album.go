@@ -10,18 +10,12 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/music"
 )
 
-// nullGrace: MA sends an all-null palette at every track change while it looks
-// up the next one, from its cache in milliseconds. A null counts only after this.
 var nullGrace = 10 * time.Second
 
-// roles are the palette's fields in the order zigbeat uses them: the colours of
-// the image first, then the backgrounds MA derives from primary.
 var roles = []string{"primary", "accent", "on_dark", "on_light", "background_dark", "background_light"}
 
-const channels = 3 // red, green, blue
+const channels = 3
 
-// parsePalette reads a color@v1 payload. Nulls, repeats and fields that are not
-// three numbers from 0 to 255 are left out; nil means no colour at all.
 func parsePalette(raw json.RawMessage) []music.RGB {
 	var fields map[string]json.RawMessage
 	_ = json.Unmarshal(raw, &fields)
@@ -44,8 +38,6 @@ func parsePalette(raw json.RawMessage) []music.RGB {
 	return out
 }
 
-// album takes a palette from the relay: a real one at once, null only once
-// nullGrace passed without a real one. It returns false when ctx ended the wait.
 func (s *session) album(ctx context.Context, p []music.RGB) bool {
 	if p == nil {
 		if s.palette != nil {

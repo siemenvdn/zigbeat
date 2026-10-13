@@ -27,8 +27,7 @@ func TestMoreBreatheLightsTakeTurns(t *testing.T) {
 	}
 }
 
-// TestWhiteTakesTurnsWhenTheRoomIsShort: 8 frames per moment, two colour
-// changes with kicks take 6, so one of two breathe lights pulses, in turn.
+// TestWhiteTakesTurnsWhenTheRoomIsShort.
 func TestWhiteTakesTurnsWhenTheRoomIsShort(t *testing.T) {
 	c := whites("pulse", 2)
 	c.Budget.MaxRate = 8
@@ -38,7 +37,7 @@ func TestWhiteTakesTurnsWhenTheRoomIsShort(t *testing.T) {
 	var got []string
 	for i := range 4 {
 		ws := white(p.Beat(moment(2*i), false), c.Fixtures[1].Lights)
-		if len(ws) != 2 { // one light up and its fall
+		if len(ws) != 2 {
 			t.Fatalf("moment %d: %v", i, ws)
 		}
 		got = append(got, strings.SplitN(ws[0], ":", 2)[0])

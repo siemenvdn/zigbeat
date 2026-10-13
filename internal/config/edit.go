@@ -8,9 +8,7 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-// Set gives key (such as budget.max_rate) value and, unless comment is empty,
-// that line comment. A missing key or block is added. A value Set cannot
-// replace safely is refused, with what to set by hand.
+// Set gives key (such as budget.max_rate) value and, unless comment is empty, that line comment.
 func (f *File) Set(key, value, comment string) error {
 	byHand := func(why string) error { return fmt.Errorf("set %s to %s by hand: %s", key, value, why) }
 	m, err := f.root()
@@ -36,7 +34,6 @@ func (f *File) Set(key, value, comment string) error {
 	return nil
 }
 
-// replace swaps the plain scalar v for value and keeps the comment's column.
 func (f *File) replace(v *yaml.Node, value, comment string, byHand func(string) error) error {
 	if v.Kind != yaml.ScalarNode || v.Style != 0 || v.Value == "" {
 		return byHand("the value is quoted, empty or not a single value")
@@ -48,7 +45,7 @@ func (f *File) replace(v *yaml.Node, value, comment string, byHand func(string) 
 		return byHand("the value spans several lines")
 	}
 	col := commentAt(line, start)
-	end := start + len(value) // a comment starts after the new value, even one with " #"
+	end := start + len(value)
 	line = align(line[:start]+value+line[start+len(v.Value):], end, col)
 	if comment != "" {
 		line = withComment(line, end, comment, col)
@@ -57,8 +54,6 @@ func (f *File) replace(v *yaml.Node, value, comment string, byHand func(string) 
 	return nil
 }
 
-// insert adds the missing keys, the last one with value, after the last line
-// of block mapping m, or at the end of the file when m is the root.
 func (f *File) insert(m *yaml.Node, root bool, keys []string, value, comment string) {
 	at, indent := len(f.lines), ""
 	var add []string
@@ -78,9 +73,7 @@ func (f *File) insert(m *yaml.Node, root bool, keys []string, value, comment str
 	f.lines = slices.Concat(f.lines[:at], add, f.lines[at:])
 }
 
-// SetBlock replaces the top-level key and its value with text; an empty text
-// removes them, with one blank line after them. A missing key is added at the end.
-// Comments above the key stay, comments inside its value go.
+// SetBlock replaces the top-level key and its value with text.
 func (f *File) SetBlock(key, text string) error {
 	m, err := f.root()
 	if err != nil {
@@ -105,9 +98,6 @@ func (f *File) SetBlock(key, text string) error {
 	return nil
 }
 
-// blockEnd is the index right after the value of the top-level key at m.Content[i]:
-// up to the next key, less the blank lines and comments above that key. Unlike
-// lastLine it counts a closing bracket on a line of its own.
 func (f *File) blockEnd(m *yaml.Node, i int) int {
 	end := len(f.lines)
 	if next := i + 2; next < len(m.Content) {
@@ -119,7 +109,6 @@ func (f *File) blockEnd(m *yaml.Node, i int) int {
 	return end
 }
 
-// filler reports whether line is blank or only a comment.
 func filler(line string) bool {
 	t := strings.TrimSpace(line)
 	return t == "" || strings.HasPrefix(t, "#")

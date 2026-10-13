@@ -7,28 +7,24 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/music"
 )
 
-// The fake's music, per track, in bars from its first downbeat: an intro with
-// a low pad and hi-hats, a drop with a kick and a bass, a breakdown that is
-// silent, and the drop again until the end.
 const (
 	introBars = 4
 	dropBars  = 4
 	breakBars = 2
 
-	kickHz    = 55   // a kick drum's body
-	kickLevel = 0.8  // the loudest sound, as in a dance track
-	kickDecay = 0.12 // seconds
+	kickHz    = 55
+	kickLevel = 0.8
+	kickDecay = 0.12
 	bassHz    = 110
 	bassLevel = 0.25
-	padHz     = 80   // below 150 Hz, so the intro has some low end
-	padLevel  = 0.05 // about 15 dB below the drop's low end
-	hatLevel  = 0.2  // noise on the offbeats, mostly above 150 Hz
-	hatDecay  = 0.03 // seconds
+	padHz     = 80
+	padLevel  = 0.05
+	hatLevel  = 0.2
+	hatDecay  = 0.03
 
-	fullScale = 127 // unsigned 8-bit PCM: silentSample ± 127
+	fullScale = 127
 )
 
-// section is the part of the track at media time t, in seconds.
 type section int
 
 const (
@@ -37,7 +33,6 @@ const (
 	breakdown
 )
 
-// sectionAt finds the section of media time t; the pickup before the first downbeat is intro.
 func sectionAt(tr track, pickup int, t float64) section {
 	period := tr.period().Seconds()
 	firstDown := firstAt.Seconds() + float64(pickup)*period
@@ -53,8 +48,6 @@ func sectionAt(tr track, pickup int, t float64) section {
 	return drop
 }
 
-// synth makes the waveSamples samples of tr from media sample first on, as MA's tap
-// sends them: mono, unsigned 8-bit.
 func synth(tr track, pickup int, first int64, noise *rand.Rand) []byte {
 	period := tr.period().Seconds()
 	out := make([]byte, waveSamples)

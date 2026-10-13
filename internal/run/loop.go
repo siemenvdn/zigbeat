@@ -13,20 +13,17 @@ import (
 )
 
 const (
-	tickEvery   = 10 * time.Millisecond // how late a message may leave: far below the engine's late limit
-	statusEvery = 10 * time.Second      // a status line often enough to follow, seldom enough to read
+	tickEvery   = 10 * time.Millisecond
+	statusEvery = 10 * time.Second
 )
 
-// play runs the show until ctx is done or the source ends. Network trouble never
-// ends it: backoff pauses, a lost connection is dialled again. A panic returns
-// with panicked set, so the show ends and every light is restored.
 func (r *runner) play(ctx context.Context, src music.Source) (reason string, panicked bool) {
 	defer func() {
 		if p := recover(); p != nil {
 			reason, panicked = fmt.Sprintf("panic: %v\n%s", p, debug.Stack()), true
 		}
 	}()
-	for len(r.events) > 0 { // the states of the start, which the snapshot already read
+	for len(r.events) > 0 {
 		<-r.events
 	}
 	srcCtx, cancel := context.WithCancel(ctx)
@@ -56,7 +53,7 @@ func (r *runner) play(ctx context.Context, src music.Source) (reason string, pan
 		case ev := <-r.events:
 			r.handle(ev)
 		case <-tick.C:
-			// time.Now, not the tick: after a reconnect a ticker holds a stale one.
+
 			for _, s := range r.eng.Due(time.Now()) {
 				r.publish(s)
 			}
@@ -92,8 +89,6 @@ func (r *runner) publish(s engine.Send) {
 	_ = r.link.Set(s.Light, s.Payload)
 }
 
-// drain halts the engine and lets the messages in flight be confirmed, for at most d.
-// The engine may have just panicked; a second panic only ends the wait.
 func (r *runner) drain(d time.Duration) {
 	defer func() {
 		if p := recover(); p != nil {
@@ -101,7 +96,7 @@ func (r *runner) drain(d time.Duration) {
 		}
 	}()
 	r.eng.Halt()
-	if r.offline() { // nothing in flight can be confirmed any more
+	if r.offline() {
 		return
 	}
 	deadline := time.After(d)

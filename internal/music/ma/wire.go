@@ -11,14 +11,12 @@ import (
 )
 
 const (
-	silence = 60 * time.Second // far above burstEvery, whose requests MA answers
-	// dialWait and authWait: MA answers on a LAN in milliseconds, so this long
-	// means it is not there.
+	silence = 60 * time.Second
+
 	dialWait = 10 * time.Second
 	authWait = 10 * time.Second
 )
 
-// dial connects to the relay and authenticates.
 func (s Source) dial() (*ws.Conn, error) {
 	u := strings.TrimSuffix(s.URL, "/") + "/milkdrop_visualizer"
 	if s.Player != "" {
@@ -45,8 +43,6 @@ func (s Source) dial() (*ws.Conn, error) {
 	return c, nil
 }
 
-// read passes every message to msgs, stamped with zigbeat's clock, until the
-// connection fails or done closes.
 func read(c *ws.Conn, clk *clock, msgs chan<- message, done <-chan struct{}) {
 	c.SetIdleTimeout(silence)
 	for {

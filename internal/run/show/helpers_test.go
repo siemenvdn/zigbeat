@@ -13,7 +13,6 @@ var (
 	moment     = runtest.Beat
 )
 
-// changed lists the colour lights that got a colour in ps.
 func changed(ps []Message) string {
 	var ls []string
 	for _, p := range ps {

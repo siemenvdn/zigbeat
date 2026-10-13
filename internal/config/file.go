@@ -9,15 +9,12 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-// newFileMode is the mode of a config that did not exist: it holds no secrets,
-// only the names of the variables that do.
 const newFileMode = 0o644
 
-// File is a configuration file being edited in place: only the changed values
-// move; comments, blank lines and alignment stay byte for byte.
+// File is a configuration file being edited in place.
 type File struct {
 	path  string
-	lines []string // without their newlines
+	lines []string
 	mode  os.FileMode
 }
 
@@ -46,8 +43,6 @@ func split(data []byte) []string { return strings.Split(strings.TrimSuffix(strin
 // Bytes is the file as Save would write it.
 func (f *File) Bytes() []byte { return []byte(strings.Join(f.lines, "\n") + "\n") }
 
-// root parses the current lines and returns the top-level mapping. Every edit
-// parses again, so positions are always fresh.
 func (f *File) root() (*yaml.Node, error) {
 	var doc yaml.Node
 	if err := yaml.Unmarshal(f.Bytes(), &doc); err != nil {
@@ -59,8 +54,7 @@ func (f *File) root() (*yaml.Node, error) {
 	return doc.Content[0], nil
 }
 
-// Save writes the file when check accepts the new bytes: to a temporary file
-// next to it, with the same mode, renamed over the original.
+// Save writes the file when check accepts the new bytes.
 func (f *File) Save(check func([]byte) error) error {
 	data := f.Bytes()
 	if err := check(data); err != nil {
@@ -70,12 +64,12 @@ func (f *File) Save(check func([]byte) error) error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(tmp.Name()) // only left behind when the rename failed
+	defer os.Remove(tmp.Name())
 	if _, err := tmp.Write(data); err != nil {
 		tmp.Close()
 		return err
 	}
-	// Without it a power cut right after the rename can leave an empty config.
+
 	if err := tmp.Sync(); err != nil {
 		tmp.Close()
 		return err
@@ -86,6 +80,6 @@ func (f *File) Save(check func([]byte) error) error {
 	if err := os.Chmod(tmp.Name(), f.mode); err != nil {
 		return err
 	}
-	// A config behind a symlink becomes a plain file; follow the link if anyone keeps theirs in one.
+
 	return os.Rename(tmp.Name(), f.path)
 }

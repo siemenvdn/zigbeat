@@ -13,14 +13,12 @@ import (
 )
 
 func TestStopSignalsIncludeHangup(t *testing.T) {
-	// A closed SSH session must restore the lights like Ctrl-C does.
+
 	if !slices.Contains(StopSignals, os.Signal(syscall.SIGHUP)) || !slices.Contains(StopSignals, os.Signal(syscall.SIGTERM)) {
 		t.Fatalf("StopSignals = %v", StopSignals)
 	}
 }
 
-// restoringChild stops on a hangup, then restores while a closed SSH session
-// sends a second hangup and a container stop sends SIGTERM. A second Ctrl-C quits.
 func restoringChild() {
 	self, _ := os.FindProcess(os.Getpid())
 	ctx, stop := StopContext()
@@ -38,8 +36,6 @@ func restoringChild() {
 	os.Exit(0)
 }
 
-// child re-runs the test binary as a child that runs the named test's child part,
-// behind prefix (a command such as nohup) when given.
 func child(name string, prefix ...string) ([]byte, error) {
 	args := append(prefix, os.Args[0], "-test.run=^"+name+"$")
 	cmd := exec.Command(args[0], args[1:]...)

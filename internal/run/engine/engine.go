@@ -1,5 +1,4 @@
-// Package engine is the show as a state machine: the loop feeds it events and
-// the current time, and publishes what Due returns. It does no I/O itself.
+// Package engine is the show as a state machine.
 package engine
 
 import (
@@ -20,15 +19,15 @@ type Send struct {
 	Payload map[string]any
 }
 
-// Engine is one show. Only the loop goroutine may call it.
+// Engine is one show.
 type Engine struct {
 	plan     *show.Planner
-	lim      *rate.Limiter // Zigbee frames; budget.max_rate is a ceiling, never raised
+	lim      *rate.Limiter
 	bo       flow.Backoff
 	fl       *flow.InFlight
 	canary   flow.Canary
-	order    []string          // the lights in config order
-	lights   map[string]*light // per light: its queue, failures and whether it is left alone
+	order    []string
+	lights   map[string]*light
 	offset   time.Duration
 	stopping bool
 	notes    []string
@@ -61,14 +60,13 @@ func New(c config.Config, canaryLim time.Duration, now time.Time) *Engine {
 // SetOffset sets the audio offset for every message planned from now on.
 func (e *Engine) SetOffset(d time.Duration) { e.offset = d }
 
-// SetEffects takes the style of the show from the next moment on; it sends
-// nothing itself.
+// SetEffects takes the style of the show from the next moment on.
 func (e *Engine) SetEffects(now time.Time, eff config.Effects) {
 	e.plan.SetEffects(eff)
 	e.planNotes(now)
 }
 
-// Halt stops planning and sending; messages in flight can still be confirmed.
+// Halt stops planning and sending.
 func (e *Engine) Halt() {
 	e.stopping = true
 	for _, l := range e.lights {
@@ -76,9 +74,7 @@ func (e *Engine) Halt() {
 	}
 }
 
-// Disconnected forgets what was in flight on a connection that is gone. The
-// losses before a drop that the keepalive found late may be the connection's,
-// so failure counts start over and lights left alone are read again at once.
+// Disconnected forgets what was in flight on a connection that is gone.
 func (e *Engine) Disconnected() {
 	e.fl.Clear()
 	e.clearQueues(every)
@@ -96,7 +92,6 @@ func (e *Engine) InFlight() int {
 	return n
 }
 
-// maxInFlight is one full moment in flight in total, or one message from the calm level.
 func (e *Engine) maxInFlight() int {
 	if e.bo.Level() >= flow.CalmLevel {
 		return 1

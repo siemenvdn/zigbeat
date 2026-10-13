@@ -9,9 +9,6 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/config"
 )
 
-// write saves the configuration: a new one from the template, or only the
-// fixtures and the canary of the existing one. Nothing is written unless it
-// reads back as a valid config with exactly the chosen lights.
 func (s *session) write(fixtures []config.Fixture, canary string) error {
 	check := func(data []byte) error {
 		c, err := config.Parse(data, os.Getenv, config.ForDraft)
@@ -40,8 +37,6 @@ func (s *session) write(fixtures []config.Fixture, canary string) error {
 	return f.Save(check)
 }
 
-// setCanary replaces the canary of f, or removes it for none. Set refuses a
-// quoted or empty old value, so then the whole line is replaced.
 func setCanary(f *config.File, canary string) error {
 	if canary == "" {
 		return f.SetBlock("canary", "")
@@ -52,7 +47,6 @@ func setCanary(f *config.File, canary string) error {
 	return f.SetBlock("canary", canaryLine(canary))
 }
 
-// done says what was written and what comes next.
 func (s *session) done(fixtures []config.Fixture, canary string) {
 	about := "none"
 	if canary != "" {

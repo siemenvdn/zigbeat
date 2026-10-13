@@ -7,7 +7,6 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
-// validate checks c; without needBudget a missing budget passes.
 func (c Config) validate(needBudget bool) error {
 	switch {
 	case c.MQTT.Broker == "":

@@ -22,7 +22,7 @@ func TestSubscribeLiveSkipsRetained(t *testing.T) {
 	in.want(t, "live")
 }
 
-// TestRetainedThroughAWildcard: serve gets the kept style choices this way.
+// TestRetainedThroughAWildcard.
 func TestRetainedThroughAWildcard(t *testing.T) {
 	b := mqtttest.Start(t)
 	c := dial(t, b, Options{ClientID: "id"})
@@ -34,7 +34,7 @@ func TestRetainedThroughAWildcard(t *testing.T) {
 	in.want(t, "30")
 }
 
-// TestHandlersRunInOrderOneAtATime: serve's newest() relies on one sender.
+// TestHandlersRunInOrderOneAtATime.
 func TestHandlersRunInOrderOneAtATime(t *testing.T) {
 	b := mqtttest.Start(t)
 	c := dial(t, b, Options{ClientID: "id"})

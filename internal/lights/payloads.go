@@ -6,23 +6,17 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
-// query asks a light for every field payloads needs.
 var query = map[string]string{"state": "", "brightness": "", "color": "", "color_temp": ""}
 
-// queryFrames is about what query costs: one ZCL read for state with
-// brightness, one for color and one for color_temp.
 const queryFrames = 3
 
-// payloads turns a saved state back into set payloads, to send in order.
-// A light that was off first gets its level and colour back, so it does not
-// come on in the show's colour next time.
 func payloads(s z2m.State) []map[string]any {
 	on := onPayload(s)
 	if !strings.EqualFold(s.State, "OFF") {
 		return []map[string]any{on}
 	}
 	off := map[string]any{"state": "OFF", "transition": 0}
-	if len(on) == len(off) { // no level or colour to set first
+	if len(on) == len(off) {
 		return []map[string]any{off}
 	}
 	return []map[string]any{on, off}

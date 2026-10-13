@@ -19,7 +19,6 @@ func dial(t *testing.T, b *mqtttest.Broker, o Options) *Client {
 	return c
 }
 
-// inbox collects the payloads a handler gets.
 type inbox chan string
 
 func (in inbox) handle(_ string, p []byte, _ time.Time) { in <- string(p) }

@@ -11,7 +11,6 @@ import (
 
 var t0 = time.Date(2026, 10, 13, 21, 0, 0, 0, time.UTC)
 
-// cmds is n answered commands a second apart, with latencies from lat in turn.
 func cmds(n int, lat ...time.Duration) []Sample {
 	var out []Sample
 	for i := range n {
@@ -22,7 +21,7 @@ func cmds(n int, lat ...time.Duration) []Sample {
 
 func TestEvaluate(t *testing.T) {
 	ms := time.Millisecond
-	lim := Limits{CanaryP50: 40 * ms, CanaryP95: 50 * ms} // canary limit 350 ms
+	lim := Limits{CanaryP50: 40 * ms, CanaryP95: 50 * ms}
 	steady := cmds(20, 60*ms)
 	cases := []struct {
 		name   string
@@ -46,7 +45,7 @@ func TestEvaluate(t *testing.T) {
 		{"errors", Step{Sent: 20, Errs: 3}, steady, Stop, "Zigbee2MQTT logged errors"},
 	}
 	for _, c := range cases {
-		// drift compares the first and last third in send order, so the slow ones come last
+
 		for i := range c.cmds {
 			c.cmds[i].Sent = t0.Add(time.Duration(i) * time.Second)
 		}
@@ -76,7 +75,7 @@ func TestTrackerMatchesWithinSlackAndExpires(t *testing.T) {
 	if !tr.Busy("lamp-1") || tr.InFlight() != 2 {
 		t.Fatalf("busy %v, in flight %d", tr.Busy("lamp-1"), tr.InFlight())
 	}
-	tr.OnState("lamp-1", level(100+palette.KeySlack+1), t0.Add(time.Second)) // too far off: another command
+	tr.OnState("lamp-1", level(100+palette.KeySlack+1), t0.Add(time.Second))
 	tr.OnState("lamp-1", level(100+palette.KeySlack), t0.Add(80*time.Millisecond))
 	if tr.Busy("lamp-1") {
 		t.Error("an echo within the slack confirms the command")

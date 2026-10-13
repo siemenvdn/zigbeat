@@ -25,7 +25,7 @@ func TestKickAndReturn(t *testing.T) {
 func TestMissedKeepsANewerColour(t *testing.T) {
 	p := NewPlanner(testConfig("separate"))
 	kick := p.Beat(moment(0), false)[0]
-	p.colors.current[kick.Light] = "#000000" // a later moment gave it another colour
+	p.colors.current[kick.Light] = "#000000"
 	p.Missed(kick)
 	if p.colors.current[kick.Light] != "#000000" {
 		t.Errorf("a dropped older kick took back the newer colour: %q", p.colors.current[kick.Light])
@@ -43,9 +43,7 @@ func TestMissedGivesBackThePreviousColour(t *testing.T) {
 	}
 }
 
-// TestKicksAllOrNone: 5 frames/s at a moment per second hold two colour
-// changes (2 frames) but not their kicks (6): no kick at all, and the white
-// gets the 3 frames left, one pulse.
+// TestKicksAllOrNone.
 func TestKicksAllOrNone(t *testing.T) {
 	c := testConfig("separate")
 	c.Budget.MaxRate = 5
@@ -68,9 +66,7 @@ func TestKicksAllOrNone(t *testing.T) {
 	}
 }
 
-// TestTwoMissedChangesOfOneLight: the engine hands a light's dropped colour
-// changes over in queue order; neither went, so the light shows its colour
-// from before the first.
+// TestTwoMissedChangesOfOneLight.
 func TestTwoMissedChangesOfOneLight(t *testing.T) {
 	p := NewPlanner(testConfig("separate"))
 	p.Start(t0)
@@ -83,8 +79,7 @@ func TestTwoMissedChangesOfOneLight(t *testing.T) {
 	}
 }
 
-// TestBlendFitsTheMoment: at most half a moment, so a together fixture, whose
-// bulbs land one after another, shows each colour together; at 120 BPM.
+// TestBlendFitsTheMoment.
 func TestBlendFitsTheMoment(t *testing.T) {
 	c := testConfig("together")
 	for pace, want := range map[int]float64{1: 0.25, 2: 0.5, 4: colorBlend} {

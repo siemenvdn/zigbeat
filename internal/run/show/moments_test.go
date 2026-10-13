@@ -28,13 +28,11 @@ func TestOnlyMomentsPlan(t *testing.T) {
 	}
 }
 
-// TestPickupBeatsFollowTheNewGrid: a pickup beat before a new track's first
-// downbeat is a moment only on that track's grid too, so the track does not
-// start with two moments closer than its interval.
+// TestPickupBeatsFollowTheNewGrid.
 func TestPickupBeatsFollowTheNewGrid(t *testing.T) {
 	p := NewPlanner(testConfig("separate"))
-	p.Beat(moment(400), false) // pace 4: a moment every 4 beats
-	p.pace.beats = 8           // a moment every 8 beats, as Home Assistant may choose
+	p.Beat(moment(400), false)
+	p.pace.beats = 8
 	if ps := p.Beat(moment(-4), false); ps != nil {
 		t.Error("beat -4 is on the old grid only")
 	}
@@ -43,8 +41,7 @@ func TestPickupBeatsFollowTheNewGrid(t *testing.T) {
 	}
 }
 
-// TestFasterPaceStartsAtOnce: a faster pace from Home Assistant takes the next
-// beat on its grid.
+// TestFasterPaceStartsAtOnce.
 func TestFasterPaceStartsAtOnce(t *testing.T) {
 	p := NewPlanner(testConfig("separate"))
 	p.Beat(moment(4), false)
@@ -54,10 +51,9 @@ func TestFasterPaceStartsAtOnce(t *testing.T) {
 	}
 }
 
-// TestFasterMusicIsNeverSlower: with the budget to spare, the time between
-// moments only falls as the tempo rises, at every pace.
+// TestFasterMusicIsNeverSlower.
 func TestFasterMusicIsNeverSlower(t *testing.T) {
-	const lowest, highest = 60, 300 // BPM, past both ends of dance music
+	const lowest, highest = 60, 300
 	for _, pace := range config.Paces {
 		c := testConfig("separate")
 		c.Effects.Pace = pace
@@ -74,8 +70,7 @@ func TestFasterMusicIsNeverSlower(t *testing.T) {
 	}
 }
 
-// TestTheBudgetStretchesThePace: 4 frames/s and three colour lights without
-// kicks, 3 frames: every beat holds them up to 80 BPM, every 2 beats up to 160.
+// TestTheBudgetStretchesThePace.
 func TestTheBudgetStretchesThePace(t *testing.T) {
 	c := testConfig("separate")
 	c.Budget.MaxRate = 4
@@ -114,8 +109,7 @@ func TestStretchNotes(t *testing.T) {
 	}
 }
 
-// TestATinyBudgetStillChangesColour: when not even 16 beats hold the colour
-// changes, they go anyway at the longest pace; the limiter stays the ceiling.
+// TestATinyBudgetStillChangesColour.
 func TestATinyBudgetStillChangesColour(t *testing.T) {
 	c := testConfig("separate")
 	c.Budget.MaxRate = 0.01

@@ -24,7 +24,6 @@ func lightsOf(ss []Send) string {
 	return strings.Join(ls, ",")
 }
 
-// started returns an engine whose start pass went out and was confirmed after 40 ms.
 func started(t *testing.T, mode config.Mode, maxRate float64) *Engine {
 	t.Helper()
 	cfg := testConfig(mode)
@@ -32,7 +31,6 @@ func started(t *testing.T, mode config.Mode, maxRate float64) *Engine {
 	return startedWith(t, cfg)
 }
 
-// startedWith is started for any config.
 func startedWith(t *testing.T, cfg config.Config) *Engine {
 	t.Helper()
 	e := New(cfg, 0, t0)

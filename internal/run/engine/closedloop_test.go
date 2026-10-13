@@ -11,8 +11,7 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
-// TestStartPassRespectsInFlightLimits: six lights may have a message in flight,
-// one full moment; the seventh waits for a confirmation.
+// TestStartPassRespectsInFlightLimits.
 func TestStartPassRespectsInFlightLimits(t *testing.T) {
 	cfg := testConfig("separate")
 	cfg.Fixtures[1].Lights = []string{"lamp-4", "lamp-5", "lamp-6", "lamp-7"}
@@ -34,15 +33,13 @@ func TestStartPassRespectsInFlightLimits(t *testing.T) {
 	}
 }
 
-// TestAMomentLeavesTogether: the three kicks and the two pulses of a full
-// moment are all in flight at once and leave before their beat; none waits
-// for another's confirmation.
+// TestAMomentLeavesTogether.
 func TestAMomentLeavesTogether(t *testing.T) {
 	cfg := testConfig("together")
 	cfg.Fixtures[1].Lights = []string{"lamp-4", "lamp-5"}
 	e := startedWith(t, cfg)
 	b := moment(8)
-	e.Music(b.At.Add(-music.Lookahead), b) // three kicks and two pulses up, in the first phrase
+	e.Music(b.At.Add(-music.Lookahead), b)
 	sent := map[string]time.Time{}
 	most := 0
 	for now := b.At.Add(-music.Lookahead); !now.After(b.At); now = now.Add(time.Millisecond) {
@@ -74,7 +71,7 @@ func TestLostMessageBacksOff(t *testing.T) {
 
 func TestForeignStatesAreHarmless(t *testing.T) {
 	e := started(t, "separate", 100)
-	e.State("lamp-1", at(20_000)) // Home Assistant changed a light that has nothing in flight
+	e.State("lamp-1", at(20_000))
 	e.State("hallway", at(20_000))
 	if _, n := e.fl.Median(); e.InFlight() != 0 || e.bo.Level() != 0 || n != 4 {
 		t.Fatalf("in flight %d, level %d, samples %d", e.InFlight(), e.bo.Level(), n)
@@ -95,9 +92,7 @@ func TestHalt(t *testing.T) {
 	}
 }
 
-// TestFramesStayWithinTheBudget: with more to send than max_rate allows, the
-// engine never sends more than one moment's burst plus max_rate frames per
-// second, and does use the budget.
+// TestFramesStayWithinTheBudget.
 func TestFramesStayWithinTheBudget(t *testing.T) {
 	const rate = 2
 	e := started(t, "together", rate)

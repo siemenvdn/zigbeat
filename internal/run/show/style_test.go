@@ -8,7 +8,6 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/music"
 )
 
-// style is the test config's effects with change applied, as Home Assistant sends them.
 func style(change func(*config.Effects)) config.Effects {
 	e := testConfig("separate").Effects
 	change(&e)
@@ -73,8 +72,7 @@ func TestBrightnessFromTheNextMoment(t *testing.T) {
 	}
 }
 
-// TestSlowerPaceKeepsTheGrid: a slower pace from Home Assistant takes the next
-// beat on its own grid, never two moments closer than the new interval.
+// TestSlowerPaceKeepsTheGrid.
 func TestSlowerPaceKeepsTheGrid(t *testing.T) {
 	p := NewPlanner(testConfig("separate"))
 	p.Start(t0)

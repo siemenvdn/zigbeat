@@ -15,21 +15,20 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
-// Flag defaults.
 const (
-	defaultRates    = "1,2,3,4,6,8,10,12" // fine steps where real networks knee
-	defaultStep     = 20 * time.Second    // enough commands per step for a steady p95
-	defaultCooldown = 10 * time.Second    // the queues of the last step empty
-	defaultBaseline = 20 * time.Second    // about 20 canary reads at rest
-	defaultTimeout  = 5 * time.Second     // far above a healthy answer of tens of ms
-	// minBaseline gives about 8 canary reads: z2m.MinCanaryReads with a few lost.
+	defaultRates    = "1,2,3,4,6,8,10,12"
+	defaultStep     = 20 * time.Second
+	defaultCooldown = 10 * time.Second
+	defaultBaseline = 20 * time.Second
+	defaultTimeout  = 5 * time.Second
+
 	minBaseline = 8 * time.Second
 )
 
 type options struct {
-	config                       string        // -config: settings, targets and canary from this file, and the budget into it
-	budget                       config.Budget // the budget in the config before the probe
-	fallback                     bool          // no color lights in the config: the breathe lights in brightness mode
+	config                       string
+	budget                       config.Budget
+	fallback                     bool
 	broker, user, password, base string
 	targets                      []string
 	canary                       string
@@ -109,9 +108,6 @@ func parseFlags(args []string) (options, error) {
 	return cfg, nil
 }
 
-// fromConfig takes the MQTT settings, the targets and the canary from the
-// config at o.config. Flags in set still win, except the MQTT ones: they
-// belong in the config's mqtt block.
 func (o *options) fromConfig(set map[string]bool) error {
 	for _, f := range []string{"broker", "user", "password", "base"} {
 		if set[f] {

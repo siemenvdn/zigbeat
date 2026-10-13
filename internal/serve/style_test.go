@@ -14,14 +14,14 @@ func TestStyleCommands(t *testing.T) {
 	l := newHALink(runtest.Config("separate"), "test")
 	for _, c := range []struct {
 		key, payload string
-		brightness   int  // in force afterwards
-		toShow       bool // handed to the show
+		brightness   int
+		toShow       bool
 	}{
 		{"brightness", "40", 40, true},
-		{"brightness", "40", 40, false},  // a kept choice again, after a reconnect
-		{"brightness", "150", 40, false}, // refused
-		{"speed", "3", 40, false},        // no such setting
-		{"brightness", "", 60, true},     // wiped: the config's again
+		{"brightness", "40", 40, false},
+		{"brightness", "150", 40, false},
+		{"speed", "3", 40, false},
+		{"brightness", "", 60, true},
 		{"brightness", "", 60, false},
 	} {
 		l.choose(ha.StyleTopic(c.key), []byte(c.payload), time.Time{})
@@ -49,8 +49,7 @@ func TestStyleCommands(t *testing.T) {
 	}
 }
 
-// TestOffsetCommands: an audio offset from Home Assistant goes to the show as
-// an offset, not as a style, and to the next show in the config.
+// TestOffsetCommands.
 func TestOffsetCommands(t *testing.T) {
 	l := newHALink(runtest.Config("separate"), "test")
 	l.choose(ha.StyleTopic("audio_offset_ms"), []byte("180"), time.Time{})

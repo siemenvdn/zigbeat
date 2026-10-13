@@ -1,5 +1,4 @@
-// Package setup is zigbeat setup: it finds the lights in Zigbee2MQTT, proposes
-// roles and fixtures, and writes the configuration.
+// Package setup is zigbeat setup.
 package setup
 
 import (
@@ -12,20 +11,16 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
-// light is a light Zigbee2MQTT offers zigbeat.
 type light struct {
 	name  string
-	role  z2m.Role // color or breathe, from z2m.Classify
-	model string   // vendor and model, for the table
+	role  z2m.Role
+	model string
 }
 
-// indexOf is the position of the light called name in ls, or -1.
 func indexOf(ls []light, name string) int {
 	return slices.IndexFunc(ls, func(l light) bool { return l.name == name })
 }
 
-// stem is a name without its trailing number: pendant-1 gives pendant. A
-// device that was not renamed, called after its address, is its own stem.
 func stem(name string) string {
 	if hex, ok := strings.CutPrefix(name, "0x"); ok {
 		if _, err := strconv.ParseUint(hex, 16, 64); err == nil {
@@ -39,11 +34,6 @@ func stem(name string) string {
 	return s
 }
 
-// arrange puts the chosen lights into fixtures. Existing fixtures keep their
-// name, role, mode and order, with the lights that stay. A new light joins the
-// first existing fixture of its role that holds a light with the same stem;
-// the others are grouped by stem and role. A light in a color fixture that has
-// no xy colour any more moves out, with a note.
 func arrange(existing []config.Fixture, chosen []light) (fixtures []config.Fixture, notes []string) {
 	byName := map[string]light{}
 	for _, l := range chosen {
@@ -77,7 +67,6 @@ func arrange(existing []config.Fixture, chosen []light) (fixtures []config.Fixtu
 	return append(fixtures, group(fresh, fixtures)...), notes
 }
 
-// joinExisting adds l to the first fixture of its role with a light of the same stem.
 func joinExisting(fixtures []config.Fixture, l light) bool {
 	for i, f := range fixtures {
 		if f.Role != l.role {
@@ -93,13 +82,8 @@ func joinExisting(fixtures []config.Fixture, l light) bool {
 	return false
 }
 
-// firstCopy is the suffix of the first fixture that would take a name already
-// taken: the original counts as the first.
 const firstCopy = 2
 
-// group makes new fixtures of lights with the same stem and role, in order:
-// named after the stem, or after the light when it is alone; a name that is
-// taken gets -2, -3 and so on.
 func group(ls []light, taken []config.Fixture) []config.Fixture {
 	var out []config.Fixture
 	index := map[string]int{}
@@ -131,7 +115,6 @@ func group(ls []light, taken []config.Fixture) []config.Fixture {
 	return out
 }
 
-// fixtureOf maps every light to the name of its fixture.
 func fixtureOf(fixtures []config.Fixture) map[string]string {
 	m := map[string]string{}
 	for _, f := range fixtures {

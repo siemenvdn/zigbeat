@@ -3,25 +3,22 @@ package flow
 import "time"
 
 const (
-	stepEvery    = 10 * time.Second // at most one step down per this
-	RecoverAfter = 60 * time.Second // quiet time before one step back up
+	stepEvery    = 10 * time.Second
+	RecoverAfter = 60 * time.Second
 
-	// The levels of the ladder above 0, normal.
-	CalmLevel  = 1 // no kick, one message in flight
-	PauseLevel = 2 // nothing but canary reads
+	CalmLevel  = 1
+	PauseLevel = 2
 )
 
-// Backoff is the ladder from 0 to PauseLevel. It never stops the show.
+// Backoff is the ladder from 0 to PauseLevel.
 type Backoff struct {
 	level    int
 	lastDown time.Time
 	lastUp   time.Time
-	quiet    time.Time // last signal
+	quiet    time.Time
 }
 
 // Signal raises the level by one, at most once per stepEvery and never above max.
-// It returns true when the level changed. A signal capped below the current
-// level does not count, so it cannot hold a higher level.
 func (b *Backoff) Signal(now time.Time, max int) bool {
 	if b.level > max {
 		return false
@@ -40,7 +37,7 @@ func (b *Backoff) Pause(now time.Time) {
 	b.level, b.lastDown, b.quiet = PauseLevel, now, now
 }
 
-// Tick lowers the level by one after RecoverAfter without signals. It returns true when it did.
+// Tick lowers the level by one after RecoverAfter without signals.
 func (b *Backoff) Tick(now time.Time) bool {
 	if b.level == 0 || now.Sub(b.quiet) < RecoverAfter || now.Sub(b.lastUp) < RecoverAfter {
 		return false
@@ -50,5 +47,5 @@ func (b *Backoff) Tick(now time.Time) bool {
 	return true
 }
 
-// Level is the current step: 0 normal up to PauseLevel.
+// Level is the current step.
 func (b *Backoff) Level() int { return b.level }

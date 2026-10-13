@@ -15,7 +15,6 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
-// session holds what the phases of one probe run share.
 type session struct {
 	*lights.Session
 	cfg     options
@@ -33,7 +32,6 @@ type session struct {
 	intOnce, lostOnce sync.Once
 }
 
-// connect dials the broker and subscribes to the targets, the canary and the Zigbee2MQTT log.
 func connect(ctx context.Context, cfg options) (*session, error) {
 	rec := &Recorder{}
 	s := &session{
@@ -70,7 +68,6 @@ func connect(ctx context.Context, cfg options) (*session, error) {
 	return s, nil
 }
 
-// saveState reads the current state of every target so it can be put back afterwards.
 func (s *session) saveState() bool {
 	s.snaps = lights.Snapshot(s.ctx, s, s.cfg.targets, s.cfg.rates[0])
 	if s.ctx.Err() != nil {
@@ -88,7 +85,6 @@ func (s *session) saveState() bool {
 	return ok
 }
 
-// restore puts every target back to its saved state.
 func (s *session) restore() {
 	s.ph.Set("restore", 0)
 	fmt.Println()

@@ -54,14 +54,12 @@ func TestDoneOnCloseAndOnADrop(t *testing.T) {
 	if c.Err() == nil {
 		t.Error("no error after the broker dropped the connection")
 	}
-	if b.Dialled(300 * time.Millisecond) { // paho's own reconnect would dial at once
+	if b.Dialled(300 * time.Millisecond) {
 		t.Error("the client dialled again by itself; the commands do that")
 	}
 }
 
-// TestDialIgnoresAllProxy: the broker is dialled directly, also with ALL_PROXY
-// in the environment. x/net reads it once per process, so a child process
-// runs the dial.
+// TestDialIgnoresAllProxy.
 func TestDialIgnoresAllProxy(t *testing.T) {
 	if os.Getenv("ZIGBEAT_PROXY_CHILD") == "" {
 		cmd := exec.Command(os.Args[0], "-test.run=^TestDialIgnoresAllProxy$")
