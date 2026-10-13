@@ -21,11 +21,11 @@ func TestUnreachableLightIsLeftAlone(t *testing.T) {
 		t.Fatalf("the first loss may be the network: level %d", e.bo.Level())
 	}
 	lose(30_000)
-	if _, gone := e.away["lamp-3"]; !gone || e.bo.Level() != 1 {
-		t.Fatalf("second loss in a row: away %v, level %d", e.away, e.bo.Level())
+	if !e.Away("lamp-3") || e.bo.Level() != 1 {
+		t.Fatalf("second loss in a row: away %v, level %d", e.Away("lamp-3"), e.bo.Level())
 	}
 	e.Music(at(36_000), moment(80))
-	if len(e.queue["lamp-3"]) != 0 {
+	if len(e.lights["lamp-3"].queue) != 0 {
 		t.Fatal("nothing is planned for a light that is left alone")
 	}
 	got := e.Due(at(95_000))
@@ -33,7 +33,7 @@ func TestUnreachableLightIsLeftAlone(t *testing.T) {
 		t.Fatalf("a minute later it is read once: %+v", got)
 	}
 	e.State("lamp-3", at(95_040))
-	if _, gone := e.away["lamp-3"]; gone || e.fails["lamp-3"] != 0 {
+	if e.Away("lamp-3") || e.lights["lamp-3"].fails != 0 {
 		t.Fatal("an answer brings it back")
 	}
 }
@@ -45,9 +45,9 @@ func TestDisconnectedRetriesLightsLeftAlone(t *testing.T) {
 		e.Due(at(ms))
 		e.Due(at(ms + 5_000))
 	}
-	e.fails["lamp-1"] = 1
+	e.lights["lamp-1"].fails = 1
 	e.Disconnected()
-	if e.fails["lamp-1"] != 0 {
+	if e.lights["lamp-1"].fails != 0 {
 		t.Error("losses on a dead connection still count")
 	}
 	if got := e.Due(at(36_000)); len(got) == 0 || got[0].Light != "lamp-3" || !got[0].Get {

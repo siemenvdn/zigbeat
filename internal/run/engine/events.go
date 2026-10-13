@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/music"
 	"github.com/siemenvdn/zigbeat/internal/run/flow"
 )
@@ -43,10 +44,14 @@ func (e *Engine) State(light string, at time.Time) {
 		}
 		return
 	}
+	l := e.lights[light]
+	if l == nil {
+		return
+	}
 	// Any state means the light is alive.
-	e.fails[light] = 0
-	if _, gone := e.away[light]; gone {
-		delete(e.away, light)
+	l.fails = 0
+	if l.away {
+		l.away = false
 		e.note(at, light+" answers again; it is back in the show")
 	}
 	if !e.fl.Confirm(light, at) {
@@ -67,7 +72,7 @@ func (e *Engine) ZigbeeError(at time.Time, msg string) {
 	}
 	// Only a signal: the error may be about an older message, so the slot and
 	// the failure count are left to the echo or the z2m.LostAfter expiry.
-	if _, gone := e.away[light]; gone {
+	if e.Away(light) {
 		return
 	}
 	e.raise(at, flow.PauseLevel, "Zigbee2MQTT error: "+msg)
@@ -75,7 +80,7 @@ func (e *Engine) ZigbeeError(at time.Time, msg string) {
 
 // named returns the light or canary a Zigbee2MQTT message is about, if any.
 func (e *Engine) named(msg string) string {
-	for _, l := range e.lights {
+	for _, l := range e.order {
 		if strings.Contains(msg, "'"+l+"'") {
 			return l
 		}
@@ -84,4 +89,23 @@ func (e *Engine) named(msg string) string {
 		return e.canary.Name()
 	}
 	return ""
+}
+
+// raise signals the backoff, at most to level max, and notes a step up; at
+// the pause level the queues empty.
+func (e *Engine) raise(now time.Time, max int, why string) {
+	if !e.bo.Signal(now, max) {
+		return
+	}
+	if e.bo.Level() == flow.PauseLevel {
+		e.paused(now, why)
+		return
+	}
+	e.note(now, fmt.Sprintf("backoff %d: %s", e.bo.Level(), why))
+}
+
+func (e *Engine) paused(now time.Time, why string) {
+	e.clearQueues(every)
+	e.fl.Forget()
+	e.note(now, "paused: "+why+"; the show resumes after "+cli.Seconds(flow.RecoverAfter)+" of quiet")
 }

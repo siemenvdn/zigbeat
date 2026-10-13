@@ -13,8 +13,8 @@ func TestTrackBringsAlbumColours(t *testing.T) {
 	p := NewPlanner(testConfig("separate"))
 	p.Track(music.Track{BPM: 124, Palette: navyCover})
 	want := []string{"#406cff", "#ff943d", "#7340ff"}
-	if !slices.Equal(p.palette, want) {
-		t.Fatalf("palette %v, want %v", p.palette, want)
+	if !slices.Equal(p.palette.colors, want) {
+		t.Fatalf("palette %v, want %v", p.palette.colors, want)
 	}
 	if n := p.TakeNotes(); len(n) != 1 || n[0] != "album colours #406cff #ff943d #7340ff" {
 		t.Errorf("notes %q", n)
@@ -30,8 +30,8 @@ func TestTrackBringsAlbumColours(t *testing.T) {
 	}
 	p.TakeNotes() // the variant's
 	p.Track(music.Track{BPM: 124})
-	if !slices.Equal(p.palette, config.DefaultPalette) {
-		t.Errorf("without album colours the palette plays: %v", p.palette)
+	if !slices.Equal(p.palette.colors, config.DefaultPalette) {
+		t.Errorf("without album colours the palette plays: %v", p.palette.colors)
 	}
 	if n := p.TakeNotes(); len(n) != 1 || n[0] != "no album colours; the palette plays" {
 		t.Errorf("notes %q", n)
@@ -43,8 +43,8 @@ func TestAlbumPaletteOff(t *testing.T) {
 	c.Effects.AlbumPalette = false
 	p := NewPlanner(c)
 	p.Track(music.Track{BPM: 90, Palette: oneRed})
-	if !slices.Equal(p.palette, config.DefaultPalette) || p.TakeNotes() != nil || p.bpm != 90 {
-		t.Errorf("album colours off: palette %v at %g BPM", p.palette, p.bpm)
+	if !slices.Equal(p.palette.colors, config.DefaultPalette) || p.TakeNotes() != nil || p.pace.bpm != 90 {
+		t.Errorf("album colours off: palette %v at %g BPM", p.palette.colors, p.pace.bpm)
 	}
 }
 
@@ -53,7 +53,7 @@ func TestAlbumColorsFromTheConfig(t *testing.T) {
 	c.Effects.AlbumColors = 2
 	p := NewPlanner(c)
 	p.Track(music.Track{BPM: 124, Palette: brownWood})
-	if got := strings.Join(p.palette, " "); got != "#ff9340 #fff240" {
+	if got := strings.Join(p.palette.colors, " "); got != "#ff9340 #fff240" {
 		t.Errorf("two colours: %s", got)
 	}
 }

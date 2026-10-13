@@ -18,7 +18,7 @@ func TestStatus(t *testing.T) {
 
 func TestStats(t *testing.T) {
 	e := started(t, "separate", 100)
-	e.away["lamp-3"] = at(70_000)
+	e.lights["lamp-3"].away, e.lights["lamp-3"].retryAt = true, at(70_000)
 	e.bo.Pause(at(10_000))
 	st := e.Stats(at(10_000))
 	if st.Lights != 3 || !st.Paused() || st.P50 != 20*time.Millisecond || st.FramesPerSec <= 0 {

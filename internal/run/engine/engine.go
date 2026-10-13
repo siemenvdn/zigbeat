@@ -27,10 +27,8 @@ type Engine struct {
 	bo       flow.Backoff
 	fl       *flow.InFlight
 	canary   flow.Canary
-	lights   []string
-	queue    map[string][]queued // per light, by send time
-	fails    map[string]int      // failures in a row per light
-	away     map[string]time.Time
+	order    []string          // the lights in config order
+	lights   map[string]*light // per light: its queue, failures and whether it is left alone
 	offset   time.Duration
 	stopping bool
 	notes    []string
@@ -48,12 +46,13 @@ func New(c config.Config, canaryLim time.Duration, now time.Time) *Engine {
 		lim:        rate.NewLimiter(rate.Limit(c.Budget.MaxRate), flow.Burst),
 		fl:         flow.NewInFlight(millis(c.Budget.LatencyMS)),
 		canary:     flow.NewCanary(c.Canary, canaryLim, now),
-		lights:     c.Lights(),
-		queue:      map[string][]queued{},
-		fails:      map[string]int{},
-		away:       map[string]time.Time{},
+		order:      c.Lights(),
+		lights:     map[string]*light{},
 		offset:     c.Budget.AudioOffset(),
 		lastStatus: now,
+	}
+	for _, l := range e.order {
+		e.lights[l] = &light{}
 	}
 	e.enqueue(e.plan.Start(now))
 	return e
@@ -72,7 +71,9 @@ func (e *Engine) SetEffects(now time.Time, eff config.Effects) {
 // Halt stops planning and sending; messages in flight can still be confirmed.
 func (e *Engine) Halt() {
 	e.stopping = true
-	clear(e.queue)
+	for _, l := range e.lights {
+		l.queue = nil
+	}
 }
 
 // Disconnected forgets what was in flight on a connection that is gone. The
@@ -80,11 +81,10 @@ func (e *Engine) Halt() {
 // so failure counts start over and lights left alone are read again at once.
 func (e *Engine) Disconnected() {
 	e.fl.Clear()
-	e.clearQueue(every)
+	e.clearQueues(every)
 	e.canary.Forget()
-	clear(e.fails)
-	for l := range e.away {
-		e.away[l] = time.Time{}
+	for _, l := range e.lights {
+		l.fails, l.retryAt = 0, time.Time{}
 	}
 }
 

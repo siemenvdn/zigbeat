@@ -2,11 +2,53 @@ package show
 
 import (
 	"math"
+	"slices"
+	"strings"
 
 	colorful "github.com/lucasb-eyer/go-colorful"
 
 	"github.com/siemenvdn/zigbeat/internal/music"
 )
+
+// palette is the colours that play and whose turn is next.
+type palette struct {
+	colors   []string    // the colours that play
+	i        int         // the next colour to try
+	fallback []string    // effects.palette, without album colours
+	album    bool        // effects.album_palette
+	n        int         // effects.album_colors
+	art      []music.RGB // the last track's album colours, as the source sent them
+}
+
+// choose plays the album colours of the last track when they are on and the
+// track has them, else effects.palette. A new palette restarts the index;
+// lights keep their colour until their turn. It returns a note when the palette changed.
+func (pl *palette) choose() string {
+	colors, note := pl.fallback, "album colours off; the palette plays"
+	if pl.album {
+		note = "no album colours; the palette plays"
+		if c := AlbumColors(pl.art, pl.n); c != nil {
+			colors, note = c, "album colours "+strings.Join(c, " ")
+		}
+	}
+	if slices.Equal(colors, pl.colors) {
+		return ""
+	}
+	pl.colors, pl.i = colors, 0
+	return note
+}
+
+// take returns the next colour that is not in avoid, and moves past it.
+func (pl *palette) take(avoid map[string]bool) (string, bool) {
+	for i := range pl.colors {
+		c := pl.colors[(pl.i+i)%len(pl.colors)]
+		if !avoid[c] {
+			pl.i = (pl.i + i + 1) % len(pl.colors)
+			return c, true
+		}
+	}
+	return "", false
+}
 
 const (
 	minValue       = 0.15 // below it the hue of a cover is noise: JPEG artefacts, text outlines

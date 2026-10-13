@@ -35,7 +35,7 @@ func (e *Engine) Stats(now time.Time) Stats {
 	return Stats{
 		At: now, Moments: e.plan.Moments(), Dropped: e.dropped, FramesPerSec: rate, InFlight: e.InFlight(),
 		P50: e.fl.Estimate(), Backoff: e.bo.Level(), Canary: e.canary.Last(), Errors: e.errs,
-		Lights: len(e.lights) - len(e.away),
+		Lights: len(e.order) - e.awayCount(),
 	}
 }
 

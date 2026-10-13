@@ -34,7 +34,7 @@ func TestOnlyMomentsPlan(t *testing.T) {
 func TestPickupBeatsFollowTheNewGrid(t *testing.T) {
 	p := NewPlanner(testConfig("separate"))
 	p.Beat(moment(400), false) // pace 4: a moment every 4 beats
-	p.pace = 8                 // a moment every 8 beats, as Home Assistant may choose
+	p.pace.beats = 8           // a moment every 8 beats, as Home Assistant may choose
 	if ps := p.Beat(moment(-4), false); ps != nil {
 		t.Error("beat -4 is on the old grid only")
 	}
@@ -48,7 +48,7 @@ func TestPickupBeatsFollowTheNewGrid(t *testing.T) {
 func TestFasterPaceStartsAtOnce(t *testing.T) {
 	p := NewPlanner(testConfig("separate"))
 	p.Beat(moment(4), false)
-	p.pace = 2
+	p.pace.beats = 2
 	if p.Beat(moment(6), false) == nil {
 		t.Error("beat 6 is on the grid of 2")
 	}
@@ -65,7 +65,7 @@ func TestFasterMusicIsNeverSlower(t *testing.T) {
 		last := time.Duration(math.MaxInt64)
 		for bpm := lowest; bpm <= highest; bpm++ {
 			p.Track(music.Track{BPM: float64(bpm)})
-			d := time.Duration(p.interval()) * p.period()
+			d := time.Duration(p.interval()) * p.pace.period()
 			if d > last {
 				t.Fatalf("pace %d: %d BPM gives %s, slower than %s a BPM lower", pace, bpm, d, last)
 			}
@@ -133,7 +133,7 @@ func TestFallIsHalfTheIntervalAtMostABeat(t *testing.T) {
 	for pace, want := range map[int]time.Duration{1: 250 * time.Millisecond, 2: 500 * time.Millisecond, 4: 500 * time.Millisecond} {
 		c := testConfig("separate")
 		c.Effects.Pace = pace
-		if got := NewPlanner(c).fall(pace); got != want {
+		if got := NewPlanner(c).pace.fall(pace); got != want {
 			t.Errorf("pace %d at 120 BPM: the fall after %s, want %s", pace, got, want)
 		}
 	}

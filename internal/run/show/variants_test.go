@@ -16,7 +16,7 @@ func playing(variant config.Variant, mode config.Mode, sizes ...int) *Planner {
 	c := fixtures(mode, sizes...)
 	c.Effects.Variant = variant
 	p := NewPlanner(c)
-	p.rng = rand.New(rand.NewPCG(1, 1))
+	p.colors.rng = rand.New(rand.NewPCG(1, 1))
 	p.Start(t0)
 	return p
 }
@@ -58,8 +58,8 @@ func TestSwapAlternatesTwoGroupsOfOneColour(t *testing.T) {
 	if want := "f0-1,f0-3,f0-5 f0-2,f0-4,f0-6 f0-1,f0-3,f0-5 f0-2,f0-4,f0-6"; strings.Join(got, " ") != want {
 		t.Errorf("groups %v, want %s", got, want)
 	}
-	if p.current["f0-1"] == p.current["f0-2"] {
-		t.Errorf("the two groups show two colours: %v", p.current)
+	if p.colors.current["f0-1"] == p.colors.current["f0-2"] {
+		t.Errorf("the two groups show two colours: %v", p.colors.current)
 	}
 	p = playing("swap", "separate", 8)
 	got = nil
@@ -85,13 +85,13 @@ func TestSwapChangesTheColourOfEachGroup(t *testing.T) {
 		p := NewPlanner(cfg)
 		p.Start(t0)
 		for i := 0; i < 12; i++ {
-			before := maps.Clone(p.current)
+			before := maps.Clone(p.colors.current)
 			ls := strings.Split(changed(p.Beat(moment(4*i), false)), ",")
 			if i < firstRound {
 				continue // the groups take one colour each
 			}
 			for _, l := range ls {
-				if p.current[l] == before[l] {
+				if p.colors.current[l] == before[l] {
 					t.Fatalf("%d lights, %d colours, moment %d: %s keeps %s", c.lights, len(c.palette), i, l, before[l])
 				}
 			}
@@ -108,10 +108,10 @@ func TestBuildFillsTheRoomWithOneColour(t *testing.T) {
 			t.Fatalf("moment %d changed %q, want one light", i, got)
 		}
 		if i%3 == 2 {
-			if p.current["f0-1"] != p.current["f0-2"] || p.current["f0-2"] != p.current["f0-3"] {
-				t.Errorf("after moment %d the room shows one colour: %v", i, p.current)
+			if p.colors.current["f0-1"] != p.colors.current["f0-2"] || p.colors.current["f0-2"] != p.colors.current["f0-3"] {
+				t.Errorf("after moment %d the room shows one colour: %v", i, p.colors.current)
 			}
-			targets = append(targets, p.current["f0-1"])
+			targets = append(targets, p.colors.current["f0-1"])
 		}
 	}
 	if targets[0] == targets[1] {
@@ -122,11 +122,11 @@ func TestBuildFillsTheRoomWithOneColour(t *testing.T) {
 func TestRotation(t *testing.T) {
 	p := playing("rotation", "separate", 3)
 	for index, want := range map[int]config.Variant{-4: "build", 0: "build", 60: "build", 64: "walk", 128: "shuffle", 192: "swap", 256: "walk"} {
-		if got := p.variantAt(index); got != want {
+		if got := p.colors.variantAt(index); got != want {
 			t.Errorf("index %d: %s, want %s", index, got, want)
 		}
 	}
-	if got := playing("swap", "separate", 3).variantAt(0); got != "swap" {
+	if got := playing("swap", "separate", 3).colors.variantAt(0); got != "swap" {
 		t.Errorf("a fixed variant plays from the start: %s", got)
 	}
 }

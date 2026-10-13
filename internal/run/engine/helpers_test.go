@@ -37,7 +37,8 @@ func startedWith(t *testing.T, cfg config.Config) *Engine {
 	t.Helper()
 	e := New(cfg, 0, t0)
 	queued := func() bool {
-		for _, q := range e.queue {
+		for _, l := range e.lights {
+			q := l.queue
 			if len(q) > 0 {
 				return true
 			}

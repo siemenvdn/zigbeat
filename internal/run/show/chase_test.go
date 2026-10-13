@@ -36,7 +36,7 @@ func TestTogetherSharesOneColour(t *testing.T) {
 	p := NewPlanner(testConfig("together"))
 	p.Start(t0)
 	for i := 0; i < 6; i++ {
-		before := p.current["lamp-1"]
+		before := p.colors.current["lamp-1"]
 		colours := map[string]bool{}
 		for _, pl := range p.Beat(moment(4*i), false) {
 			if c, ok := pl.Payload["color"]; ok {
@@ -46,7 +46,7 @@ func TestTogetherSharesOneColour(t *testing.T) {
 		if len(colours) != 1 {
 			t.Fatalf("moment %d: %d colours in a together unit", i, len(colours))
 		}
-		if p.current["lamp-1"] == before {
+		if p.colors.current["lamp-1"] == before {
 			t.Fatalf("moment %d: the fixture kept colour %s", i, before)
 		}
 	}

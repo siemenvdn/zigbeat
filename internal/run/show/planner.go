@@ -2,12 +2,13 @@
 package show
 
 import (
+	"fmt"
 	"math"
-	"math/rand/v2"
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/config"
 	"github.com/siemenvdn/zigbeat/internal/music"
+	"github.com/siemenvdn/zigbeat/internal/run/flow"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
@@ -20,64 +21,36 @@ type Message struct {
 	before  string // a colour change: the light's colour until it lands
 }
 
-// Planner decides per moment which lights change and how.
-type Planner struct {
-	fixtures     []config.Fixture // color fixtures in config order
-	fixtureOf    map[string][]string
-	nColor       int
-	breathe      []string
-	palette      []string    // the colours that play
-	fallback     []string    // effects.palette, without album colours
-	album        bool        // effects.album_palette
-	albumColors  int         // effects.album_colors
-	art          []music.RGB // the last track's album colours, as the source sent them
-	notes        []string
-	pi           int
-	current      map[string]string // colour each light was last given
-	parts        []part            // the rest of a unit too large for one moment
-	cursor       int
-	setting      config.Variant // effects.variant
-	playing      config.Variant // the variant of the last moment
-	rng          *rand.Rand
-	variantState // deck, turn and target of the variant that plays
-	whiteState   // the breathe variant, levels and turn of the breathe lights
-	energyState  // whether the show follows the energy, and plays a quiet part
-	moments      int
-	pace         int     // effects.pace: beats between moments
-	rate         float64 // frames per second the moments may use
-	stretched    int     // the interval the budget stretched the pace to; 0 when it did not
-	bpm          float64 // the tempo of the current track
-	base         int     // Zigbee2MQTT brightness 0..z2m.MaxBrightness
-	kick         int
-	low, high    int
+// stroke is how a moment paints: when it lands, when its kicks fall back, how
+// long its colours blend, whether it kicks, and which moment it is.
+type stroke struct {
+	at     time.Time
+	fall   time.Duration
+	blend  float64 // seconds
+	kick   bool
+	moment int // moments planned before this one
+}
 
-	lastBeat   time.Time     // the latest beat, a moment or not
-	lastPeriod time.Duration // its beat period
-	settled    bool          // the breathe lights got their low end since lastBeat
+// Planner decides per moment which lights change and how. The colour lights,
+// the breathe lights, the pace, the palette and the energy each keep their own state.
+type Planner struct {
+	pace    pace
+	palette palette
+	colors  colorShow
+	breathe breatheShow
+	energy  energy
+	notes   []string
+	moments int
 }
 
 func NewPlanner(c config.Config) *Planner {
 	p := &Planner{
-		fixtureOf: map[string][]string{},
-		palette:   c.Effects.Palette,
-		current:   map[string]string{},
-		rng:       rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64())),
-		bpm:       music.DefaultBPM,
-		rate:      budgetRate(c),
+		pace:    pace{bpm: music.DefaultBPM, rate: budgetRate(c)},
+		palette: palette{colors: c.Effects.Palette},
 	}
+	p.colors = newColorShow(c.Fixtures, &p.palette)
+	p.breathe = newBreatheShow(c.Fixtures)
 	p.SetEffects(c.Effects)
-	for _, f := range c.Fixtures {
-		if f.Role == z2m.Breathe {
-			p.breathe = append(p.breathe, f.Lights...)
-			continue
-		}
-		p.fixtures = append(p.fixtures, f)
-		p.nColor += len(f.Lights)
-		for _, l := range f.Lights {
-			p.fixtureOf[l] = f.Lights
-		}
-	}
-	p.lit = make([]bool, len(p.breathe))
 	return p
 }
 
@@ -86,26 +59,121 @@ func level(percent int) int {
 	return int(math.Round(float64(percent) * z2m.MaxBrightness / 100))
 }
 
-// Moments counts the moments planned so far.
-func (p *Planner) Moments() int { return p.moments }
+// Start turns every light on at its starting level, landing at now.
+func (p *Planner) Start(now time.Time) []Message {
+	return append(p.colors.start(now), p.breathe.start(now)...)
+}
 
 // Beat returns the messages for b, or nothing when b is not a moment: the
-// colour changes, their kicks when they fit the room, then the white. calm
-// leaves out the kicks and holds the breathe lights; a quiet part plays calm too, one pace slower.
+// colour changes, their kicks when they fit the room, then the breathe lights.
+// calm leaves out the kicks and holds the breathe lights; a quiet part plays
+// calm too, one pace slower.
 func (p *Planner) Beat(b music.Beat, calm bool) []Message {
-	p.lastBeat, p.lastPeriod, p.settled = b.At, p.period(), false
-	p.hear(b)
+	p.breathe.heard(b.At, p.pace.period())
+	if p.energy.hear(b) {
+		p.note("energy %s from bar %d: every %s", p.energy, b.Bar(), music.Span(p.pace.now(p.energy.quiet)))
+	}
 	n := p.interval()
 	if b.Index%n != 0 {
 		return nil
 	}
-	p.noteStretch(n)
-	p.noteVariants(b)
-	calm = calm || p.quiet
-	room := p.room(n)
-	st := stroke{at: b.At, fall: p.fall(n), blend: p.blend(n)}
-	out := p.colour(st, calm, room)
-	out = append(out, p.white(st, calm, room-float64(framesOf(out)))...)
+	if s := p.pace.noteStretch(n, p.energy.quiet); s != "" {
+		p.note("%s", s)
+	}
+	p.rotate(b)
+	calm = calm || p.energy.quiet
+	room := p.pace.room(n)
+	st := stroke{at: b.At, fall: p.pace.fall(n), blend: p.pace.blend(n), moment: p.moments}
+	out := p.colors.plan(st, calm, room)
+	out = append(out, p.breathe.plan(st, calm, room-float64(framesOf(out)))...)
 	p.moments++
 	return out
+}
+
+// interval is the beats between moments: the pace that plays, stretched while
+// the colour changes of a moment without kicks do not fit its room.
+func (p *Planner) interval() int {
+	return p.pace.interval(p.energy.quiet, float64(p.colors.minFrames()))
+}
+
+// rotate starts the variants of the moment at b and notes a change of either:
+// one line for the colour and the breathe variant.
+func (p *Planner) rotate(b music.Beat) {
+	v, w := p.colors.variantAt(b.Index), p.breathe.at(b.Index)
+	if v == p.colors.playing && w == p.breathe.playing {
+		return
+	}
+	p.colors.play(v)
+	p.breathe.playing = w
+	note := "variant " + string(v)
+	if w != "" {
+		note += ", breathe " + string(w)
+	}
+	p.note("%s from bar %d", note, b.Bar())
+}
+
+// Track takes the properties of the track that plays now: its tempo, and its
+// album colours when the style wants them. A new track is full until a bar says otherwise.
+func (p *Planner) Track(t music.Track) {
+	p.pace.bpm, p.palette.art, p.energy.lowPart = t.BPM, t.Palette, false
+	p.choose()
+}
+
+// SetEffects takes the style of the show from the next moment on: the album
+// colours, the variants, the brightness, the breathe range, the pace and
+// whether it follows the energy. The same style again changes nothing.
+func (p *Planner) SetEffects(e config.Effects) {
+	p.palette.fallback, p.palette.album, p.palette.n = e.Palette, e.AlbumPalette, e.AlbumColors
+	p.pace.beats, p.energy.follow = e.Pace, e.FollowEnergy
+	p.colors.style(e)
+	p.breathe.style(e)
+	p.choose()
+}
+
+// choose plays the palette the style and the last track call for, with a note when it changes.
+func (p *Planner) choose() {
+	if note := p.palette.choose(); note != "" {
+		p.note("%s", note)
+	}
+}
+
+// Settle gives every breathe light its low end once per gap in the beats.
+func (p *Planner) Settle(now time.Time) []Message { return p.breathe.settle(now) }
+
+// Missed takes back the colours of messages the engine dropped, given in queue
+// order, newest first: while it is still the light's latest, the light counts
+// as showing its colour from before.
+func (p *Planner) Missed(ms ...Message) { p.colors.missed(ms) }
+
+// Moments counts the moments planned so far.
+func (p *Planner) Moments() int { return p.moments }
+
+func (p *Planner) note(format string, args ...any) {
+	p.notes = append(p.notes, fmt.Sprintf(format, args...))
+}
+
+// TakeNotes returns what the operator should know since the last call.
+func (p *Planner) TakeNotes() []string {
+	n := p.notes
+	p.notes = nil
+	return n
+}
+
+// framesOf is what messages cost, counted as the rate limiter counts them.
+func framesOf(ms []Message) int {
+	n := 0
+	for _, m := range ms {
+		n += z2m.Frames(m.Payload)
+	}
+	return n
+}
+
+// split cuts u into parts of at most flow.MaxPerMoment lights, in order.
+func split(u []string) [][]string {
+	var ps [][]string
+	for len(u) > flow.MaxPerMoment {
+		ps = append(ps, u[:flow.MaxPerMoment])
+		u = u[flow.MaxPerMoment:]
+	}
+	return append(ps, u)
 }

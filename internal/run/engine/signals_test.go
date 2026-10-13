@@ -115,8 +115,8 @@ func TestZigbeeErrorKeepsTheSlot(t *testing.T) {
 	e.Due(land)
 	// The error may be about an older message; only the echo or the 5 s expiry frees the slot.
 	e.ZigbeeError(land.Add(time.Second), "Publish 'set' to 'lamp-1' failed: 'Timeout'")
-	if !e.fl.Busy("lamp-1") || e.fails["lamp-1"] != 0 {
-		t.Fatalf("busy %v, fails %d", e.fl.Busy("lamp-1"), e.fails["lamp-1"])
+	if !e.fl.Busy("lamp-1") || e.lights["lamp-1"].fails != 0 {
+		t.Fatalf("busy %v, fails %d", e.fl.Busy("lamp-1"), e.lights["lamp-1"].fails)
 	}
 }
 
@@ -136,7 +136,7 @@ func TestPauseSendsOnlyCanaryAndResumes(t *testing.T) {
 		t.Fatalf("a quiet minute resumes one level below the pause, level %d", e.bo.Level())
 	}
 	e.Music(at(60_000), moment(240)) // 120 s, on a bar
-	if len(e.queue["lamp-1"])+len(e.queue["lamp-3"]) == 0 {
+	if len(e.lights["lamp-1"].queue)+len(e.lights["lamp-3"].queue) == 0 {
 		t.Fatal("after the pause the show plans moments again")
 	}
 }

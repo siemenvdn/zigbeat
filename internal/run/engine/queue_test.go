@@ -12,13 +12,13 @@ import (
 func TestLateKickIsDroppedItsReturnStays(t *testing.T) {
 	e := started(t, "separate", 100)
 	e.Music(t0, moment(8)) // At t0+4s: kicks for lamp-1 and lamp-2, a pulse for lamp-4
-	sendAt := e.queue["lamp-1"][0].sendAt
+	sendAt := e.lights["lamp-1"].queue[0].sendAt
 	got := lightsOf(e.Due(sendAt.Add(200 * time.Millisecond)))
 	if got != "" {
 		t.Fatalf("200 ms late: sent %q, want nothing: the pulse up is late too", got)
 	}
-	if len(e.queue["lamp-1"]) != 1 || len(e.queue["lamp-2"]) != 1 {
-		t.Fatalf("each return stays: %v %v", e.queue["lamp-1"], e.queue["lamp-2"])
+	if len(e.lights["lamp-1"].queue) != 1 || len(e.lights["lamp-2"].queue) != 1 {
+		t.Fatalf("each return stays: %v %v", e.lights["lamp-1"].queue, e.lights["lamp-2"].queue)
 	}
 	if e.dropped != 3 {
 		t.Errorf("two late kicks and the pulse up, counted %d", e.dropped)
@@ -45,7 +45,7 @@ func TestDueMessagesMerge(t *testing.T) {
 func TestStaleBeatIsSkipped(t *testing.T) {
 	e := started(t, "separate", 100)
 	e.Music(at(5_000), moment(8)) // At t0+4s, already past
-	if len(e.queue["lamp-1"])+len(e.queue["lamp-4"]) != 0 {
+	if len(e.lights["lamp-1"].queue)+len(e.lights["lamp-4"].queue) != 0 {
 		t.Fatal("a beat in the past must not be planned")
 	}
 }
@@ -53,11 +53,13 @@ func TestStaleBeatIsSkipped(t *testing.T) {
 func TestSetOffsetMovesTheSendTime(t *testing.T) {
 	e := started(t, "separate", 100)
 	e.Music(t0, moment(8))
-	before := e.queue["lamp-1"][0].sendAt
-	clear(e.queue)
+	before := e.lights["lamp-1"].queue[0].sendAt
+	for _, l := range e.lights {
+		l.queue = nil
+	}
 	e.SetOffset(120 * time.Millisecond)
 	e.Music(t0, moment(16))
-	if d := e.queue["lamp-1"][0].sendAt.Sub(before); d != 4*time.Second+120*time.Millisecond {
+	if d := e.lights["lamp-1"].queue[0].sendAt.Sub(before); d != 4*time.Second+120*time.Millisecond {
 		t.Errorf("8 beats and 120 ms later, got %s", d)
 	}
 }
@@ -66,9 +68,9 @@ func TestClearDropsPlannedMoments(t *testing.T) {
 	e := started(t, "separate", 100)
 	e.Music(t0, moment(8)) // kicks for lamp-1 and lamp-2, a pulse for lamp-4
 	e.Music(t0, music.Clear{})
-	if len(e.queue["lamp-1"]) != 1 || len(e.queue["lamp-2"]) != 1 || len(e.queue["lamp-4"]) == 0 {
+	if len(e.lights["lamp-1"].queue) != 1 || len(e.lights["lamp-2"].queue) != 1 || len(e.lights["lamp-4"].queue) == 0 {
 		t.Errorf("a seek drops the planned kicks and keeps their returns and the pulse's fall: %v %v %v",
-			e.queue["lamp-1"], e.queue["lamp-2"], e.queue["lamp-4"])
+			e.lights["lamp-1"].queue, e.lights["lamp-2"].queue, e.lights["lamp-4"].queue)
 	}
 	if e.dropped != 0 {
 		t.Errorf("forgotten moments are not late ones, counted %d", e.dropped)
@@ -76,10 +78,10 @@ func TestClearDropsPlannedMoments(t *testing.T) {
 
 	e = started(t, "separate", 100)
 	e.Music(t0, moment(8))
-	e.Due(e.queue["lamp-1"][0].sendAt) // the kicks leave
+	e.Due(e.lights["lamp-1"].queue[0].sendAt) // the kicks leave
 	e.Music(t0, music.Clear{})
-	if len(e.queue["lamp-1"]) != 1 || len(e.queue["lamp-2"]) != 1 {
-		t.Errorf("a kick that left keeps its return: %v %v", e.queue["lamp-1"], e.queue["lamp-2"])
+	if len(e.lights["lamp-1"].queue) != 1 || len(e.lights["lamp-2"].queue) != 1 {
+		t.Errorf("a kick that left keeps its return: %v %v", e.lights["lamp-1"].queue, e.lights["lamp-2"].queue)
 	}
 }
 
@@ -92,7 +94,7 @@ func TestBuildPaintsADroppedKickAgain(t *testing.T) {
 	e.SetEffects(t0, eff)
 	e.Music(t0, moment(8))
 	first := kicked(e)
-	e.Due(e.queue[first][0].sendAt.Add(200 * time.Millisecond))
+	e.Due(e.lights[first].queue[0].sendAt.Add(200 * time.Millisecond))
 	if kicked(e) != "" {
 		t.Fatal("the late kick was not dropped")
 	}
@@ -104,7 +106,8 @@ func TestBuildPaintsADroppedKickAgain(t *testing.T) {
 
 // kicked is a light with a colour change in the queue, or "".
 func kicked(e *Engine) string {
-	for l, q := range e.queue {
+	for l, lt := range e.lights {
+		q := lt.queue
 		for _, m := range q {
 			if m.Drop && m.Payload["color"] != nil {
 				return l
@@ -121,9 +124,9 @@ func TestAClearedKickIsPaintedAgain(t *testing.T) {
 		"paused":       func(e *Engine, _ string) { e.paused(t0, "test") },
 		"disconnected": func(e *Engine, _ string) { e.Disconnected() },
 		"left alone": func(e *Engine, l string) {
-			e.fails[l] = awayAfter - 1
+			e.lights[l].fails = awayAfter - 1
 			e.failed(t0, l)
-			delete(e.away, l) // it answers again
+			e.lights[l].away = false // it answers again
 		},
 	} {
 		e := started(t, "separate", 100)

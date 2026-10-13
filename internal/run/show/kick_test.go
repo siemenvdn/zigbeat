@@ -25,20 +25,20 @@ func TestKickAndReturn(t *testing.T) {
 func TestMissedKeepsANewerColour(t *testing.T) {
 	p := NewPlanner(testConfig("separate"))
 	kick := p.Beat(moment(0), false)[0]
-	p.current[kick.Light] = "#000000" // a later moment gave it another colour
+	p.colors.current[kick.Light] = "#000000" // a later moment gave it another colour
 	p.Missed(kick)
-	if p.current[kick.Light] != "#000000" {
-		t.Errorf("a dropped older kick took back the newer colour: %q", p.current[kick.Light])
+	if p.colors.current[kick.Light] != "#000000" {
+		t.Errorf("a dropped older kick took back the newer colour: %q", p.colors.current[kick.Light])
 	}
 }
 
 func TestMissedGivesBackThePreviousColour(t *testing.T) {
 	p := NewPlanner(testConfig("separate"))
 	p.Start(t0)
-	was := maps.Clone(p.current)
+	was := maps.Clone(p.colors.current)
 	kick := p.Beat(moment(0), false)[0]
 	p.Missed(kick)
-	if got := p.current[kick.Light]; got != was[kick.Light] {
+	if got := p.colors.current[kick.Light]; got != was[kick.Light] {
 		t.Errorf("%s counts as showing %q after a dropped kick, want its previous %q", kick.Light, got, was[kick.Light])
 	}
 }
@@ -74,12 +74,12 @@ func TestKicksAllOrNone(t *testing.T) {
 func TestTwoMissedChangesOfOneLight(t *testing.T) {
 	p := NewPlanner(testConfig("separate"))
 	p.Start(t0)
-	shown := p.current["lamp-1"]
-	first := p.paint([]string{"lamp-1"}, "#111111", stroke{at: at(1000)})
-	second := p.paint([]string{"lamp-1"}, "#222222", stroke{at: at(1500)})
+	shown := p.colors.current["lamp-1"]
+	first := p.colors.paint([]string{"lamp-1"}, "#111111", stroke{at: at(1000)})
+	second := p.colors.paint([]string{"lamp-1"}, "#222222", stroke{at: at(1500)})
 	p.Missed(first[0], second[0])
-	if p.current["lamp-1"] != shown {
-		t.Errorf("lamp-1 counts as showing %s, want %s", p.current["lamp-1"], shown)
+	if p.colors.current["lamp-1"] != shown {
+		t.Errorf("lamp-1 counts as showing %s, want %s", p.colors.current["lamp-1"], shown)
 	}
 }
 

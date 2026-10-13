@@ -34,7 +34,7 @@ func TestNoSettleWhilePausedOrStopping(t *testing.T) {
 		gap(e)
 		stop(e)
 		e.Due(at(5000))
-		for _, q := range e.queue["lamp-4"] {
+		for _, q := range e.lights["lamp-4"].queue {
 			if q.Land.After(moment(5).At) { // the pulse's fall lands on beat 5; a settle later
 				t.Errorf("%s: settle queued: %+v", name, q)
 			}

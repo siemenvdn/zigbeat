@@ -20,8 +20,8 @@ func TestAlbumColoursSwitchMidTrack(t *testing.T) {
 	p.Track(music.Track{BPM: 124, Palette: navyCover})
 	p.TakeNotes()
 	p.SetEffects(style(func(e *config.Effects) { e.AlbumPalette = false }))
-	if !slices.Equal(p.palette, config.DefaultPalette) {
-		t.Errorf("album colours off: %v", p.palette)
+	if !slices.Equal(p.palette.colors, config.DefaultPalette) {
+		t.Errorf("album colours off: %v", p.palette.colors)
 	}
 	if n := p.TakeNotes(); len(n) != 1 || n[0] != "album colours off; the palette plays" {
 		t.Errorf("notes %q", n)

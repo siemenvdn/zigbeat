@@ -18,7 +18,7 @@ func beatWith(i int, e float64) music.Beat {
 // kicks tells whether a colour change in ps kicks, or a breathe light goes to the top of its range.
 func kicks(p *Planner, ps []Message) bool {
 	return slices.ContainsFunc(ps, func(m Message) bool {
-		return m.Payload["color"] != nil && m.Payload["brightness"] != nil || m.Light == "lamp-4" && m.Payload["brightness"] == p.high
+		return m.Payload["color"] != nil && m.Payload["brightness"] != nil || m.Light == "lamp-4" && m.Payload["brightness"] == p.breathe.high
 	})
 }
 
@@ -65,7 +65,7 @@ func TestNewTrackIsFull(t *testing.T) {
 	pickup := beatWith(5, music.UnknownEnergy)
 	pickup.InBar = 3
 	p.Beat(pickup, false)
-	if p.quiet {
+	if p.energy.quiet {
 		t.Error("a new track starts quiet")
 	}
 }
@@ -80,7 +80,7 @@ func TestSwitchOffInAQuietPart(t *testing.T) {
 	p.SetEffects(c.Effects)
 	p.TakeNotes()
 	p.Beat(beatWith(1, 0), false)
-	if p.quiet || !slices.Contains(p.TakeNotes(), "energy full from bar 0: every bar") {
+	if p.energy.quiet || !slices.Contains(p.TakeNotes(), "energy full from bar 0: every bar") {
 		t.Error("the switch did not end the quiet part")
 	}
 }
@@ -95,8 +95,8 @@ func TestQuietPartHolds(t *testing.T) {
 		quiet  bool
 	}{{0.9, false}, {0.4, false}, {0, true}, {0.38, true}, {0.31, true}, {0.21, true}, {0.3, true}, {0.5, false}, {0.35, false}} {
 		p.Beat(beatWith(i*4, x.energy), false)
-		if p.quiet != x.quiet {
-			t.Errorf("bar %d at energy %.2f: quiet %v, want %v", i, x.energy, p.quiet, x.quiet)
+		if p.energy.quiet != x.quiet {
+			t.Errorf("bar %d at energy %.2f: quiet %v, want %v", i, x.energy, p.energy.quiet, x.quiet)
 		}
 	}
 }

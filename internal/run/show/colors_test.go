@@ -7,7 +7,7 @@ func TestNoRepeatedColour(t *testing.T) {
 	p.Start(t0)
 	for i := 0; i < 30; i++ {
 		before := map[string]string{}
-		for l, c := range p.current {
+		for l, c := range p.colors.current {
 			before[l] = c
 		}
 		for _, pl := range p.Beat(moment(4*i), false) {
@@ -15,8 +15,8 @@ func TestNoRepeatedColour(t *testing.T) {
 				t.Fatalf("moment %d: %s got its own colour %s again", i, pl.Light, c["hex"])
 			}
 		}
-		if p.current["lamp-1"] == p.current["lamp-2"] || p.current["lamp-2"] == p.current["lamp-3"] || p.current["lamp-1"] == p.current["lamp-3"] {
-			t.Fatalf("moment %d: neighbours share a colour: %v", i, p.current)
+		if p.colors.current["lamp-1"] == p.colors.current["lamp-2"] || p.colors.current["lamp-2"] == p.colors.current["lamp-3"] || p.colors.current["lamp-1"] == p.colors.current["lamp-3"] {
+			t.Fatalf("moment %d: neighbours share a colour: %v", i, p.colors.current)
 		}
 	}
 }

@@ -50,7 +50,7 @@ func TestPulse(t *testing.T) {
 	if up.Payload["brightness"] != level(100) || !up.Drop || len(up.Payload) != 1 {
 		t.Errorf("up: %+v", up)
 	}
-	if down.Payload["brightness"] != level(10) || down.Drop || !down.Land.Equal(b.At.Add(p.period())) {
+	if down.Payload["brightness"] != level(10) || down.Drop || !down.Land.Equal(b.At.Add(p.pace.period())) {
 		t.Errorf("the fall lands a beat later and is never dropped: %+v", down)
 	}
 }
@@ -78,16 +78,16 @@ func TestFlipInCounterPhase(t *testing.T) {
 func TestBreatheRotation(t *testing.T) {
 	p := NewPlanner(whites("rotation", 1))
 	for index, want := range map[int]config.BreatheVariant{-4: "pulse", 0: "pulse", 60: "pulse", 64: "flip", 128: "pulse", 192: "flip"} {
-		if got := p.breatheAt(index); got != want {
+		if got := p.breathe.at(index); got != want {
 			t.Errorf("index %d: %s, want %s", index, got, want)
 		}
 	}
-	if got := NewPlanner(whites("flip", 1)).breatheAt(0); got != "flip" {
+	if got := NewPlanner(whites("flip", 1)).breathe.at(0); got != "flip" {
 		t.Errorf("a fixed breathe variant plays from the start: %s", got)
 	}
 	none := testConfig("separate")
 	none.Fixtures = none.Fixtures[:1]
-	if got := NewPlanner(none).breatheAt(64); got != "" {
+	if got := NewPlanner(none).breathe.at(64); got != "" {
 		t.Errorf("no breathe lights, no breathe variant: %q", got)
 	}
 }
