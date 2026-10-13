@@ -19,6 +19,7 @@ archives:
       - README.md
       - LICENSE
       - config.example.yaml
+      - compose.example.yml
 
 checksum:
   name_template: checksums.txt

@@ -1,0 +1,13 @@
+services:
+  zigbeat:
+    image: ghcr.io/siemenvdn/zigbeat:latest
+    restart: unless-stopped
+    network_mode: host            # the broker and Music Assistant on 127.0.0.1
+    stop_grace_period: 60s        # the time to put every light back
+    user: "1000:1000"             # the owner of ./zigbeat: id -u and id -g
+    volumes:
+      - ./zigbeat:/config
+    environment:
+      TZ: Europe/Amsterdam        # your time zone
+      ZIGBEAT_MQTT_PASSWORD: ${ZIGBEAT_MQTT_PASSWORD:?set it in .env}
+      ZIGBEAT_MA_TOKEN: ${ZIGBEAT_MA_TOKEN:-}
