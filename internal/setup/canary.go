@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/cli"
+	"github.com/siemenvdn/zigbeat/internal/lights"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
@@ -97,15 +98,7 @@ func (s *session) askCanary(ctx context.Context, cands []z2m.Device, current str
 // answers reads name canaryReads times, s.gap apart, and says whether it
 // answered at least minAnswers times; false when ctx is done.
 func (s *session) answers(ctx context.Context, name string) bool {
-	var got []time.Duration
-	for i := range canaryReads {
-		if i > 0 && !cli.Sleep(ctx, s.gap) {
-			return false
-		}
-		if d, ok := s.br.Read(ctx, name); ok {
-			got = append(got, d)
-		}
-	}
+	got := lights.ReadTimes(ctx, s.br, name, canaryReads, s.gap)
 	if ctx.Err() != nil {
 		return false
 	}

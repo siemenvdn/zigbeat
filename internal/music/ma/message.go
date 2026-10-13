@@ -66,7 +66,7 @@ func parse(m ws.Message, now int64) message {
 		switch {
 		case m.Data[0] == beatTag && len(m.Data) >= beatLen:
 			return message{kind: kindBeat, f: frame{ts: ts, down: m.Data[headerLen]&downBit != 0}}
-		case m.Data[0] == waveTag:
+		case m.Data[0] == waveTag && len(m.Data) > headerLen: // a frame without samples has no level
 			return message{kind: kindWave, f: frame{ts: ts}, samples: m.Data[headerLen:]}
 		}
 		return message{}

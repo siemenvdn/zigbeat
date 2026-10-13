@@ -8,7 +8,7 @@ import (
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
-// fakeLink answers every command with a state, can drop the connection at a
+// fakeLink answers every command with a state and every wait at once, can drop the connection at a
 // given Set, and reconnects or not.
 type fakeLink struct {
 	events     chan event
@@ -53,7 +53,21 @@ func (f *fakeLink) Set(light string, _ any) error {
 
 func (f *fakeLink) Get(light string, _ any) error { f.answer(light); return nil }
 
-func (f *fakeLink) Lost() <-chan struct{} { return f.lost }
+func (f *fakeLink) Done() <-chan struct{} { return f.lost }
+
+// Await answers at once, unless the fake is silent or the connection dropped.
+func (f *fakeLink) Await(context.Context, string, time.Time, time.Duration) (z2m.State, bool) {
+	select {
+	case <-f.lost:
+		return z2m.State{}, false
+	default:
+	}
+	return z2m.State{State: "ON"}, !f.silent
+}
+
+func (f *fakeLink) Read(context.Context, string, time.Duration) (time.Duration, bool) {
+	return time.Millisecond, !f.silent
+}
 
 func (f *fakeLink) Err() error { return nil }
 

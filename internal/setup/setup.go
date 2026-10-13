@@ -10,6 +10,7 @@ import (
 
 	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/config"
+	"github.com/siemenvdn/zigbeat/internal/lights"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
@@ -24,7 +25,7 @@ func Run(args []string) int {
 	}
 	ctx, stop := cli.StopContext()
 	defer stop()
-	br, err := dial(o.mqtt)
+	br, err := lights.Dial(o.mqtt, "setup", lights.Watch{})
 	if err != nil {
 		return cli.Fail(err)
 	}
@@ -36,7 +37,7 @@ func Run(args []string) int {
 // session is one run of zigbeat setup.
 type session struct {
 	o        options
-	br       bridge
+	br       zigbee
 	in       *input
 	out, err io.Writer
 	today    time.Time

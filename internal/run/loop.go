@@ -26,6 +26,9 @@ func (r *runner) play(ctx context.Context, src music.Source) (reason string, pan
 			reason, panicked = fmt.Sprintf("panic: %v\n%s", p, debug.Stack()), true
 		}
 	}()
+	for len(r.events) > 0 { // the states of the start, which the snapshot already read
+		<-r.events
+	}
 	srcCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	events := src.Events(srcCtx)
@@ -38,7 +41,7 @@ func (r *runner) play(ctx context.Context, src music.Source) (reason string, pan
 		select {
 		case <-ctx.Done():
 			return "interrupted", false
-		case <-r.link.Lost():
+		case <-r.link.Done():
 			cli.Say("mqtt connection lost (%v); reconnecting every %s", r.link.Err(), cli.Seconds(cli.RedialEvery))
 			r.eng.Disconnected()
 			if !r.link.Reconnect(ctx) {
@@ -110,7 +113,7 @@ func (r *runner) drain(d time.Duration) {
 			r.handle(ev)
 		case now := <-tick.C:
 			r.eng.Due(now)
-		case <-r.link.Lost():
+		case <-r.link.Done():
 			return
 		case <-deadline:
 			return

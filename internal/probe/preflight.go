@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/probe/measure"
-	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
 const (
@@ -20,14 +19,11 @@ const (
 
 // canaryAnswers checks that the canary replies to a state request.
 func (s *session) canaryAnswers() bool {
-	_ = s.bridge.Get(s.cfg.canary, z2m.StateQuery)
-	select {
-	case <-s.canaryAnswered:
+	if _, ok := s.Read(s.ctx, s.cfg.canary, s.cfg.timeout); ok {
 		return true
-	case <-time.After(s.cfg.timeout):
-		fmt.Fprintf(os.Stderr, "canary %s does not answer; pick another device with -canary\n", s.cfg.canary)
-		return false
 	}
+	fmt.Fprintf(os.Stderr, "canary %s does not answer; pick another device with -canary\n", s.cfg.canary)
+	return false
 }
 
 // baseline measures the canary alone, with nothing else from us on the air.
@@ -52,7 +48,7 @@ func (s *session) baseline() (measure.Stats, bool) {
 func (s *session) selfCheck() bool {
 	s.ph.Set("prep", 0)
 	for _, t := range s.cfg.targets {
-		_ = s.bridge.Set(t, map[string]any{"state": "ON", "brightness": checkLevel, "transition": 0})
+		_ = s.Set(t, map[string]any{"state": "ON", "brightness": checkLevel, "transition": 0})
 	}
 	s.sleep(warmUp)
 
@@ -60,7 +56,7 @@ func (s *session) selfCheck() bool {
 	for _, t := range s.cfg.targets {
 		cmd := s.gen.Next(t)
 		s.tracker.Add(t, cmd.Key, measure.Pending{Sent: time.Now(), Phase: "selfcheck"})
-		_ = s.bridge.Set(t, cmd.Payload)
+		_ = s.Set(t, cmd.Payload)
 	}
 	s.drain()
 	samples, _ := s.rec.Snapshot()
@@ -76,9 +72,8 @@ func (s *session) selfCheck() bool {
 	}
 	fmt.Fprintf(os.Stderr, "self-check failed: only %d of %d targets echoed a recognisable state\n", matched, len(s.cfg.targets))
 	for _, t := range s.cfg.targets {
-		s.mu.Lock()
-		b, _ := json.Marshal(s.last[t].s)
-		s.mu.Unlock()
+		st, _, _ := s.Last(t)
+		b, _ := json.Marshal(st)
 		fmt.Fprintf(os.Stderr, "  last state of %s: %s\n", t, b)
 	}
 	fmt.Fprintln(os.Stderr, "try again with -mode brightness")

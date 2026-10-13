@@ -46,7 +46,7 @@ func (s *session) send(res *measure.Step, start time.Time) bool {
 		}
 		cmd := s.gen.Next(dev)
 		s.tracker.Add(dev, cmd.Key, measure.Pending{Sent: time.Now(), Phase: "step", Rate: res.Rate})
-		_ = s.bridge.Set(dev, cmd.Payload)
+		_ = s.Set(dev, cmd.Payload)
 		res.Sent++
 	}
 	return true

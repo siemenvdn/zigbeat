@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/siemenvdn/zigbeat/internal/music"
+	"github.com/siemenvdn/zigbeat/internal/ws"
 )
 
 func waveFrame(ts int64, samples []byte) []byte {
@@ -38,5 +39,11 @@ func TestBeatsCarryTheEnergyOfTheirBar(t *testing.T) {
 	}
 	if first.Energy != music.UnknownEnergy || last.Energy < 0.95 {
 		t.Errorf("the quiet start is unknown, the loud end near 1: %.3f, then %.3f", first.Energy, last.Energy)
+	}
+}
+
+func TestEmptyWaveformIsSkipped(t *testing.T) {
+	if m := parse(ws.Message{Binary: true, Data: waveFrame(1, nil)}, 0); m.kind != kindOther {
+		t.Errorf("a waveform frame without samples would make energy NaN: kind %d", m.kind)
 	}
 }

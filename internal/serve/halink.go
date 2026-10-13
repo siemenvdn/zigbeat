@@ -29,7 +29,11 @@ type haLink struct {
 	state ha.State      // the state to publish, without the style
 	style config.Config // the config with the choices over it
 	wake  chan struct{} // tells run to publish the state
+	lines chan string   // lines for run to print, off the MQTT reader
 }
+
+// lineBuffer holds the lines of every style choice arriving at once after a connect.
+const lineBuffer = 32
 
 func newHALink(cfg config.Config, version string) *haLink {
 	return &haLink{
@@ -49,6 +53,7 @@ func newHALink(cfg config.Config, version string) *haLink {
 		state:   ha.Off,
 		style:   cfg,
 		wake:    make(chan struct{}, 1),
+		lines:   make(chan string, lineBuffer),
 	}
 }
 
@@ -106,6 +111,15 @@ func (l *haLink) put(st ha.State) {
 	l.signal()
 }
 
+// say hands a stamped line to run without blocking the MQTT reader; a stalled
+// stdout drops lines instead of stalling Home Assistant.
+func (l *haLink) say(format string, args ...any) {
+	select {
+	case l.lines <- cli.Stamp() + "  " + fmt.Sprintf(format, args...):
+	default:
+	}
+}
+
 func (l *haLink) signal() {
 	select {
 	case l.wake <- struct{}{}:
@@ -135,6 +149,8 @@ func (l *haLink) run(ctx context.Context) {
 			return
 		case <-l.wake:
 			_ = l.client.PublishRetained(ha.StateTopic, l.current())
+		case line := <-l.lines:
+			fmt.Println(line)
 		case <-l.client.Done():
 			cli.Say("home assistant link lost (%v); reconnecting every %s", l.client.Err(), cli.Seconds(cli.RedialEvery))
 			if !cli.Redial(ctx, "home assistant reconnect", l.connect) {

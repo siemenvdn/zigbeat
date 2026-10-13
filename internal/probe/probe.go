@@ -35,7 +35,7 @@ func Run(args []string) int {
 	if err != nil {
 		return cli.Fail(err)
 	}
-	defer s.client.Close()
+	defer s.Close()
 	if err := s.refuseTargets(); err != nil {
 		return cli.Fail(err)
 	}

@@ -3,7 +3,6 @@ package serve
 import (
 	"time"
 
-	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/config"
 	"github.com/siemenvdn/zigbeat/internal/serve/ha"
 )
@@ -24,13 +23,13 @@ func (l *haLink) choose(topic string, p []byte, _ time.Time) {
 	l.mu.Unlock()
 	switch {
 	case err != nil:
-		cli.Say("refused from Home Assistant: %s %q: %v", key, p, err)
+		l.say("refused from Home Assistant: %s %q: %v", key, p, err)
 	case changed:
 		how := "set in Home Assistant"
 		if len(p) == 0 {
 			how = "from the config again"
 		}
-		cli.Say("%s %v, %s", key, ha.Value(next, key), how)
+		l.say("%s %v, %s", key, ha.Value(next, key), how)
 		if next.Budget.AudioOffsetMS != prev.Budget.AudioOffsetMS {
 			newest(l.offsets, next.Budget.AudioOffset())
 		} else {

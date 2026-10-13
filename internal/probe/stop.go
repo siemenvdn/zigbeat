@@ -21,11 +21,11 @@ func (s *session) interrupted() bool {
 }
 
 func (s *session) connLost() bool {
-	if !s.client.Closed() {
+	if s.Session.Online() {
 		return false
 	}
 	s.lostOnce.Do(func() {
-		fmt.Fprintf(os.Stderr, "\nmqtt connection lost: %v\nrestore by hand from: %s\n", s.client.Err(), s.snapJSON)
+		fmt.Fprintf(os.Stderr, "\nmqtt connection lost: %v\nrestore by hand from: %s\n", s.Err(), s.snapJSON)
 	})
 	return true
 }

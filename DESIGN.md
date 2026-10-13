@@ -343,7 +343,7 @@ What each package imports from zigbeat, from `go list`:
 | `beats` | `cli`, `config`, `music`, `run`, `run/show` |
 | `cli` | nothing |
 | `config` | `mqtt`, `z2m` |
-| `lights` | `cli`, `z2m` |
+| `lights` | `cli`, `config`, `mqtt`, `z2m` |
 | `mqtt` | nothing |
 | `music` | nothing |
 | `music/ma` | `cli`, `music`, `ws` |
@@ -351,13 +351,13 @@ What each package imports from zigbeat, from `go list`:
 | `probe/measure` | `cli`, `probe/palette`, `z2m` |
 | `probe/palette` | `z2m` |
 | `probe/report` | `probe/measure` |
-| `run` | `cli`, `config`, `lights`, `mqtt`, `music`, `music/ma`, `run/engine`, `z2m` |
+| `run` | `cli`, `config`, `lights`, `music`, `music/ma`, `run/engine`, `z2m` |
 | `run/engine` | `cli`, `config`, `music`, `run/flow`, `run/show`, `z2m` |
 | `run/flow` | `z2m` |
 | `run/show` | `config`, `music`, `run/flow`, `z2m` |
 | `serve` | `cli`, `config`, `mqtt`, `run`, `run/engine`, `serve/ha` |
 | `serve/ha` | `config`, `music`, `run/engine` |
-| `setup` | `cli`, `config`, `mqtt`, `z2m` |
+| `setup` | `cli`, `config`, `lights`, `mqtt`, `z2m` |
 | `ws` | nothing |
 | `z2m` | `mqtt` |
 
@@ -391,7 +391,7 @@ flowchart LR
 
 ### Interfaces
 
-Five interfaces separate the parts that do I/O from the parts that decide. Each has one real implementation; the tests use fakes.
+Interfaces separate the parts that do I/O from the parts that decide; the tests use fakes.
 
 #### `music.Source`: what plays
 
@@ -414,41 +414,25 @@ A closed set: its method `isEvent()` is unexported, so only package `music` adds
 
 A source sends a `Track` before the first `Beat` of a track, and a `Clear` before the `Track` of a new timeline.
 
-#### `lights.Conn`: reading and restoring lights
+#### `lights.Session`: a command's connection to Zigbee2MQTT
+
+Not an interface but the one type that run, probe and setup dial: an `mqtt.Client` with a `z2m.Bridge`, subscribed to the devices it watches and to Zigbee2MQTT's log, keeping the last state of each device.
 
 | Method | Does |
 |---|---|
-| `Get(light, payload) error` | Asks a light for its state, on `<base_topic>/<light>/get` |
-| `Set(light, payload) error` | Sends a light a state, on `<base_topic>/<light>/set` |
-| `Await(ctx, light, since, d) (z2m.State, bool)` | Waits up to d for a state of light that arrived after since. False when none came, the connection dropped or ctx is done |
-| `Online() bool` | Whether the broker is there, dialling again first when it can |
+| `Dial(mqtt, cmd, Watch)` | Connects as `zigbeat-<cmd>-<pid>`; `Watch` names the devices and the callbacks for their states and the log |
+| `Get`, `Set` | A state request or a state, on `<base_topic>/<device>/get` or `/set` |
+| `Await(ctx, device, since, d)` | Waits up to d for a state that arrived after since; false when none came, the connection dropped or ctx is done |
+| `Read(ctx, device, d)` | `Get` and `Await`: how long the answer took. `lights.ReadTimes` reads a canary a few times |
+| `Reconnect(ctx)` | Dials every 5 s until it works or ctx is done, and subscribes again; at once when the last dial is that long ago |
+| `Groups(ctx)`, `Devices(ctx)` | The retained `bridge/groups` and `bridge/devices` |
+| `Done`, `Err`, `Online`, `Close` | The connection |
 
-- **Implemented by** `run.conn` (the show's link) and `probe.session`.
-- **Used by** `lights.Snapshot` and `lights.Restore`.
+Three small interfaces over it keep the callers testable with a fake:
 
-#### `run.link`: the show's connection to Zigbee2MQTT (unexported)
-
-| Method | Does |
-|---|---|
-| `Set`, `Get` | As in `lights.Conn` |
-| `Lost() <-chan struct{}` | Closed when the connection drops |
-| `Err() error` | Why it dropped |
-| `Reconnect(ctx) bool` | Dials every 5 s until it works or ctx is done, and subscribes again; at once when the last dial is that long ago |
-| `Groups(ctx)`, `Devices(ctx)` | The retained `bridge/groups` and `bridge/devices`, for the checks at the start |
-| `Close()` | Closes the connection |
-
-- **Implemented by** `mqttLink`: an `mqtt.Client` with a `z2m.Bridge`, subscribed to the lights, the canary and Zigbee2MQTT's log. States and log lines reach the loop as events on a channel.
-- **Used by** the runner in `internal/run`.
-
-#### `setup.bridge`: what setup needs from Zigbee2MQTT (unexported)
-
-| Method | Does |
-|---|---|
-| `Devices(ctx) ([]z2m.Device, error)` | The device list |
-| `Read(ctx, name) (time.Duration, bool)` | Asks a device for its state and returns how long the answer took; setup proposes the canary from it |
-
-- **Implemented by** `mqttBridge`.
-- **Used by** the session in `internal/setup`.
+- **`lights.Conn`** (`Get`, `Set`, `Await`, `Online`): what `lights.Snapshot` and `lights.Restore` need. In `run`, `Online` dials a lost broker again for 30 s; in the probe it says once what to restore by hand.
+- **`run.link`** (unexported): what the show needs. States and log lines reach the loop as events on a channel, through the `Watch` callbacks.
+- **`setup.zigbee`** (unexported): `Devices` and `Read`, for the survey and the canary.
 
 ### Code layout
 

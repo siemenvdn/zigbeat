@@ -27,7 +27,7 @@ func (f *fakeBridge) Devices(context.Context) ([]z2m.Device, error) {
 	return f.devs, nil
 }
 
-func (f *fakeBridge) Read(_ context.Context, name string) (time.Duration, bool) {
+func (f *fakeBridge) Read(_ context.Context, name string, _ time.Duration) (time.Duration, bool) {
 	f.reads = append(f.reads, name)
 	if len(f.reads) == f.stopAt {
 		f.stop()

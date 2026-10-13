@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/siemenvdn/zigbeat/internal/config"
+	"github.com/siemenvdn/zigbeat/internal/lights"
 	"github.com/siemenvdn/zigbeat/internal/run/engine"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
@@ -36,12 +37,12 @@ const eventBuffer = 1024
 func connect(ctx context.Context, cfg config.Config) (*runner, error) {
 	r := &runner{cfg: cfg, events: make(chan event, eventBuffer)}
 	type dialed struct {
-		l   *mqttLink
+		l   *lights.Session
 		err error
 	}
 	done := make(chan dialed, 1)
 	go func() {
-		l, err := dialLink(cfg.MQTT, r.watched, r.push)
+		l, err := dialLink(cfg, r.push)
 		done <- dialed{l, err}
 	}()
 	select {
@@ -61,15 +62,6 @@ func connect(ctx context.Context, cfg config.Config) (*runner, error) {
 	}
 }
 
-// watched lists the devices to subscribe to: the lights still in the show and the canary.
-func (r *runner) watched() []string {
-	ds := r.cfg.Lights()
-	if r.cfg.Canary != "" {
-		ds = append(ds, r.cfg.Canary)
-	}
-	return ds
-}
-
 // push hands an event to the loop without blocking the MQTT reader.
 func (r *runner) push(ev event) {
 	select {
@@ -80,7 +72,7 @@ func (r *runner) push(ev event) {
 
 func (r *runner) offline() bool {
 	select {
-	case <-r.link.Lost():
+	case <-r.link.Done():
 		return true
 	default:
 		return false

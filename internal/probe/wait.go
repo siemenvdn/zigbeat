@@ -18,7 +18,7 @@ func (s *session) sleep(d time.Duration) bool {
 		select {
 		case <-s.ctx.Done():
 			return false
-		case <-s.client.Done():
+		case <-s.Done():
 			return false
 		default:
 			return true
@@ -31,7 +31,7 @@ func (s *session) sleep(d time.Duration) bool {
 		return true
 	case <-s.ctx.Done():
 		return false
-	case <-s.client.Done():
+	case <-s.Done():
 		return false
 	}
 }

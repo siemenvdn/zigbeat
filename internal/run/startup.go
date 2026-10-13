@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/siemenvdn/zigbeat/internal/lights"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
@@ -98,18 +99,9 @@ func (r *runner) canaryBaseline(ctx context.Context) time.Duration {
 	if r.cfg.Canary == "" {
 		return 0
 	}
-	var lat []time.Duration
-	for range canaryReads {
-		sent := time.Now()
-		_ = r.link.Get(r.cfg.Canary, z2m.StateQuery)
-		if _, at, ok := r.waitState(ctx, r.cfg.Canary, sent, z2m.LostAfter); ok {
-			lat = append(lat, at.Sub(sent))
-		}
-		select {
-		case <-ctx.Done():
-			return 0
-		case <-time.After(canaryGap - time.Since(sent)):
-		}
+	lat := lights.ReadTimes(ctx, r.link, r.cfg.Canary, canaryReads, canaryGap)
+	if ctx.Err() != nil {
+		return 0
 	}
 	if len(lat) < z2m.MinCanaryReads {
 		fmt.Fprintf(os.Stderr, "warning: canary %s answered %d of %d reads; running without a canary\n", r.cfg.Canary, len(lat), canaryReads)

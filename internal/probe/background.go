@@ -28,7 +28,7 @@ func (s *session) startBackground() {
 			case <-bg.Done():
 				return
 			case now := <-time.After(d):
-				s.canary.Tick(now, s.ph, func() error { return s.bridge.Get(s.cfg.canary, z2m.StateQuery) })
+				s.canary.Tick(now, s.ph, func() error { return s.Get(s.cfg.canary, z2m.StateQuery) })
 			}
 		}
 	}()

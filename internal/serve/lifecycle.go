@@ -60,52 +60,46 @@ func (s *server) waitOn(ctx context.Context) bool {
 }
 
 // play runs one show. OFF cancels it at once, also during the start, and ON is
-// ignored while it runs. From the restore on, commands wait in cmds for the loop.
+// ignored while it runs. From OFF or the restore on, commands wait in cmds for the loop.
 func (s *server) play(ctx context.Context) {
 	cli.Say("switched on in Home Assistant")
 	s.put(ha.Starting)
 	showCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	st := &states{put: s.put}
-	unwatch := s.watchOff(st, cancel)
-	defer unwatch()
-	s.show(showCtx, run.Hooks{
-		Effects: s.styles,
-		Offsets: s.offsets,
-		Status:  func(stats engine.Stats) { st.playing(ha.Playing(stats, s.total)) },
-		Stopping: func() string {
-			unwatch()
-			st.stopping()
-			if ctx.Err() != nil {
-				return cli.QuitHint
-			}
-			return ""
-		},
-	})
-}
-
-// watchOff cancels the show when OFF comes, until unwatch is called; unwatch
-// returns when the watcher is gone.
-func (s *server) watchOff(st *states, cancel func()) (unwatch func()) {
-	quit, gone := make(chan struct{}), make(chan struct{})
+	stopping, done := make(chan struct{}), make(chan struct{})
 	go func() {
-		defer close(gone)
-		for {
-			select {
-			case on := <-s.cmds:
-				if !on {
-					cli.Say("switched off in Home Assistant")
-					st.stopping()
-					cancel()
-					return
+		defer close(done)
+		s.show(showCtx, run.Hooks{
+			Effects: s.styles,
+			Offsets: s.offsets,
+			Status:  func(stats engine.Stats) { st.playing(ha.Playing(stats, s.total)) },
+			Stopping: func() string {
+				stopping <- struct{}{} // returns once play no longer reads cmds
+				st.stopping()
+				if ctx.Err() != nil {
+					return cli.QuitHint
 				}
-			case <-quit:
-				return
-			}
-		}
+				return ""
+			},
+		})
 	}()
-	var once sync.Once
-	return func() { once.Do(func() { close(quit); <-gone }) }
+	cmds := s.cmds
+	for {
+		select {
+		case on := <-cmds:
+			if !on {
+				cli.Say("switched off in Home Assistant")
+				st.stopping()
+				cancel()
+				cmds = nil
+			}
+		case <-stopping:
+			cmds = nil
+		case <-done:
+			return
+		}
+	}
 }
 
 // states passes a show's states on to Home Assistant. Once it is stopping, a

@@ -15,7 +15,7 @@ import (
 // restore puts every light back within the budget. It returns false when the
 // broker stayed away, after printing what is left to restore by hand.
 func (r *runner) restore() bool {
-	left := lights.Restore(conn{r}, r.snaps, restoreOrder(r.cfg.Lights(), r.away), r.cfg.Budget.MaxRate)
+	left := lights.Restore(restoreConn{r.link, r}, r.snaps, restoreOrder(r.cfg.Lights(), r.away), r.cfg.Budget.MaxRate)
 	if len(left) > 0 {
 		r.restoreByHand(left)
 		return false

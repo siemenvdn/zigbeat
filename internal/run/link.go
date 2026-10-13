@@ -2,22 +2,24 @@ package run
 
 import (
 	"context"
-	"fmt"
-	"os"
 	"time"
 
-	"github.com/siemenvdn/zigbeat/internal/cli"
 	"github.com/siemenvdn/zigbeat/internal/config"
-	"github.com/siemenvdn/zigbeat/internal/mqtt"
+	"github.com/siemenvdn/zigbeat/internal/lights"
 	"github.com/siemenvdn/zigbeat/internal/z2m"
 )
 
-// link is the show's connection to Zigbee2MQTT; tests replace it with a fake.
+// link is the show's connection to Zigbee2MQTT, a *lights.Session; tests
+// replace it with a fake.
 type link interface {
 	Set(light string, payload any) error // a state for light, on its set topic
 	Get(light string, payload any) error // ask light for its state
-	Lost() <-chan struct{}               // closed when the connection drops
-	Err() error                          // why it dropped
+	// Await waits up to d for a state of light after since; false when none came or the connection dropped.
+	Await(ctx context.Context, light string, since time.Time, d time.Duration) (z2m.State, bool)
+	// Read asks device for its state and returns how long the answer took.
+	Read(ctx context.Context, device string, d time.Duration) (time.Duration, bool)
+	Done() <-chan struct{} // closed when the connection drops
+	Err() error            // why it dropped
 	// Reconnect dials until it works, and subscribes again; false when ctx is done first.
 	Reconnect(ctx context.Context) bool
 	Groups(ctx context.Context) ([]string, error)      // the retained group names
@@ -25,71 +27,28 @@ type link interface {
 	Close()
 }
 
-// mqttLink is the real link: an MQTT client with subscriptions for the lights,
-// the canary and the Zigbee2MQTT log.
-type mqttLink struct {
-	cfg    config.MQTT
-	watch  func() []string // devices to subscribe to, read at every dial
-	push   func(event)
-	client *mqtt.Client
-	bridge *z2m.Bridge
-	dialed time.Time // the last dial, kept one cli.RedialEvery from the next
-}
-
-func dialLink(cfg config.MQTT, watch func() []string, push func(event)) (*mqttLink, error) {
-	l := &mqttLink{cfg: cfg, watch: watch, push: push}
-	return l, l.dial()
-}
-
-func (l *mqttLink) dial() error {
-	l.dialed = time.Now()
-	client, err := mqtt.Dial(l.cfg.Broker, mqtt.Options{
-		ClientID: fmt.Sprintf("zigbeat-run-%d", os.Getpid()),
-		Username: l.cfg.Username,
-		Password: l.cfg.Password,
+// dialLink dials the show's session: the lights, the canary and the
+// Zigbee2MQTT log, whose states and error lines go to push.
+func dialLink(cfg config.Config, push func(event)) (*lights.Session, error) {
+	devices := cfg.Lights()
+	if cfg.Canary != "" {
+		devices = append(devices, cfg.Canary)
+	}
+	return lights.Dial(cfg.MQTT, "run", lights.Watch{
+		Devices: devices,
+		OnState: func(d string, st z2m.State, at time.Time) { push(event{light: d, st: st, at: at}) },
+		OnLog: func(e z2m.LogEntry, at time.Time) {
+			if e.Level == "error" {
+				push(event{msg: e.Message, at: at})
+			}
+		},
 	})
-	if err != nil {
-		return fmt.Errorf("mqtt: %w", err)
-	}
-	bridge := z2m.New(client, l.cfg.BaseTopic)
-	for _, d := range l.watch() {
-		if err := bridge.OnState(d, func(st z2m.State, at time.Time) { l.push(event{light: d, st: st, at: at}) }); err != nil {
-			client.Close()
-			return fmt.Errorf("subscribe: %w", err)
-		}
-	}
-	err = bridge.OnLog(func(e z2m.LogEntry, at time.Time) {
-		if e.Level == "error" {
-			l.push(event{msg: e.Message, at: at})
-		}
-	})
-	if err != nil {
-		client.Close()
-		return fmt.Errorf("subscribe: %w", err)
-	}
-	l.client, l.bridge = client, bridge
-	return nil
 }
 
-// Reconnect dials again every cli.RedialEvery until it works or ctx is done.
-// The first dial goes at once when the last one is that long ago, so a stop
-// after the broker came back does not wait.
-func (l *mqttLink) Reconnect(ctx context.Context) bool {
-	l.client.Close()
-	if ctx.Err() == nil && time.Since(l.dialed) >= cli.RedialEvery && l.dial() == nil {
-		return true
-	}
-	return cli.Redial(ctx, "reconnect", l.dial)
+// restoreConn is the link for the snapshot and the restore: Online dials a lost broker again for a while.
+type restoreConn struct {
+	link
+	r *runner
 }
 
-func (l *mqttLink) Set(light string, p any) error { return l.bridge.Set(light, p) }
-func (l *mqttLink) Get(light string, p any) error { return l.bridge.Get(light, p) }
-func (l *mqttLink) Lost() <-chan struct{}         { return l.client.Done() }
-func (l *mqttLink) Err() error                    { return l.client.Err() }
-func (l *mqttLink) Close()                        { l.client.Close() }
-
-// Groups reads the retained list of Zigbee2MQTT groups.
-func (l *mqttLink) Groups(ctx context.Context) ([]string, error) { return l.bridge.Groups(ctx) }
-
-// Devices reads the retained list of Zigbee2MQTT devices.
-func (l *mqttLink) Devices(ctx context.Context) ([]z2m.Device, error) { return l.bridge.Devices(ctx) }
+func (c restoreConn) Online() bool { return c.r.online() }
